@@ -1,0 +1,64 @@
+Ehviewer
+========
+
+非官方 E-Hentai 客户端（Kotlin / Compose Multiplatform）。
+
+本仓库以 Apache License 2.0 发布，全文见 LICENSE。
+
+源码树沿用工程名 `eros-miuix`：`:shared` 的包名为 `app.eros.shared`，
+`:core` 的包名为 `com.hippo.ehviewer.*`。
+
+历史版本说明
+------------
+
+1.0.1 及更早的版本曾以 GNU General Public License v3.0 发布（tag `pre-apache`
+及更早的提交）。当前版本的数据层已按 Apache-2.0 要求重新实现，与历史版本的
+GPL 代码不再有对应关系；历史版本仍分别适用其当时的许可。
+
+第三方来源
+----------
+
+1. EhViewer（数据层来源，Apache License 2.0）
+
+   `:core` 模块的解析器与数据层源自 EhViewer，上游：
+
+       seven332/EhViewer   https://github.com/seven332/EhViewer
+       Copyright 2016 Hippo Seven
+       Apache License 2.0
+
+   本仓库中保留上游版权声明的文件保持原样（文件头注明
+   "Copyright 2016 Hippo Seven" 者）。上游不存在、属于后期功能的部分
+   （排行榜、首页详情、新闻、我的标签、站点 Profile，以及 `EhEngine`）
+   仅依据站点页面结构与调用方契约独立重写，未复制其他实现的代码。
+   逐文件的来源判定与重写记录由维护者在本地留存，不随仓库发布。
+
+2. 界面组件
+
+    - miuix（top.yukonga.miuix.kmp.*）：Apache License 2.0，以 Maven 依赖引入；
+      `shared/src/commonMain/.../ui/effect` 下的部分代码改编自该项目，
+      保留其版权头（"Copyright 2026, compose-miuix-ui contributors"）。
+    - Kyant0/AndroidLiquidGlass（Apache License 2.0）：
+      `shared/src/commonMain/.../ui/liquid` 下的玻璃折射相关代码改编自该项目，
+      文件头保留来源说明。
+    - Compose Multiplatform / AndroidX / Kotlin / kotlinx（含 coroutines、serialization）/
+      Coil：各自 Apache License 2.0。
+
+3. 其他依赖
+
+    - jsoup：MIT License
+    - OkHttp：Apache License 2.0
+    - fastjson：Apache License 2.0
+
+   以上均以 Maven 依赖形式引入，未修改其源码。
+
+4. 测试数据
+
+   `core/src/test/resources/fixtures/*.html` 为站点页面快照，仅用于解析测试；
+   其中的会话凭证、API Key 等均为占位符，不含真实账号信息。
+
+免责声明
+--------
+
+本项目为非官方客户端，与 E-Hentai / E-Hentai Galleries 及其运营方无任何关联，
+未获其授权或认可。本项目仅提供客户端软件，不包含、不托管、不分发任何站点内容。
+软件面向成年用户，使用者应自行遵守所在地法律法规与站点服务条款。

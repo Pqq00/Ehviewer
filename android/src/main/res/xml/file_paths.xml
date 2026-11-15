@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 只暴露缓存里的两个子目录：shared/ 放待分享的图片字节，diag/ 放待分享的诊断日志。
+     分享前写入，由 FileProvider 生成 content:// 交给系统，不需要任何存储权限。 -->
+<paths>
+    <cache-path
+        name="shared"
+        path="shared/" />
+    <cache-path
+        name="diag"
+        path="diag/" />
+</paths>

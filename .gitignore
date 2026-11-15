@@ -1,0 +1,51 @@
+# Gradle / Kotlin
+.gradle/
+.kotlin/
+build/
+*/build/
+**/build/
+
+# Local & IDE
+local.properties
+.idea/
+*.iml
+captures/
+
+# Signing (never commit)
+keystore/
+keystore.properties
+*.jks
+*.keystore
+
+# Build outputs
+*.apk
+*.aab
+*.ap_
+*.dex
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Gradle daemon JVM 工具链配置（本机 updateDaemonJvm 生成，指向 JDK 25 会触发
+# foojay toolchain 下载并导致构建失败，不入库）
+gradle/gradle-daemon-jvm.properties
+gradle/gradle-daemon-jvm.properties.bak
+# 本地开发流水（不随仓库发布）
+STATUS.md
+
+# 本地方案文档与开发流水（不随仓库发布）
+/docs/
+
+# fixtures/ 只发布 core 测试需要的最小集合，单个文件在仓库里跟踪
+/fixtures/mpv.html
+
+# 换证对照用的上游克隆与扫描中间产物（不随仓库发布）
+/_ref/
+
+# 换证证据链：来源判定文档与复算脚本仅在本地保留，不随仓库发布
+/PROVENANCE.md
+/tools/
