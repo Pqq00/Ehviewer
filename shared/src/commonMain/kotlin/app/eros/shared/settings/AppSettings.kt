@@ -335,8 +335,19 @@ object AppSettings {
         if (loaded) return
         val raw = SettingsStorage.read()
         val restored = SettingsCodec.decode(raw)
+        val needsSchemaUpgrade = restored != null && restored.schemaVersion < 2
         state = when {
-            restored != null -> restored.normalized()
+            restored != null -> {
+                // schema 1 → 2：网络日志改成默认开。旧文件里 netLog 是显式 false，
+                // 靠默认值改不动，这里补一次（之后用户自己关掉会以 schema=2 落盘，不再覆盖）。
+                val upgraded = if (needsSchemaUpgrade) {
+                    println("[Settings] upgrade schema ${restored.schemaVersion} -> 2, 网络日志默认开")
+                    restored.copy(netLog = true)
+                } else {
+                    restored
+                }
+                upgraded.normalized()
+            }
             // 只有真的存在旧版 key 时才迁移；否则一律走 [Settings] 的默认值，
             // 避免「清除数据后第一次启动」被旧默认值（如模糊封面开、底栏固定）覆盖。
             SettingsMigration.hasLegacyData { platformHasKey(it) } -> {
@@ -357,6 +368,10 @@ object AppSettings {
             }
         }
         loaded = true
+        if (needsSchemaUpgrade) {
+            // 立刻落盘，避免每次启动都再迁移一遍、也免得用户没改设置就永远停在旧 schema。
+            runCatching { SettingsStorage.write(SettingsCodec.encode(state)) }
+        }
         println("[Settings] loaded schema=${state.schemaVersion} theme=${state.themeMode}")
     }
 }

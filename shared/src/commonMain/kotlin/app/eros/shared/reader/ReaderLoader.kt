@@ -24,6 +24,7 @@ import app.eros.shared.media.writePageCache
 import app.eros.shared.encodeJpeg
 import app.eros.shared.shareImage
 import app.eros.shared.settings.AppSettings
+import com.hippo.ehviewer.util.AppLog
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
@@ -63,6 +64,9 @@ class ReaderLoader(
     private val loadingBatchStarts = java.util.concurrent.ConcurrentHashMap.newKeySet<Int>()
 
     private companion object {
+        /** 日志 tag：导出诊断包后 `[Reader]` 开头的行一次 grep 就能捞全。 */
+        const val TAG = "Reader"
+
         /** E-H 详情页缩略图每批 20 页。 */
         const val PAGES_PER_BATCH = 20
 
@@ -187,8 +191,9 @@ class ReaderLoader(
                     val h = p.clipHeight
                     if (w > 0 && h > 0) index to (w.toFloat() / h) else null
                 }.toMap()
-                println(
-                    "[Reader] cached urls=${cachedUrls.size} preview=${previews.size} " +
+                AppLog.i(
+                    TAG,
+                    "cached urls=${cachedUrls.size} preview=${previews.size} " +
                         "seeded=${seeded.size} total=$totalPages",
                 )
                 ensureBatchFor(currentPage)
@@ -196,7 +201,7 @@ class ReaderLoader(
             } catch (t: Throwable) {
                 if (t is CancellationException) throw t
                 error = t.toEhError().userMessage()
-                println("[Reader] FAILED: $error")
+                AppLog.e(TAG, "初始化失败：$error")
             } finally {
                 loading = false
             }
@@ -211,7 +216,7 @@ class ReaderLoader(
     /** 跳页/翻页后，重新安排这一页附近的任务。 */
     fun onPageChanged(index: Int) {
         val clamped = index.coerceIn(0, totalPages - 1)
-        println("[Reader] page -> $clamped")
+        AppLog.d(TAG, "page -> $clamped")
         ensureBatchFor(clamped)
         prefetch(clamped)
         cancelOutside(keepWindow(clamped))
@@ -301,7 +306,7 @@ class ReaderLoader(
         val cancelled = jobs.keys.filter { it !in keep }
         cancelled.forEach { jobs.remove(it)?.cancel() }
         if (cancelled.isNotEmpty() || cancelledAddress.isNotEmpty()) {
-            println("[Reader] preload cancel=${cancelled.size + cancelledAddress.size} keep=${keep.size}")
+            AppLog.d(TAG, "preload cancel=${cancelled.size + cancelledAddress.size} keep=${keep.size}")
         }
         if (cancelled.isNotEmpty()) {
             var next = pageImages
@@ -335,8 +340,9 @@ class ReaderLoader(
                     return@launch
                 }
                 urlsByIndex = LinkedHashMap(urlsByIndex).apply { putAll(map) }
-                println(
-                    "[Reader] page $index resolved +${map.size} total=${urlsByIndex.size} " +
+                AppLog.i(
+                    TAG,
+                    "page $index resolved +${map.size} total=${urlsByIndex.size} " +
                         "cost=${started.elapsedNow().inWholeMilliseconds}ms",
                 )
                 val warm = LinkedHashSet<Int>()
@@ -348,7 +354,7 @@ class ReaderLoader(
                 throw e
             } catch (t: Throwable) {
                 failWindow(index, t.toEhError().userMessage())
-                println("[Reader] batch $start failed: ${t.message}")
+                AppLog.w(TAG, "batch $start failed: ${t.message}")
             } finally {
                 loadingBatchStarts.remove(start)
             }
@@ -408,13 +414,13 @@ class ReaderLoader(
             try {
                 val started = TimeSource.Monotonic.markNow()
                 val imageUrl = addressPermit.withPermit { source.readerPageUrl(pageUrl) }
-                println("[Reader] addr page=$index took=${started.elapsedNow().inWholeMilliseconds}ms")
+                AppLog.d(TAG, "addr page=$index took=${started.elapsedNow().inWholeMilliseconds}ms")
                 cacheAddress(index, pageUrl, imageUrl)
                 imageUrl
             } catch (e: CancellationException) {
                 throw e
             } catch (t: Throwable) {
-                println("[Reader] addr page=$index failed: ${t.message}")
+                AppLog.w(TAG, "addr page=$index failed: ${t.message}")
                 null
             } finally {
                 addressJobs.remove(index)
@@ -445,7 +451,7 @@ class ReaderLoader(
         }
         resolving += index
         if (!interactive) {
-            println("[Reader] preload page=$index queued live=${jobs.size}")
+            AppLog.d(TAG, "preload page=$index queued live=${jobs.size}")
         }
         val job = scope.launch(start = CoroutineStart.LAZY) {
             try {
@@ -460,12 +466,12 @@ class ReaderLoader(
     }
 
     private suspend fun loadPage(index: Int, pageUrl: String, interactive: Boolean) {
-        val tag = if (interactive) "[Reader] page=$index" else "[Reader] preload page=$index"
+        val tag = if (interactive) "page=$index" else "preload page=$index"
         try {
             // 刚看过的页直接复用位图：不下载、不解码
             bitmapLruGet(index)?.let { bitmap ->
                 publishReady(index, bitmap)
-                println("$tag memory ${bitmap.width}x${bitmap.height}")
+                AppLog.d(TAG, "$tag memory ${bitmap.width}x${bitmap.height}")
                 return
             }
             // 已下载的画廊优先读本地文件（离线可看）
@@ -476,13 +482,13 @@ class ReaderLoader(
                 val bitmap = decodeImageBitmap(local, maxWidthPx = screenWidthPx)
                 if (bitmap != null) publishReady(index, bitmap)
                 else pageImages = pageImages + (index to PageImage.Failed("解码失败"))
-                println("$tag local ${local.size}B")
+                AppLog.d(TAG, "$tag local ${local.size}B")
                 return
             }
             val cached = readPageCache(gid, index)
             val netStart = TimeSource.Monotonic.markNow()
             val bytes = if (cached != null) {
-                println("$tag cached ${cached.size}B")
+                AppLog.d(TAG, "$tag cached ${cached.size}B")
                 cached
             } else {
                 pageImages = pageImages + (index to PageImage.Loading(0f))
@@ -509,18 +515,18 @@ class ReaderLoader(
             val decodeStart = TimeSource.Monotonic.markNow()
             val bitmap = decodeImageBitmap(bytes, maxWidthPx = screenWidthPx)
             val decodeMs = decodeStart.elapsedNow().inWholeMilliseconds
-            println("$tag timings net=${netMs}ms dec=${decodeMs}ms bytes=${bytes.size}")
+            AppLog.i(TAG, "$tag timings net=${netMs}ms dec=${decodeMs}ms bytes=${bytes.size}")
             if (bitmap != null) publishReady(index, bitmap)
             else pageImages = pageImages + (index to PageImage.Failed("解码失败"))
         } catch (e: CancellationException) {
-            println("$tag cancelled")
+            AppLog.d(TAG, "$tag cancelled")
             if (pageImages[index] !is PageImage.Ready) pageImages = pageImages - index
             throw e
         } catch (t: Throwable) {
             // 缓存的图片地址可能已失效：清掉它，下次重试会重新解析 /s/ 页面
             runCatching { GalleryCache.deleteImageUrl(gid, index) }
             pageImages = pageImages + (index to PageImage.Failed(t.message ?: "加载失败"))
-            println("$tag failed: ${t.message}")
+            AppLog.w(TAG, "$tag failed: ${t.message}")
         }
     }
 

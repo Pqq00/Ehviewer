@@ -72,7 +72,8 @@ data class Settings(
 
     // 站点 / 网络
     val exHentai: Boolean = false,
-    val netLog: Boolean = false,
+    /** 网络请求日志（环形缓冲 500 条，导出诊断包时带上）。默认开，出问题才有据可查。 */
+    val netLog: Boolean = true,
     // 标签翻译与排序补全都默认关闭：两者的数据分别要 4 MB / 几十 KB，
     // 不想在用户没表达意愿时自动下载。
     val tagTranslation: Boolean = false,
@@ -122,6 +123,7 @@ data class Settings(
     )
 
     companion object {
-        const val CURRENT_SCHEMA_VERSION = 1
+        /** 2：网络日志改为默认开启（旧配置里显式写着 false，加载时补一次）。 */
+        const val CURRENT_SCHEMA_VERSION = 2
     }
 }

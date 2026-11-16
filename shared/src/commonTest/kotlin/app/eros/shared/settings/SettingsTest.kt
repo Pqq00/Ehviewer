@@ -30,6 +30,8 @@ class SettingsTest {
         assertEquals(7, s.pageListTtlDays)
         assertEquals("127.0.0.1", s.proxyHost)
         assertEquals(7890, s.proxyPort)
+        // 网络日志默认开：出问题才有据可查（schema 1 的老配置在 load() 里补一次）
+        assertTrue(s.netLog)
     }
 
     @Test

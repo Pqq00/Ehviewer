@@ -62,7 +62,7 @@ internal object SettingsMigration {
         pageListTtlDays = reader.getInt(KEY_PAGELIST_TTL_DAYS, 7),
         coverBlurDp = reader.getInt(KEY_COVER_BLUR, 24),
         titleLines = reader.getInt(KEY_TITLE_LINES, 2),
-        netLog = reader.getBool(KEY_NET_LOG, false),
+        netLog = reader.getBool(KEY_NET_LOG, true),
         exHentai = reader.getBool(KEY_EXHENTAI, false),
         predictiveBack = reader.getBool(KEY_PREDICTIVE_BACK, false),
         swipeBack = reader.getBool(KEY_SWIPE_BACK, false),
