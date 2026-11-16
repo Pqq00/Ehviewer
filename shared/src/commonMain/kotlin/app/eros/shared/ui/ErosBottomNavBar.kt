@@ -11,7 +11,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -41,6 +40,8 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.eros.shared.settings.AppSettings
+import app.eros.shared.ui.effect.erosGlassBlur
+import app.eros.shared.ui.effect.rememberGlassHighlight
 import kotlin.math.max
 import kotlin.math.roundToInt
 import top.yukonga.miuix.kmp.basic.Badge
@@ -53,8 +54,6 @@ import top.yukonga.miuix.kmp.basic.NavigationBarDisplayMode
 import top.yukonga.miuix.kmp.basic.NavigationBarItem
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
-import top.yukonga.miuix.kmp.blur.highlight.Highlight
-import top.yukonga.miuix.kmp.blur.textureBlur
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Download
 import top.yukonga.miuix.kmp.icon.extended.Favorites
@@ -221,14 +220,11 @@ fun ErosAppBottomBar(
         )
     } else if (AppSettings.navBarStyle == 1) {
         val shape = RoundedCornerShape(top.yukonga.miuix.kmp.basic.FloatingToolbarDefaults.CornerRadius)
-        val dark = isSystemInDarkTheme()
-        val highlight = remember(dark) {
-            if (dark) Highlight.GlassStrokeMiddleDark else Highlight.GlassStrokeMiddleLight
-        }
+        val highlight = rememberGlassHighlight()
         FloatingNavigationBar(
             modifier = modifier.then(
                 if (backdrop != null) {
-                    Modifier.textureBlur(
+                    Modifier.erosGlassBlur(
                         backdrop = backdrop,
                         shape = shape,
                         blurRadius = 25f,
@@ -258,7 +254,7 @@ fun ErosAppBottomBar(
             modifier = modifier
                 .then(
                     if (backdrop != null) {
-                        Modifier.textureBlur(
+                        Modifier.erosGlassBlur(
                             backdrop = backdrop,
                             shape = RectangleShape,
                             blurRadius = 25f,

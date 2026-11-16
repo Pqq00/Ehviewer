@@ -72,7 +72,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 
 import androidx.compose.runtime.mutableIntStateOf
 
-import top.yukonga.miuix.kmp.utils.pagerGestureOverride
 import top.yukonga.miuix.kmp.utils.MiuixPopupUtils
 import androidx.compose.foundation.gestures.Orientation
 
@@ -113,7 +112,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.shape.RoundedCornerShape
 import top.yukonga.miuix.kmp.blur.textureBlur
-import top.yukonga.miuix.kmp.blur.highlight.Highlight
 import top.yukonga.miuix.kmp.basic.FloatingToolbarDefaults
 import androidx.compose.foundation.isSystemInDarkTheme
 
@@ -137,7 +135,6 @@ import top.yukonga.miuix.kmp.blur.ProgressiveBlur
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.progressiveTextureBlur
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
-import top.yukonga.miuix.kmp.shader.isRuntimeShaderSupported
 
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.background

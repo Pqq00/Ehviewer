@@ -13,7 +13,6 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -59,6 +58,9 @@ import app.eros.shared.settings.AppSettings
 import app.eros.shared.ui.BarBlurStyle
 import app.eros.shared.ui.barBlurColors
 import app.eros.shared.ui.currentBarBlurStyle
+import app.eros.shared.ui.effect.erosGlassBlur
+import app.eros.shared.ui.effect.erosProgressiveGlassBlur
+import app.eros.shared.ui.effect.rememberGlassHighlight
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import top.yukonga.miuix.kmp.basic.FloatingNavigationBar
@@ -75,9 +77,6 @@ import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.blur.ProgressiveBlur
-import top.yukonga.miuix.kmp.blur.highlight.Highlight
-import top.yukonga.miuix.kmp.blur.progressiveTextureBlur
-import top.yukonga.miuix.kmp.blur.textureBlur
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.icon.extended.ChevronBackward
@@ -98,7 +97,7 @@ private fun Modifier.readerTopBarSurface(backdrop: LayerBackdrop?): Modifier {
         return background(MiuixTheme.colorScheme.surface)
     }
     val blur = if (currentBarBlurStyle() == BarBlurStyle.PROGRESSIVE) {
-        Modifier.progressiveTextureBlur(
+        Modifier.erosProgressiveGlassBlur(
             backdrop = backdrop,
             shape = RectangleShape,
             gradient = ProgressiveBlur.Top.copy(curve = 1.8f),
@@ -106,7 +105,7 @@ private fun Modifier.readerTopBarSurface(backdrop: LayerBackdrop?): Modifier {
             colors = barBlurColors(0.5f),
         )
     } else {
-        Modifier.textureBlur(
+        Modifier.erosGlassBlur(
             backdrop = backdrop,
             shape = RectangleShape,
             blurRadius = 25f,
@@ -128,11 +127,8 @@ private fun Modifier.readerFloatingSurface(
     if (backdrop == null) {
         return background(MiuixTheme.colorScheme.surfaceContainer)
     }
-    val dark = isSystemInDarkTheme()
-    val highlight = remember(dark) {
-        if (dark) Highlight.GlassStrokeMiddleDark else Highlight.GlassStrokeMiddleLight
-    }
-    return textureBlur(
+    val highlight = rememberGlassHighlight()
+    return erosGlassBlur(
         backdrop = backdrop,
         shape = shape,
         blurRadius = 25f,
@@ -418,7 +414,7 @@ private fun ReaderActionBar(session: ReaderSession, backdrop: LayerBackdrop?) {
                 .fillMaxWidth()
                 .then(
                     if (backdrop != null) {
-                        Modifier.textureBlur(
+                        Modifier.erosGlassBlur(
                             backdrop = backdrop,
                             shape = RectangleShape,
                             blurRadius = 25f,
@@ -459,13 +455,10 @@ private fun ReaderActionBar(session: ReaderSession, backdrop: LayerBackdrop?) {
         }
     } else {
         val shape = RoundedCornerShape(FloatingToolbarDefaults.CornerRadius)
-        val dark = isSystemInDarkTheme()
-        val highlight = remember(dark) {
-            if (dark) Highlight.GlassStrokeMiddleDark else Highlight.GlassStrokeMiddleLight
-        }
+        val highlight = rememberGlassHighlight()
         FloatingNavigationBar(
             modifier = if (backdrop != null) {
-                Modifier.textureBlur(
+                Modifier.erosGlassBlur(
                     backdrop = backdrop,
                     shape = shape,
                     blurRadius = 25f,

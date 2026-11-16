@@ -16,6 +16,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import app.eros.shared.settings.AppSettings
+import app.eros.shared.ui.effect.erosGlassBlur
+import app.eros.shared.ui.effect.erosProgressiveGlassBlur
+import app.eros.shared.ui.effect.isShaderSupported
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.ScrollBehavior
@@ -26,11 +29,8 @@ import top.yukonga.miuix.kmp.blur.BlurDefaults
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.blur.ProgressiveBlur
 import top.yukonga.miuix.kmp.blur.layerBackdrop
-import top.yukonga.miuix.kmp.blur.progressiveTextureBlur
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
-import top.yukonga.miuix.kmp.blur.textureBlur
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported
 
 /**
  * 栏体模糊配色：底色按比例混合，保证栏内文字可读（官方 `barBlurColors`）。
@@ -52,7 +52,7 @@ fun barBlurColors(surfaceAlpha: Float = 0.8f, useSurfaceContainer: Boolean = fal
  */
 @Composable
 fun rememberBarBackdrop(): LayerBackdrop? {
-    if (!AppSettings.barBlurEnabled || !isRuntimeShaderSupported()) return null
+    if (!AppSettings.barBlurEnabled || !isShaderSupported()) return null
     val surface = MiuixTheme.colorScheme.surface
     return rememberLayerBackdrop {
         drawRect(surface)
@@ -85,7 +85,7 @@ fun ErosTopBar(
             .then(
                 if (useBlur) {
                     if (blurStyle == BarBlurStyle.PROGRESSIVE) {
-                        Modifier.progressiveTextureBlur(
+                        Modifier.erosProgressiveGlassBlur(
                             backdrop = effectiveBackdrop,
                             shape = RectangleShape,
                             gradient = ProgressiveBlur.Top.copy(curve = 1.8f),
@@ -93,7 +93,7 @@ fun ErosTopBar(
                             colors = barBlurColors(0.5f),
                         )
                     } else {
-                        Modifier.textureBlur(
+                        Modifier.erosGlassBlur(
                             backdrop = effectiveBackdrop,
                             shape = RectangleShape,
                             blurRadius = 25f,

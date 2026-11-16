@@ -8,8 +8,8 @@ package app.eros.shared.ui.liquid
 import androidx.compose.foundation.shape.CornerBasedShape
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.util.fastCoerceAtMost
+import app.eros.shared.ui.effect.isShaderSupported
 import top.yukonga.miuix.kmp.blur.BackdropEffectScope
-import top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported
 import top.yukonga.miuix.kmp.blur.runtimeShaderEffect
 
 /**
@@ -26,7 +26,7 @@ fun BackdropEffectScope.lens(
     depthEffect: Boolean = false,
     chromaticAberration: Float = 0f,
 ) {
-    if (!isRuntimeShaderSupported()) return
+    if (!isShaderSupported()) return
     if (refractionHeight <= 0f || refractionAmount <= 0f) return
 
     if (padding < refractionAmount) {
