@@ -131,6 +131,7 @@ class PageBatchHarvester(private val storage: Storage) {
         if (known.containsKey(pageIndex)) {
             val step = if (session.stepProbed) session.pagesPerBatch else DEFAULT_PAGES_PER_BATCH
             val from = (pageIndex / step) * step
+            AppLog.d(TAG, "${pageRangeText(from, step, session.totalPages)} 命中缓存（已知 ${known.size} 页）")
             return known.filterKeys { it in from until (from + step) }
         }
         ensureStep(session)
@@ -163,11 +164,13 @@ class PageBatchHarvester(private val storage: Storage) {
             return existing.result.orEmpty()
         }
         try {
+            val startedAt = System.nanoTime()
             val raw = withGidLock(session.gid) {
                 // 同一画廊串行：一个抓完再抓下一个，避免被限速拖成慢查询。
                 runCatching { Thread.sleep(REQUEST_GAP_MS) }
                 retryIo { EhEngine.galleryPagingBatch(session.gid, session.token, batch) }
             }
+            val elapsedMs = (System.nanoTime() - startedAt) / 1_000_000
             val batchMap = indexPages(normalize(raw))
             val merged = normalize(session.urls + raw)
             session.urls = merged
@@ -175,8 +178,8 @@ class PageBatchHarvester(private val storage: Storage) {
             runCatching { storage.write(session.gid, merged) }
             AppLog.i(
                 TAG,
-                "第 $batch 批：每批 ${session.pagesPerBatch} 张，本批 ${batchMap.size} 条，" +
-                    "累计 ${merged.size}/$totalPages",
+                "${pageRangeText(batch * session.pagesPerBatch, session.pagesPerBatch, totalPages)}：" +
+                    "本批 ${batchMap.size} 条，累计 ${merged.size}/$totalPages，耗时 ${elapsedMs}ms",
             )
             mine.result = batchMap
             return batchMap
@@ -190,6 +193,14 @@ class PageBatchHarvester(private val storage: Storage) {
     }
 
     // ------------------------------------------------------------------ 工具
+
+    /** 「第 801–820 页」——日志里给页码区间，别给 0-based 的批号。 */
+    private fun pageRangeText(fromIndex: Int, step: Int, totalPages: Int): String {
+        val start = fromIndex + 1
+        val end = fromIndex + step
+        val capped = if (totalPages > 0) minOf(end, totalPages) else end
+        return if (capped <= start) "第 $start 页" else "第 $start–$capped 页"
+    }
 
     private fun <T> withGidLock(gid: Long, block: () -> T): T {
         val lock = gidLocks.computeIfAbsent(gid) { ReentrantLock() }

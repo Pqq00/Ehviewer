@@ -29,11 +29,10 @@
 # ---- Coil ----
 -dontwarn coil3.**
 
-# ---- 剥离调试日志（println / printStackTrace）----
--assumenosideeffects class java.io.PrintStream {
-    public void println(...);
-    public void print(...);
-}
+# ---- 调试日志 ----
+# 不要对 java.io.PrintStream 加 -assumenosideeffects：
+# 诊断日志靠「把 System.out 换成 TeeStream」来收集现有 println(...) 的输出，
+# 一旦 R8 把 println 当无副作用删掉，release 包里诊断日志就只剩 AppLog 自己写的那几行。
 -assumenosideeffects class android.util.Log {
     public static int v(...);
     public static int d(...);

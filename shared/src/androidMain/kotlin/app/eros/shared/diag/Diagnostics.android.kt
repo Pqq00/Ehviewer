@@ -8,6 +8,7 @@ import android.content.Intent
 import android.os.Build
 import android.os.Environment
 import android.os.Process
+import android.os.SystemClock
 import android.provider.MediaStore
 import androidx.core.content.FileProvider
 import app.eros.shared.BuildInfo
@@ -20,6 +21,7 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.OutputStream
 import java.io.PrintStream
+import java.io.RandomAccessFile
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -185,7 +187,15 @@ private fun sanitize(text: String): String = text
     .replace(cookiePattern) { "${it.groupValues[1]}=***" }
     .replace(tokenPattern) { "${it.groupValues[1]}***" }
 
-private fun readLogcat(maxLines: Int = 2000): String = runCatching {
+/** 这些 tag 的系统输出对定位问题没有价值，纯噪音会把真正有用的行挤出 2000 行窗口。 */
+private val LOGCAT_NOISE = Regex(
+    "\\s[IDWV] (MIUIInput|InsetsController|RenderInspector|VRI\\[[^\\]]*\\]|InputDispatcher|" +
+        "Choreographer|libc|Zygote|nativeloader|ApplicationLoaders|Perf|ComputilityLevel|FramePredict|" +
+        "HWUI|SKIA|OpenGLRenderer|SurfaceFlinger|BufferQueueProducer|MiuiDownscaleImpl|" +
+        "AppScoutStateMachine|DisplayManager|HardwareRenderer|Meminfo|chatty|gralloc4?)\\s*:",
+)
+
+private fun readLogcat(maxLines: Int = 5000): String = runCatching {
     val pid = Process.myPid()
     val process = Runtime.getRuntime().exec(
         arrayOf("logcat", "-d", "-v", "threadtime", "-t", maxLines.toString(), "--pid=$pid"),
@@ -193,14 +203,57 @@ private fun readLogcat(maxLines: Int = 2000): String = runCatching {
     val text = process.inputStream.bufferedReader().use { it.readText() }
     process.waitFor()
     process.destroy()
-    text.ifBlank { "（系统没有返回本进程的 logcat，可能被 ROM 限制）" }
+    if (text.isBlank()) return@runCatching "（系统没有返回本进程的 logcat，可能被 ROM 限制）"
+    val all = text.lineSequence().filter { it.isNotBlank() }.toList()
+    val kept = all.filterNot { LOGCAT_NOISE.containsMatchIn(it) }
+    buildString {
+        appendLine("（本进程共 ${all.size} 行，过滤系统噪音 ${all.size - kept.size} 行，保留 ${kept.size} 行）")
+        appendLine(kept.joinToString("\n"))
+    }
 }.getOrElse { "（读取系统日志失败：${it.message ?: it.javaClass.simpleName}）" }
+
+/** 读文件末尾 [maxBytes] 字节，丢掉可能被截断的第一行。 */
+private fun tailOf(file: File, maxBytes: Int): String {
+    if (!file.exists() || file.length() == 0L) return ""
+    val length = file.length()
+    val start = (length - maxBytes).coerceAtLeast(0)
+    val bytes = runCatching {
+        RandomAccessFile(file, "r").use { raf ->
+            raf.seek(start)
+            ByteArray((length - start).toInt()).also { raf.readFully(it) }
+        }
+    }.getOrNull() ?: return ""
+    val text = String(bytes, Charsets.UTF_8)
+    return if (start == 0L) text else text.substringAfter('\n')
+}
+
+/**
+ * 滚动文件里的最近日志：先取 `eros.log` 尾部，不足 [maxBytes] 再接 `eros.1.log` 的尾部。
+ * 内存环形缓冲只有 800 行，读图时很快就会滚掉，文件日志才是覆盖整晚的那份。
+ */
+private fun readFileLogTail(maxBytes: Int = 200 * 1024): String {
+    val current = tailOf(logFile(), maxBytes)
+    if (current.length >= maxBytes) return current
+    val old = tailOf(File(logDir(), LOG_OLD_NAME), maxBytes - current.length)
+    return if (old.isBlank()) current else old + current
+}
+
+/** 「启动 20:45:06 · 已运行 3h17m」——判断日志覆盖不到整晚时最直观的一行。 */
+private fun processUptimeText(): String {
+    val elapsed = SystemClock.elapsedRealtime() - Process.getStartElapsedRealtime()
+    val startedAt = System.currentTimeMillis() - elapsed
+    val hours = elapsed / 3_600_000
+    val minutes = elapsed % 3_600_000 / 60_000
+    val started = SimpleDateFormat("MM-dd HH:mm:ss", Locale.US).format(Date(startedAt))
+    val span = if (hours > 0) "${hours}h${minutes}m" else "${minutes}m"
+    return "启动 $started · 已运行 $span"
+}
 
 private fun buildBundle(): String {
     val now = Date()
     val crash = latestCrashFile()
 
-    // 头部只留四行关键信息：生成时间、版本、系统、登录与里站。
+    // 头部只留关键信息：生成时间、版本、系统、登录与里站、进程启动时间与运行时长。
     // 设备名、ABI、屏幕、语言时区、主题导航这些对定位问题没什么帮助，反而让头部变长。
     return sanitize(buildString {
         appendLine("# Ehviewer 诊断日志")
@@ -211,19 +264,29 @@ private fun buildBundle(): String {
             "# 登录 ${if (isSignedIn()) "已登录" else "未登录"}  " +
                 "里站 ${if (AppSettings.exHentai) "开" else "关"}",
         )
+        appendLine("# ${processUptimeText()}")
         appendLine()
         appendLine("## 最近运行日志")
         appendLine(AppLog.dump())
         appendLine()
+        appendLine("## 文件日志（尾部）")
+        appendLine(readFileLogTail())
+        appendLine()
         appendLine("## 网络记录")
-        appendLine(if (AppSettings.netLogEnabled) NetLog.dump() else "（未开启网络日志）")
+        appendLine(
+            if (AppSettings.netLogEnabled) {
+                NetLog.dump()
+            } else {
+                "（未开启网络日志；在 设置 → 诊断 里打开后才会记录）"
+            },
+        )
         if (crash != null) {
             appendLine()
             appendLine("## 上次崩溃")
             appendLine(runCatching { crash.readText(Charsets.UTF_8) }.getOrDefault("（崩溃文件读取失败）"))
         }
         appendLine()
-        appendLine("## logcat（本进程，最近 2000 行）")
+        appendLine("## logcat（本进程，已过滤系统噪音）")
         appendLine(readLogcat())
     })
 }
