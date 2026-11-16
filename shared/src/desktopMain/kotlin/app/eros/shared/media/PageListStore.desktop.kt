@@ -3,6 +3,8 @@
 
 package app.eros.shared.media
 
+import com.hippo.ehviewer.util.AppLog
+
 import java.io.File
 
 private const val MAX_GALLERIES = 100
@@ -22,7 +24,7 @@ actual fun readPageList(gid: Long, maxAgeMs: Long): PageListCache? = runCatching
     if (lines.size < 4 || lines[0] != "v1") return@runCatching null
     val savedAt = lines[1].toLongOrNull() ?: return@runCatching null
     if (maxAgeMs != Long.MAX_VALUE && System.currentTimeMillis() - savedAt > maxAgeMs) {
-        println("[PageListStore] expired gid=$gid ageMs=${System.currentTimeMillis() - savedAt}")
+        AppLog.d("PageListStore", "expired gid=$gid ageMs=${System.currentTimeMillis() - savedAt}")
         return@runCatching null
     }
     val totalPages = lines[2].toIntOrNull() ?: return@runCatching null

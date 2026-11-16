@@ -3,6 +3,8 @@
 
 package app.eros.shared.ui
 
+import com.hippo.ehviewer.util.AppLog
+
 import top.yukonga.miuix.kmp.basic.InputField
 
 import top.yukonga.miuix.kmp.basic.SearchBar
@@ -217,9 +219,9 @@ class SearchState(
                 memoryCache[key] = items
                 GalleryCache.saveMerged(key, items, page.nextHref)
                 scheduleEnrichRetry(enriched, feed.failed)
-                println("[Search] q=$query append=$append got=${page.items.size} total=${items.size} next=${page.nextHref != null} enrichFailed=${feed.failed.size}")
+                AppLog.i("Search", "q=$query append=$append got=${page.items.size} total=${items.size} next=${page.nextHref != null} enrichFailed=${feed.failed.size}")
             } else {
-                println("[Search] FAILED q=$query: $error")
+                AppLog.w("Search", "FAILED q=$query: $error")
             }
         } finally {
             loading = false

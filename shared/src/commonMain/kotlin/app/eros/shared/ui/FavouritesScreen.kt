@@ -3,6 +3,8 @@
 
 package app.eros.shared.ui
 
+import com.hippo.ehviewer.util.AppLog
+
 import androidx.compose.foundation.layout.WindowInsets
 
 import androidx.compose.foundation.clickable
@@ -384,7 +386,7 @@ class FavouritesState(
                     scheduleEnrichRetry(ALL, enriched.items, enriched.failed)
                 }
             }
-            println("[Fav] all folders=${folders.size} loaded=${filtered.size} ended=$ended")
+            AppLog.i("Fav", "all folders=${folders.size} loaded=${filtered.size} ended=$ended")
             if (loadingCat == ALL) loadingCat = null
             loadingMore = false
         }
@@ -438,9 +440,9 @@ class FavouritesState(
                     scheduleEnrichRetry(cat, enriched, feed.failed)
                 }
                 signedIn = true
-                println("[Fav] cat=$cat loaded=${enriched.size} next=${page.nextHref != null}")
+                AppLog.i("Fav", "cat=$cat loaded=${enriched.size} next=${page.nextHref != null}")
             } else {
-                println("[Fav] FAILED cat=$cat")
+                AppLog.w("Fav", "FAILED cat=$cat")
             }
             if (loadingCat == cat) loadingCat = null
         }

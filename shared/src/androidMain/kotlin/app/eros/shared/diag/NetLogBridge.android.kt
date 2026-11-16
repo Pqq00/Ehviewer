@@ -3,6 +3,8 @@
 
 package app.eros.shared.diag
 
+import com.hippo.ehviewer.util.AppLog
+
 import android.content.ContentValues
 import android.os.Build
 import android.os.Environment
@@ -17,7 +19,7 @@ import java.util.Locale
 actual fun setNetLogEnabled(enabled: Boolean) {
     NetLog.enabled = enabled
     if (enabled) NetLog.clear()
-    println("[NetLog] enabled=$enabled")
+    AppLog.i("NetLog", "enabled=$enabled")
 }
 
 actual fun netLogEntries(): List<NetLogUi> =

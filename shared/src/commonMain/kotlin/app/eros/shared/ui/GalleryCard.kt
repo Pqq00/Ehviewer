@@ -3,6 +3,8 @@
 
 package app.eros.shared.ui
 
+import com.hippo.ehviewer.util.AppLog
+
 import app.eros.shared.data.GalleryTitles
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -206,7 +208,7 @@ fun GalleryCard(
                                 onSuccess = { coverReady = true },
                                 onError = {
                                     if (!useRaw) {
-                                        println("[Thumb] fallback to original: $thumb")
+                                        AppLog.d("Thumb", "fallback to original: $thumb")
                                         useRaw = true
                                     } else {
                                         coverFailed = true

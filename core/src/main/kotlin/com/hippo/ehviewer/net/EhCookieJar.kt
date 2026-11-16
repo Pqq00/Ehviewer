@@ -3,6 +3,7 @@
 
 package com.hippo.ehviewer.net
 
+import com.hippo.ehviewer.util.AppLog
 import okhttp3.Cookie
 import okhttp3.CookieJar
 import okhttp3.HttpUrl
@@ -45,7 +46,7 @@ object EhCookieJar : CookieJar {
             }
             onChange?.invoke(export())
         }
-        println("[Cookie] saved ${filtered.size} from ${url.host}: ${filtered.joinToString { it.name }}")
+        AppLog.d("Cookie", "saved ${filtered.size} from ${url.host}: ${filtered.joinToString { it.name }}")
     }
 
     override fun loadForRequest(url: HttpUrl): List<Cookie> = synchronized(cookies) {
@@ -130,6 +131,6 @@ object EhCookieJar : CookieJar {
             cookies.clear()
             cookies.addAll(parsed)
         }
-        println("[Cookie] imported ${parsed.size}")
+        AppLog.i("Cookie", "imported ${parsed.size}")
     }
 }

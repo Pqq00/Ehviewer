@@ -3,6 +3,8 @@
 
 package app.eros.shared.data
 
+import com.hippo.ehviewer.util.AppLog
+
 import app.eros.shared.currentTimeMillis
 import app.eros.shared.data.cache.GalleryCache
 import app.eros.shared.data.cache.TagCountMeta
@@ -54,7 +56,7 @@ actual suspend fun updateTagCounts(force: Boolean): TagCountUpdate? = withContex
             }
             rows.chunked(500).forEach { GalleryCache.saveTagCounts(it) }
             GalleryCache.saveTagCountMeta(TagCountMeta(version, currentTimeMillis()))
-            println("[TagCount] updated version=" + version + " rows=" + rows.size)
+            AppLog.i("TagCount", "updated version=" + version + " rows=" + rows.size)
             TagCountUpdate(version, rows.size, false)
         }
     }.getOrNull()

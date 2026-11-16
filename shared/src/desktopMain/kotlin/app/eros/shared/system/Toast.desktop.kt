@@ -3,6 +3,8 @@
 
 package app.eros.shared.system
 
+import com.hippo.ehviewer.util.AppLog
+
 actual fun showSystemToast(message: String) {
-    println("[Toast] $message")
+    AppLog.i("Toast", message)
 }

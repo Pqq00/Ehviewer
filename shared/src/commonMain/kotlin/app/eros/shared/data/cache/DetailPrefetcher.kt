@@ -3,6 +3,8 @@
 
 package app.eros.shared.data.cache
 
+import com.hippo.ehviewer.util.AppLog
+
 import app.eros.shared.data.createEhApi
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -32,9 +34,9 @@ object DetailPrefetcher {
                     val d = api.detail(gid, token, forceRefresh = false)
                     GalleryCache.saveDetail(d, token)
                     DetailMemoryCache.put(d, token)
-                    println("[DetailPrefetch] done gid=$gid")
+                    AppLog.i("DetailPrefetch", "done gid=$gid")
                 }.onFailure {
-                    println("[DetailPrefetch] skip gid=$gid: ${it.message}")
+                    AppLog.d("DetailPrefetch", "skip gid=$gid: ${it.message}")
                 }
             } finally {
                 mutex.withLock { inFlight.remove(key) }

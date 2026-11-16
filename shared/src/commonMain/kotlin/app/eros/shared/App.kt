@@ -23,6 +23,7 @@ import app.eros.shared.ui.rememberUseNavigationRail
 import app.eros.shared.ui.ReadStore
 
 import app.eros.shared.ui.TopListState
+import com.hippo.ehviewer.util.AppLog
 
 import app.eros.shared.ui.TopListScreen
 
@@ -358,7 +359,7 @@ fun App() {
                     runCatching { app.eros.shared.data.updateTagCounts(force = false) }
                 }
             }
-            println("[App] ready")
+            AppLog.i("App", "ready")
             // 上次是崩溃退出的：提示一句，引导去「设置 → 关于 → 导出日志」；导出后才会清标记。
             pendingCrashSummary()?.let {
                 showSystemToast("上次启动崩溃过，可在设置 → 关于 导出日志")

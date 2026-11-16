@@ -25,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import app.eros.shared.data.WatchedTagUi
+import com.hippo.ehviewer.util.AppLog
 import app.eros.shared.data.EhApi
 import app.eros.shared.data.toEhError
 import app.eros.shared.data.withEhErrors
@@ -103,9 +104,9 @@ class WatchedState(
             if (tags != null) {
                 items = tags
                 app.eros.shared.filter.HiddenTagStore.update(tags)
-                println("[Watched] loaded=${items.size}")
+                AppLog.i("Watched", "loaded=${items.size}")
             } else {
-                println("[Watched] FAILED: $error")
+                AppLog.w("Watched", "FAILED: $error")
             }
             loading = false
         }
@@ -123,19 +124,19 @@ class WatchedState(
                     return@launch
                 }
                 val posted = source.addWatchedTag(name, watched, hidden)
-                println("[Watched] add POST returned=${posted.size} hasNew=${posted.any { it.tag.equals(name, true) }}")
+                AppLog.i("Watched", "add POST returned=${posted.size} hasNew=${posted.any { it.tag.equals(name, true) }}")
                 // POST 的返回可能不含新标签（服务端渲染时点问题），再加一次 GET 以服务端为准
                 val fresh = source.watchedTags()
                 items = fresh
                 app.eros.shared.filter.HiddenTagStore.update(fresh)
                 val ok = fresh.any { it.tag.equals(name, true) }
-                println("[Watched] after GET total=${fresh.size} hasNew=$ok")
+                AppLog.i("Watched", "after GET total=${fresh.size} hasNew=$ok")
                 showSystemToast(if (ok) "已添加：$name" else "添加失败：标签可能已存在或格式不对")
             } catch (e: CancellationException) {
                 throw e
             } catch (t: Throwable) {
                 showSystemToast("添加失败：${t.toEhError().userMessage()}")
-                println("[Watched] add FAILED: ${t.message}")
+                AppLog.w("Watched", "add FAILED: ${t.message}")
             } finally {
                 busy = false
             }
@@ -150,12 +151,12 @@ class WatchedState(
                 items = source.deleteWatchedTag(item.id, item.weight)
                 app.eros.shared.filter.HiddenTagStore.update(items)
                 showSystemToast("已删除：${item.tag}")
-                println("[Watched] deleted=${item.tag} total=${items.size}")
+                AppLog.i("Watched", "deleted=${item.tag} total=${items.size}")
             } catch (e: CancellationException) {
                 throw e
             } catch (t: Throwable) {
                 showSystemToast("删除失败：${t.toEhError().userMessage()}")
-                println("[Watched] delete FAILED: ${t.message}")
+                AppLog.w("Watched", "delete FAILED: ${t.message}")
             } finally {
                 busy = false
             }

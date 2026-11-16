@@ -3,6 +3,8 @@
 
 package app.eros.shared.proxy
 
+import com.hippo.ehviewer.util.AppLog
+
 import com.hippo.ehviewer.net.EhHttp
 import com.hippo.ehviewer.net.ProxyConfig
 
@@ -15,5 +17,5 @@ actual fun applyProxy(type: String, host: String, port: Int) {
         else -> ProxyConfig.System
     }
     EhHttp.update(proxy = config)
-    println("[Proxy] applied -> $config")
+    AppLog.i("Proxy", "applied -> $config")
 }

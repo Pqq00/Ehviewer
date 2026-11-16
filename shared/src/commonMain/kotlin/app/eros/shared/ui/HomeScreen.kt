@@ -4,6 +4,7 @@
 package app.eros.shared.ui
 
 import top.yukonga.miuix.kmp.squircle.squircleSurface
+import com.hippo.ehviewer.util.AppLog
 
 import androidx.compose.foundation.ScrollState
 
@@ -424,9 +425,9 @@ class HomeState(
                 scheduleEnrichRetry(bucketAtStart, merged, feed.failed)
             }
             GalleryCache.saveMerged(key, merged, page.nextHref)
-            println("[HomeState] ${if (refresh) "refresh" else "initial"} bucket=$bucketAtStart got=${page.items.size} loaded=${fresh.size} hidden=${feed.hidden} next=${page.nextHref != null}")
+            AppLog.i("HomeState", "${if (refresh) "refresh" else "initial"} bucket=$bucketAtStart got=${page.items.size} loaded=${fresh.size} hidden=${feed.hidden} next=${page.nextHref != null}")
         } else {
-            println("[HomeState] FAILED: $error")
+            AppLog.w("HomeState", "FAILED: $error")
         }
         // 切分类后旧请求可能才回来：只允许当前分类清 loading 状态，
         // 否则会把新分类的骨架屏提前关掉，看起来像"切换没生效"。
@@ -437,7 +438,7 @@ class HomeState(
 
     private suspend fun loadMoreInternal(firstCursor: String) {
         loadingMore = true
-        println("[HomeState] loadMore start cursor=${firstCursor.take(60)}")
+        AppLog.d("HomeState", "loadMore start cursor=${firstCursor.take(60)}")
         val cat = cats
         val entry = group
         val bucketAtStart = bucket
@@ -458,12 +459,12 @@ class HomeState(
                 }
             }
             if (page == null) {
-                println("[HomeState] loadMore FAILED: $error")
+                AppLog.w("HomeState", "loadMore FAILED: $error")
                 break
             }
             // 分类已经切走：这一页属于旧分类，丢弃，不能拼到新分类列表里。
             if (bucket != bucketAtStart) {
-                println("[HomeState] discard stale loadMore bucket=$bucketAtStart current=$bucket")
+                AppLog.d("HomeState", "discard stale loadMore bucket=$bucketAtStart current=$bucket")
                 break
             }
             if (page.items.isEmpty()) {
@@ -485,7 +486,7 @@ class HomeState(
                 endByCat[bucketAtStart] = page.nextHref == null
                 scheduleEnrichRetry(bucketAtStart, merged, feed.failed)
             }
-            println("[HomeState] loadMore loaded=${merged.size} hidden=${feed.hidden} total=${items.size} next=${page.nextHref != null}")
+            AppLog.i("HomeState", "loadMore loaded=${merged.size} hidden=${feed.hidden} total=${items.size} next=${page.nextHref != null}")
             // 整页都被隐藏：继续取下一页，避免列表空着不动。
             if (merged.isNotEmpty() || page.nextHref == null) break
             cursor = page.nextHref

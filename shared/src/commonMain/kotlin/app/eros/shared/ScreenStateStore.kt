@@ -3,6 +3,8 @@
 
 package app.eros.shared
 
+import com.hippo.ehviewer.util.AppLog
+
 /**
  * 页面状态仓。
  *
@@ -26,7 +28,7 @@ class ScreenStateStore(private val maxEntries: Int = DEFAULT_MAX_ENTRIES) {
     private val cache = object : LinkedHashMap<String, Any>(16, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Any>): Boolean {
             val evict = size > maxEntries
-            if (evict) println("[Store] evict ${eldest.key} (size=$size)")
+            if (evict) AppLog.d("Store", "evict ${eldest.key} (size=$size)")
             return evict
         }
     }

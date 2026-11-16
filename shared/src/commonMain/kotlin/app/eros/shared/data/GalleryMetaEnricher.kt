@@ -7,6 +7,7 @@ import app.eros.shared.currentTimeMillis
 import app.eros.shared.data.cache.GalleryCache
 import app.eros.shared.data.cache.GalleryMetaRecord
 import app.eros.shared.data.cache.TagRecord
+import com.hippo.ehviewer.util.AppLog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -97,8 +98,9 @@ object GalleryMetaEnricher {
         val out = LinkedHashMap<Long, GalleryUi>(fromMeta.size * 2)
         fromMeta.forEach { (gid, ui) -> out[gid] = ui }
         if (pending.isEmpty()) {
-            println(
-                "[Enrich] requested=0 meta=${fromMeta.size} ok=0 failed=0 " +
+            AppLog.i(
+                "Enrich",
+                "requested=0 meta=${fromMeta.size} ok=0 failed=0 " +
                     "timeout=false elapsed=0ms",
             )
             return EnrichResult(out.values.toList(), emptySet(), false, 0)
@@ -122,8 +124,9 @@ object GalleryMetaEnricher {
 
         val failed = pending.mapNotNull { it.gid }.filterNot { done.contains(it) }.toSet()
         synchronized(cache) { out.values.forEach { cache[it.gid] = it } }
-        println(
-            "[Enrich] requested=${pending.size} meta=${fromMeta.size} ok=${done.size} " +
+        AppLog.i(
+            "Enrich",
+            "requested=${pending.size} meta=${fromMeta.size} ok=${done.size} " +
                 "failed=${failed.size} timeout=${completed == null} " +
                 "elapsed=${currentTimeMillis() - now}ms",
         )
@@ -183,7 +186,7 @@ object GalleryMetaEnricher {
                 if (updated.isEmpty()) continue
                 val done = updated.map { it.gid }.toSet()
                 retryLock.withLock { retryInFlight -= done }
-                println("[Enrich] auto-retry ok=${done.size} remaining=${(remaining - done).size}")
+                AppLog.d("Enrich", "auto-retry ok=${done.size} remaining=${(remaining - done).size}")
                 onUpdated(updated)
                 remaining = remaining - done
             }
@@ -209,7 +212,7 @@ object GalleryMetaEnricher {
         val records = items.flatMap { ui -> ui.tags.mapNotNull { tagRecord(it, now) } }
         if (records.isEmpty()) return
         runCatching { GalleryCache.saveTags(records) }
-            .onFailure { println("[Enrich] persistTags failed: $it") }
+            .onFailure { AppLog.w("Enrich", "persistTags failed: $it") }
     }
 
     /**
@@ -274,7 +277,7 @@ object GalleryMetaEnricher {
             )
         }
         runCatching { GalleryCache.saveMeta(records) }
-            .onFailure { println("[Enrich] saveMeta failed: $it") }
+            .onFailure { AppLog.w("Enrich", "saveMeta failed: $it") }
         persistTags(items)
     }
 

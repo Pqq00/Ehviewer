@@ -62,7 +62,7 @@ private fun appendLogLine(line: String) {
 
 /**
  * L2：把 `System.out` 换成「原样转发 + 收集成行」的流，
- * 现有 120 多处 `println(...)` 一行都不用改就能进到 [AppLog] 与滚动文件。
+ * 仍在走 stdout 的输出（第三方库、[com.hippo.ehviewer.core.MiuixLog] 等）会一并进到 [AppLog] 与滚动文件。
  */
 private class TeeStream(private val delegate: PrintStream) : OutputStream() {
 

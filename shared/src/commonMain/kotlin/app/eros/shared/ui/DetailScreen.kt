@@ -4,6 +4,7 @@
 package app.eros.shared.ui
 
 import app.eros.shared.data.GalleryTitles
+import com.hippo.ehviewer.util.AppLog
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -202,7 +203,7 @@ class DetailState(
             }
             if (records.isNotEmpty()) GalleryCache.saveTags(records)
             GalleryCache.recordHistoryVisit(d.gid, token, d.pages)
-        }.onFailure { println("[DetailState] saveTags failed: " + it.message) }
+        }.onFailure { AppLog.w("DetailState", "saveTags failed: " + it.message) }
     }
 
     private suspend fun load(forceRefresh: Boolean = false) {
@@ -220,7 +221,7 @@ class DetailState(
                 allPreviewsLoaded = mem.previewPages <= 1
                 loadedOnce = true
                 loading = false
-                println("[DetailState] MEM-HIT gid=$gid cost=${currentTimeMillis() - t0}ms")
+                AppLog.i("DetailState", "MEM-HIT gid=$gid cost=${currentTimeMillis() - t0}ms")
                 return
             }
         }
@@ -238,7 +239,7 @@ class DetailState(
                 loading = false
                 DetailMemoryCache.put(cached, token)
                 cacheTags(cached)
-                println("[DetailState] CACHE-HIT gid=$gid cost=${currentTimeMillis() - t0}ms")
+                AppLog.i("DetailState", "CACHE-HIT gid=$gid cost=${currentTimeMillis() - t0}ms")
             }
         }
         if (detail == null) loading = true
@@ -264,12 +265,13 @@ class DetailState(
             GalleryCache.saveDetail(d, token)
             DetailMemoryCache.put(d, token)
             cacheTags(d)
-            println(
-                "[DetailState] loaded gid=$gid net=${netMs}ms total=${currentTimeMillis() - t0}ms " +
+            AppLog.i(
+                "DetailState",
+                "loaded gid=$gid net=${netMs}ms total=${currentTimeMillis() - t0}ms " +
                     "pages=${d.pages} comments=${d.comments.size} previews=${d.previews.size}/${d.previewPages}",
             )
         } else {
-            println("[DetailState] FAILED gid=$gid net=${netMs}ms kind=${lastError?.javaClass?.simpleName}: $error")
+            AppLog.w("DetailState", "FAILED gid=$gid net=${netMs}ms kind=${lastError?.javaClass?.simpleName}: $error")
         }
         loading = false
     }
@@ -286,7 +288,7 @@ class DetailState(
             } catch (e: CancellationException) {
                 throw e
             } catch (t: Throwable) {
-                println("[DetailState] previews FAILED: ${t.message}")
+                AppLog.w("DetailState", "previews FAILED: ${t.message}")
             } finally {
                 loadingPreviews = false
             }

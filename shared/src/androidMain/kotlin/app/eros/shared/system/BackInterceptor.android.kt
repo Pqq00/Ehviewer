@@ -3,6 +3,8 @@
 
 package app.eros.shared.system
 
+import com.hippo.ehviewer.util.AppLog
+
 import android.os.Build
 import android.window.OnBackInvokedCallback
 import android.window.OnBackInvokedDispatcher
@@ -39,6 +41,6 @@ actual fun setPlainBackInterceptor(enabled: Boolean, onBack: (() -> Boolean)?) {
         )
         registered = callback
         registeredDispatcher = dispatcher
-        println("[Back] plain interceptor installed")
+        AppLog.i("Back", "plain interceptor installed")
     }
 }

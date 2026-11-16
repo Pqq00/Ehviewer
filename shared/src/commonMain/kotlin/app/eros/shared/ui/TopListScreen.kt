@@ -4,6 +4,7 @@
 package app.eros.shared.ui
 
 import androidx.compose.foundation.clickable
+import com.hippo.ehviewer.util.AppLog
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -179,7 +180,7 @@ class TopListState(
             hiddenCount = hiddenByTl[targetTl] ?: 0
             error = null
             loading = false
-            println("[TopList] tl=$targetTl switch from memory items=${cached.size}")
+            AppLog.i("TopList", "tl=$targetTl switch from memory items=${cached.size}")
             return
         }
         items = emptyList()
@@ -226,7 +227,7 @@ class TopListState(
             }
             if (page == null) {
                 if (pullRefresh) refreshing = false else loading = false
-                println("[TopList] FAILED: $error")
+                AppLog.w("TopList", "FAILED: $error")
                 return@launch
             }
             val filtered = mergeKnownMeta(
@@ -240,8 +241,9 @@ class TopListState(
             endReached = page.nextPage == null
             rememberInMemory(startTl, filtered)
             if (pullRefresh) refreshing = false else loading = false
-            println(
-                "[TopList] tl=$startTl page=0 items=${filtered.size} next=${page.nextPage} total=${page.totalPages}",
+            AppLog.i(
+                "TopList",
+                "tl=$startTl page=0 items=${filtered.size} next=${page.nextPage} total=${page.totalPages}",
             )
             val res = GalleryMetaEnricher.enrichPage(source, filtered)
             if (startTl != tl) return@launch
@@ -251,7 +253,7 @@ class TopListState(
                 items = GalleryFeed.applyRetry(items, res.updated)
                 hiddenCount += before - items.size
                 rememberInMemory(startTl, items)
-                println("[TopList] tl=$startTl enriched +${res.updated.size} hidden=${before - items.size}")
+                AppLog.i("TopList", "tl=$startTl enriched +${res.updated.size} hidden=${before - items.size}")
             }
             scheduleEnrichRetry(startTl, items, res.failedGids)
             GalleryCache.saveMerged(key, items, page.nextPage?.toString())
@@ -325,7 +327,7 @@ class TopListState(
                 nextPage = result.nextPage
                 endReached = result.nextPage == null
                 rememberInMemory(currentTl, items)
-                println("[TopList] tl=$currentTl page=$page +${filtered.size} total=${items.size} end=$endReached")
+                AppLog.i("TopList", "tl=$currentTl page=$page +${filtered.size} total=${items.size} end=$endReached")
                 val res = GalleryMetaEnricher.enrichPage(source, filtered)
                 if (currentTl != tl) return@launch
                 if (res.updated.isNotEmpty()) {
@@ -338,7 +340,7 @@ class TopListState(
             } catch (e: CancellationException) {
                 throw e
             } catch (t: Throwable) {
-                println("[TopList] loadMore FAILED: ${t.message}")
+                AppLog.w("TopList", "loadMore FAILED: ${t.message}")
             } finally {
                 GalleryCache.saveMerged(
                     GalleryCache.rankKey(currentTl),

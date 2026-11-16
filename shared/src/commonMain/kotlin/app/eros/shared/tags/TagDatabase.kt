@@ -4,6 +4,7 @@
 package app.eros.shared.tags
 
 import androidx.compose.runtime.getValue
+import com.hippo.ehviewer.util.AppLog
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.CompletableDeferred
@@ -51,7 +52,7 @@ object TagDatabase {
             val count = withContext(Dispatchers.IO) { initTagDatabase() }
             ready.complete(count)
             revision++
-            println("[TagDB] loaded $count in ${System.currentTimeMillis() - started}ms")
+            AppLog.i("TagDB", "loaded $count in ${System.currentTimeMillis() - started}ms")
             return count
         }
     }
@@ -62,7 +63,7 @@ object TagDatabase {
         val count = withContext(Dispatchers.IO) { initTagDatabase() }
         if (!ready.isCompleted) ready.complete(count)
         revision++
-        println("[TagDB] reloaded $count in ${System.currentTimeMillis() - started}ms")
+        AppLog.i("TagDB", "reloaded $count in ${System.currentTimeMillis() - started}ms")
         count
     }
 
@@ -70,10 +71,10 @@ object TagDatabase {
     fun warmUpIn(scope: CoroutineScope, delayMs: Long = 0) {
         if (ready.isCompleted) return
         scope.launch {
-            println("[TagDB] warmup scheduled in ${delayMs}ms")
+            AppLog.d("TagDB", "warmup scheduled in ${delayMs}ms")
             delay(delayMs)
             runCatching { ensureLoaded() }.onFailure {
-                println("[TagDB] warmup FAILED: ${it.message}")
+                AppLog.w("TagDB", "warmup FAILED: ${it.message}")
             }
         }
     }

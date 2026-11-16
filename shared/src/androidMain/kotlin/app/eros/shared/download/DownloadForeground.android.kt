@@ -3,6 +3,8 @@
 
 package app.eros.shared.download
 
+import com.hippo.ehviewer.util.AppLog
+
 import android.content.Intent
 import app.eros.shared.settings.AndroidPlatform
 
@@ -20,8 +22,8 @@ actual object DownloadForeground {
             val context = AndroidPlatform.appContext
             val intent = Intent(ACTION_START).setClassName(context, SERVICE_CLASS)
             context.startForegroundService(intent)
-            println("[Download] foreground service start")
-        }.onFailure { println("[Download] start service failed: ${it.message}") }
+            AppLog.i("Download", "foreground service start")
+        }.onFailure { AppLog.w("Download", "start service failed: ${it.message}") }
     }
 
     actual fun stop() {
@@ -29,7 +31,7 @@ actual object DownloadForeground {
             val context = AndroidPlatform.appContext
             val intent = Intent(ACTION_STOP).setClassName(context, SERVICE_CLASS)
             context.startService(intent)
-            println("[Download] foreground service stop")
-        }.onFailure { println("[Download] stop service failed: ${it.message}") }
+            AppLog.i("Download", "foreground service stop")
+        }.onFailure { AppLog.w("Download", "stop service failed: ${it.message}") }
     }
 }

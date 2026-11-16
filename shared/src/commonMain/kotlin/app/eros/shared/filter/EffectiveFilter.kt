@@ -3,6 +3,8 @@
 
 package app.eros.shared.filter
 
+import com.hippo.ehviewer.util.AppLog
+
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -38,12 +40,12 @@ object HiddenTagStore {
     suspend fun refresh(api: EhApi = createEhApi()): Int = try {
         val tags = api.watchedTags()
         update(tags)
-        println("[HiddenTags] fetched=${tags.size} hidden=${rules.size}")
+        AppLog.i("HiddenTags", "fetched=${tags.size} hidden=${rules.size}")
         rules.size
     } catch (t: kotlinx.coroutines.CancellationException) {
         throw t
     } catch (t: Throwable) {
-        println("[HiddenTags] refresh failed: ${t.message}")
+        AppLog.w("HiddenTags", "refresh failed: ${t.message}")
         count
     }
 
@@ -57,7 +59,7 @@ object HiddenTagStore {
         state = list
         loaded = true
         AppSettings.hiddenTagRulesJson = GalleryFilter.toJson(list)
-        println("[HiddenTags] synced=${list.size}")
+        AppLog.i("HiddenTags", "synced=${list.size}")
     }
 
     fun clear() {

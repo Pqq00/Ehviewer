@@ -8,6 +8,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import app.eros.shared.filter.FilterRule
 import app.eros.shared.filter.GalleryFilter
+import com.hippo.ehviewer.util.AppLog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -316,7 +317,7 @@ object AppSettings {
             savePending = false
             val snapshot = state
             runCatching { SettingsStorage.write(SettingsCodec.encode(snapshot)) }
-                .onFailure { println("[Settings] save failed: ${it.message}") }
+                .onFailure { AppLog.w("Settings", "save failed: ${it.message}") }
         }
     }
 
@@ -327,7 +328,7 @@ object AppSettings {
         val snapshot = state
         saveScope.launch {
             runCatching { SettingsStorage.write(SettingsCodec.encode(snapshot)) }
-                .onFailure { println("[Settings] save failed: ${it.message}") }
+                .onFailure { AppLog.w("Settings", "save failed: ${it.message}") }
         }
     }
 
@@ -341,7 +342,7 @@ object AppSettings {
                 // schema 1 → 2：网络日志改成默认开。旧文件里 netLog 是显式 false，
                 // 靠默认值改不动，这里补一次（之后用户自己关掉会以 schema=2 落盘，不再覆盖）。
                 val upgraded = if (needsSchemaUpgrade) {
-                    println("[Settings] upgrade schema ${restored.schemaVersion} -> 2, 网络日志默认开")
+                    AppLog.i("Settings", "upgrade schema ${restored.schemaVersion} -> 2, 网络日志默认开")
                     restored.copy(netLog = true)
                 } else {
                     restored
@@ -357,13 +358,13 @@ object AppSettings {
                     override fun getString(key: String, default: String) = platformGetString(key, default)
                 })
                 runCatching { SettingsStorage.write(SettingsCodec.encode(migrated)) }
-                println("[Settings] migrated from legacy keys")
+                AppLog.i("Settings", "migrated from legacy keys")
                 migrated
             }
             else -> {
                 val fresh = Settings()
                 runCatching { SettingsStorage.write(SettingsCodec.encode(fresh)) }
-                println("[Settings] no saved settings, using defaults")
+                AppLog.i("Settings", "no saved settings, using defaults")
                 fresh
             }
         }
@@ -372,6 +373,6 @@ object AppSettings {
             // 立刻落盘，避免每次启动都再迁移一遍、也免得用户没改设置就永远停在旧 schema。
             runCatching { SettingsStorage.write(SettingsCodec.encode(state)) }
         }
-        println("[Settings] loaded schema=${state.schemaVersion} theme=${state.themeMode}")
+        AppLog.i("Settings", "loaded schema=${state.schemaVersion} theme=${state.themeMode}")
     }
 }

@@ -3,6 +3,8 @@
 
 package app.eros.shared.reader
 
+import com.hippo.ehviewer.util.AppLog
+
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -120,7 +122,7 @@ class ReaderSession(
         // 从预览图/历史记录指定的页进来时，把它当成新的「上次阅读页」，退出再进才会停在原地。
         if (startPage >= 0) platformSetInt(keyPage, currentPage)
         mode = ReaderMode.fromOrdinal(platformGetInt(keyMode, 0))
-        println("[Reader] restore page=$currentPage mode=${mode.label} total=$totalPages")
+        AppLog.i("Reader", "restore page=$currentPage mode=${mode.label} total=$totalPages")
     }
 
     /**
@@ -138,7 +140,7 @@ class ReaderSession(
         historyJob = scope.launch {
             delay(300)
             runCatching { GalleryCache.recordHistory(gid, token, page, pages) }
-                .onFailure { println("[Reader] recordHistory failed: " + it.message) }
+                .onFailure { AppLog.w("Reader", "recordHistory failed: " + it.message) }
         }
     }
 

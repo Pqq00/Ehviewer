@@ -6,6 +6,7 @@ package com.hippo.ehviewer.net
 import com.hippo.ehviewer.Settings
 import com.hippo.ehviewer.client.EhUrl
 import com.hippo.ehviewer.client.parser.SignInParser
+import com.hippo.ehviewer.util.AppLog
 import okhttp3.FormBody
 import okhttp3.Request
 import java.io.IOException
@@ -59,7 +60,7 @@ object EhAuth {
             EhHttp.client.newCall(request).execute().use { response ->
                 code = response.code
                 val body = response.body?.string().orEmpty()
-                println("[Auth] signIn http=$code bodyLen=${body.length}")
+                AppLog.i("Auth", "signIn http=$code bodyLen=${body.length}")
                 val message = SignInParser.parse(body)
                 if (!hasSignedIn()) throw IOException("登录未生效：$message")
                 // 登录成功后顺手把 igneous 拿下来（失败不阻塞登录）
@@ -147,7 +148,7 @@ object EhAuth {
                 val body = response.body?.string().orEmpty()
                 NetLog.log("GET", EhUrl.HOST_EX, code, System.currentTimeMillis() - started, body.length.toLong(), null)
                 val status = classifyExResponse(body)
-                println("[Auth] checkEx http=$code len=${body.length} -> $status")
+                AppLog.i("Auth", "checkEx http=$code len=${body.length} -> $status")
                 status
             }
         } catch (t: Throwable) {
@@ -171,7 +172,7 @@ object EhAuth {
 
     fun signOut() {
         EhCookieJar.clear()
-        println("[Auth] signed out")
+        AppLog.i("Auth", "signed out")
     }
 
     fun setExHentai(ex: Boolean) {
@@ -201,7 +202,7 @@ object EhAuth {
             }.getOrNull() ?: continue
             val lower = body.lowercase()
             val idx = lower.indexOf("logged in as")
-            println("[Auth] name probe $url len=${body.length} hit=$idx")
+            AppLog.d("Auth", "name probe $url len=${body.length} hit=$idx")
             if (idx >= 0) {
                 val snippet = body.substring(idx, minOf(body.length, idx + 240))
                 val m = Regex("logged in as:?\\s*(?:<[^>]+>\\s*)*([^<\\n]{1,40})", RegexOption.IGNORE_CASE)

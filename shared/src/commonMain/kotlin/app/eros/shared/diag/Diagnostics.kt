@@ -6,7 +6,7 @@ package app.eros.shared.diag
 /**
  * 诊断能力（L1/L2/L3）的跨平台入口。
  *
- * - L2：安装 stdout 旁路 + 日志滚动文件，把现有 `println(...)` 里的运行日志收进私有目录；
+ * - L2：安装 stdout 旁路 + 日志滚动文件，把 `AppLog` 与仍在走 stdout 的输出收进私有目录；
  * - L3：安装未捕获异常处理器，崩溃时落一份 `crash-<时间>.txt`，下次启动提示并能一起导出；
  * - L1：[exportDiagnostics] 生成一份可直接发给开发者的诊断包。
  */

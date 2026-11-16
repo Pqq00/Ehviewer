@@ -3,6 +3,7 @@
 
 package app.eros.shared.data
 
+import com.hippo.ehviewer.util.AppLog
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
@@ -24,7 +25,7 @@ object ThumbUrl {
         if (size <= 250) return url
         val ext = match.groupValues[2]
         val normalized = url.substring(0, match.range.first) + "-250." + ext
-        if (logged.getAndIncrement() < 8) println("[Thumb] $url -> $normalized")
+        if (logged.getAndIncrement() < 8) AppLog.d("Thumb", "$url -> $normalized")
         return normalized
     }
 }

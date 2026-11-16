@@ -7,6 +7,7 @@ import app.eros.shared.data.EhApi
 import app.eros.shared.data.PageBatches
 import app.eros.shared.data.createEhApi
 import app.eros.shared.settings.AppSettings
+import com.hippo.ehviewer.util.AppLog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -83,8 +84,9 @@ object DownloadManager {
                     }
                     .sortedByDescending { it.savedAt }
                 manifests.forEach { DownloadStore.writeManifestIfChanged(it) }
-                println(
-                    "[Download] restored ${manifests.size} galleries " +
+                AppLog.i(
+                    "Download",
+                    "restored ${manifests.size} galleries " +
                         "in ${System.currentTimeMillis() - started}ms"
                 )
                 manifests
@@ -115,13 +117,13 @@ object DownloadManager {
             return
         }
         if (_tasks.value.any { it.gid == gid }) {
-            println("[Download] already in queue gid=$gid")
+            AppLog.d("Download", "already in queue gid=$gid")
             return
         }
         val manifest = DownloadManifest.create(gid, token, title, totalPages, thumb, uploader, artist, category, titleJpn)
         DownloadStore.writeManifest(manifest)
         _tasks.update { listOf(manifest) + it }
-        println("[Download] enqueued gid=$gid pages=$totalPages")
+        AppLog.i("Download", "enqueued gid=$gid pages=$totalPages")
         schedule()
     }
 
@@ -150,7 +152,7 @@ object DownloadManager {
         if (deleteFiles) DownloadStore.deleteGallery(gid)
         _tasks.update { list -> list.filterNot { it.gid == gid } }
         DownloadedStore.refresh()
-        println("[Download] removed gid=$gid deleteFiles=$deleteFiles")
+        AppLog.i("Download", "removed gid=$gid deleteFiles=$deleteFiles")
         schedule()
     }
 
@@ -194,7 +196,7 @@ object DownloadManager {
             val result = runCatching { downloadGallery(gid) }
             running.remove(gid)
             result.onFailure { e ->
-                println("[Download] gallery $gid crashed: ${e.message}")
+                AppLog.w("Download", "gallery $gid crashed: ${e.message}")
                 updateManifest(gid) { it.copy(status = DownloadStatus.FAILED, error = e.message) }
             }
             schedule()
@@ -257,7 +259,7 @@ object DownloadManager {
         )
         replaceManifest(gid, committed)
         DownloadedStore.refresh()
-        println("[Download] gid=$gid finished DONE ${verified.donePages}/${verified.totalPages}")
+        AppLog.i("Download", "gid=$gid finished DONE ${verified.donePages}/${verified.totalPages}")
     }
 
     /** 还有页没成功：按失败类型决定自动退避重试 / 暂停 / 失败。 */
@@ -294,7 +296,7 @@ object DownloadManager {
                 },
             )
         }
-        println("[Download] gid=$gid finished with $failed failed pages")
+        AppLog.w("Download", "gid=$gid finished with $failed failed pages")
     }
 
     /** 等待退避；返回 true 表示被暂停/取消，不应再调度。 */
@@ -338,7 +340,7 @@ object DownloadManager {
             }
             if (attempts < MAX_ATTEMPTS) delay(1000L shl (attempts - 1))
         }
-        println("[Download] page ${page.index + 1}/$totalPages FAILED: $lastError")
+        AppLog.w("Download", "page ${page.index + 1}/$totalPages FAILED: $lastError")
         return page.copy(status = PageStatus.FAILED, attempts = attempts, error = lastError)
     }
 

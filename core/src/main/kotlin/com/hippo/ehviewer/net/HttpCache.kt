@@ -3,6 +3,7 @@
 
 package com.hippo.ehviewer.net
 
+import com.hippo.ehviewer.util.AppLog
 import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.Protocol
@@ -93,7 +94,7 @@ internal class HttpCacheInterceptor : Interceptor {
         val now = System.currentTimeMillis()
         val cached = runCatching { bridge.get(url, now) }.getOrNull()
         if (cached != null) {
-            println("GET-CACHE HIT $url (${cached.body.size}B)")
+            AppLog.d("HttpCache", "HIT $url (${cached.body.size}B)")
             val type = cached.contentType?.toMediaTypeOrNull()
             return Response.Builder()
                 .request(request)
@@ -114,11 +115,11 @@ internal class HttpCacheInterceptor : Interceptor {
             val contentType = body.contentType()?.toString()
             if (isNegativePage(bytes)) {
                 // 已删除/不可用/维护页会被钉住 DETAIL 6 小时，宁可每次都走网络。
-                println("GET-CACHE SKIP $url (negative page)")
+                AppLog.d("HttpCache", "SKIP $url (negative page)")
             } else if (bytes.isNotEmpty() && response.header("Cache-Control")?.contains("no-store", true) != true) {
                 runCatching {
                     bridge.put(url, CachedHttpResponse(bytes, contentType, now + maxAge))
-                    println("GET-CACHE MISS $url (${bytes.size}B, ttl=${maxAge}ms)")
+                    AppLog.d("HttpCache", "MISS $url (${bytes.size}B, ttl=${maxAge}ms)")
                 }
             }
             return response.newBuilder()

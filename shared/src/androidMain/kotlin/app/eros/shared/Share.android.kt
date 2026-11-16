@@ -3,6 +3,8 @@
 
 package app.eros.shared
 
+import com.hippo.ehviewer.util.AppLog
+
 import android.content.Intent
 import android.graphics.Bitmap
 import androidx.compose.ui.graphics.ImageBitmap
@@ -25,14 +27,14 @@ actual fun platformShare(text: String) {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         context.startActivity(chooser)
-    }.onFailure { println("[Share] failed: ${it.message}") }
+    }.onFailure { AppLog.w("Share", "failed: ${it.message}") }
 }
 actual fun platformCopy(text: String) {
     runCatching {
         val context = AndroidPlatform.appContext
         val cm = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
         cm.setPrimaryClip(android.content.ClipData.newPlainText("Ehviewer", text))
-    }.onFailure { println("[Clipboard] failed: ${it.message}") }
+    }.onFailure { AppLog.w("Clipboard", "failed: ${it.message}") }
 }
 
 actual suspend fun shareImage(bytes: ByteArray, fileName: String): String =

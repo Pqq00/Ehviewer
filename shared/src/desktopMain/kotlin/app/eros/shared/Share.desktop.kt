@@ -3,11 +3,13 @@
 
 package app.eros.shared
 
+import com.hippo.ehviewer.util.AppLog
+
 import androidx.compose.ui.graphics.ImageBitmap
 import java.io.File
 
 actual fun platformShare(text: String) {
-    println("[Share] $text")
+    AppLog.i("Share", text)
 }
 actual fun platformCopy(text: String) {
     runCatching {
