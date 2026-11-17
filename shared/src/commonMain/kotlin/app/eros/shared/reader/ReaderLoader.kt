@@ -26,6 +26,7 @@ import app.eros.shared.shareImage
 import app.eros.shared.settings.AppSettings
 import com.hippo.ehviewer.util.AppLog
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Deferred
@@ -409,6 +410,10 @@ class ReaderLoader(
     }
 
     private fun startAddressJob(index: Int, pageUrl: String): Deferred<String?> {
+        // 已解析过的页直接复用结果。缺这一条时，warmAddresses 每翻一页都会把窗口内
+        // 「图片尚未 Ready」的页重新解析一遍（HTTP 缓存 1ms 命中），实测一次阅读里
+        // 同一页地址被重复解析十几次、白占 addressPermit 并刷爆日志。
+        addresses[index]?.let { return CompletableDeferred(it) }
         addressJobs[index]?.let { return it }
         val job = scope.async {
             try {

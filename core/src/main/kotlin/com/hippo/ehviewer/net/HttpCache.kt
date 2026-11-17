@@ -94,7 +94,8 @@ internal class HttpCacheInterceptor : Interceptor {
         val now = System.currentTimeMillis()
         val cached = runCatching { bridge.get(url, now) }.getOrNull()
         if (cached != null) {
-            AppLog.d("HttpCache", "HIT $url (${cached.body.size}B)")
+            // 命中不打日志：一次阅读里同一页会被问上千次，HIT 行占导出日志 30%，
+            // 而 netlog 里的 GET-CACHE 已经能看出发过哪些请求。只保留 MISS/SKIP。
             val type = cached.contentType?.toMediaTypeOrNull()
             return Response.Builder()
                 .request(request)
