@@ -92,7 +92,6 @@ import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.SmallTitle
-import top.yukonga.miuix.kmp.basic.TabRow
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.blur.layerBackdrop
@@ -497,10 +496,10 @@ fun DetailScreen(
 
                         item(span = { GridItemSpan(maxLineSpan) }, key = "tabs") {
                             SmallTitle(text = if (tab == 0) "评论" else "预览")
-                            TabRow(
+                            ErosTabRow(
                                 tabs = listOf("评论 ${detail.comments.size}", "预览 ${detail.pages}"),
-                                selectedTabIndex = tab,
-                                onTabSelected = { tab = it },
+                                selectedIndex = tab,
+                                onSelect = { tab = it },
                                 modifier = Modifier.padding(bottom = 8.dp),
                             )
                         }

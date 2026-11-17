@@ -68,7 +68,6 @@ import top.yukonga.miuix.kmp.basic.FloatingToolbar
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.LinearProgressIndicator
 import top.yukonga.miuix.kmp.basic.SmallTitle
-import top.yukonga.miuix.kmp.basic.TabRow
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.squircle.squircleClip
@@ -201,14 +200,14 @@ fun DownloadScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 item(key = "tabs") {
-                    TabRow(
+                    ErosTabRow(
                         tabs = listOf(
                             "全部 ${tasks.size}",
                             "下载中 ${active.size}",
                             "已完成 ${done.size}",
                         ),
-                        selectedTabIndex = tab,
-                        onTabSelected = { tab = it },
+                        selectedIndex = tab,
+                        onSelect = { tab = it },
                         modifier = Modifier.padding(vertical = 8.dp),
                     )
                 }

@@ -100,7 +100,6 @@ import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.basic.VerticalScrollBar
 import top.yukonga.miuix.kmp.basic.rememberScrollBarAdapter
-import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.squircle.squircleSurface
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -240,7 +239,7 @@ fun SettingsScreen(
                     checked = AppSettings.blurCovers,
                     onCheckedChange = { AppSettings.blurCovers = it },
                 )
-                OverlayDropdownPreference(
+                ErosDropdownPreference(
                     title = "列表布局",
                     // 持久化值仍是 classic / download。
                     items = listOf("网格", "列表"),
@@ -251,20 +250,20 @@ fun SettingsScreen(
                 )
 
 
-                OverlayDropdownPreference(
+                ErosDropdownPreference(
                     title = "标题语言",
                     items = listOf("英文优先", "日文优先"),
                     selectedIndex = AppSettings.galleryTitleMode,
                     onSelectedIndexChange = { AppSettings.galleryTitleMode = it },
                 )
-                OverlayDropdownPreference(
+                ErosDropdownPreference(
                     title = "主题模式",
                     items = ThemeModeEntry.entries.map { it.label },
                     selectedIndex = AppSettings.themeMode,
                     onSelectedIndexChange = { AppSettings.themeMode = it },
                 )
 
-                OverlayDropdownPreference(
+                ErosDropdownPreference(
                     title = "导航栏样式",
                     items = NavBarStyleEntry.entries.map { it.label },
                     selectedIndex = AppSettings.navBarStyle,
@@ -272,7 +271,7 @@ fun SettingsScreen(
                 )
                 // 「导航项显示」只对固定/悬浮两种原生样式生效；iOS 与玻璃样式的图标与文字恒定显示
                 AnimatedVisibility(visible = AppSettings.navBarStyle != 2 && AppSettings.navBarStyle != 3) {
-                    OverlayDropdownPreference(
+                    ErosDropdownPreference(
                         title = "导航项显示",
                         items = NavBarModeEntry.entries.map { it.label },
                         selectedIndex = AppSettings.navBarMode,
@@ -295,7 +294,7 @@ fun SettingsScreen(
                     onCheckedChange = { AppSettings.barBlurEnabled = it },
                 )
                 AnimatedVisibility(visible = AppSettings.barBlurEnabled) {
-                    OverlayDropdownPreference(
+                    ErosDropdownPreference(
                         title = "顶栏模糊样式",
                         items = BarBlurStyle.entries.map { it.label },
                         selectedIndex = AppSettings.barBlurStyle,
@@ -307,7 +306,7 @@ fun SettingsScreen(
         }
         item(key = "reading") {
             AppSection("阅读") {
-                OverlayDropdownPreference(
+                ErosDropdownPreference(
                     title = "预加载页数",
                     items = listOf("0 页", "3 页", "5 页", "10 页"),
                     selectedIndex = when (AppSettings.readerPreloadPages) {
@@ -325,13 +324,13 @@ fun SettingsScreen(
                     checked = AppSettings.readerTapPaging,
                     onCheckedChange = { AppSettings.readerTapPaging = it },
                 )
-                OverlayDropdownPreference(
+                ErosDropdownPreference(
                     title = "页面适应",
                     items = ReaderFit.entries.map { it.label },
                     selectedIndex = ReaderFit.fromOrdinal(AppSettings.readerFit).ordinal,
                     onSelectedIndexChange = { AppSettings.readerFit = it },
                 )
-                OverlayDropdownPreference(
+                ErosDropdownPreference(
                     title = "自动隐藏顶底栏",
                     items = listOf("不隐藏", "2 秒", "3 秒", "5 秒"),
                     selectedIndex = when (AppSettings.readerAutoHideSeconds) {
@@ -354,7 +353,7 @@ fun SettingsScreen(
                     checked = AppSettings.readerDoubleTapZoom,
                     onCheckedChange = { AppSettings.readerDoubleTapZoom = it },
                 )
-                OverlayDropdownPreference(
+                ErosDropdownPreference(
                     title = "最大缩放",
                     items = listOf("2×", "3×", "4×", "5×", "6×"),
                     selectedIndex = (AppSettings.readerMaxZoom - 2).coerceIn(0, 4),
@@ -370,7 +369,7 @@ fun SettingsScreen(
         }
         item(key = "storage") {
             AppSection("下载与存储") {
-                OverlayDropdownPreference(
+                ErosDropdownPreference(
                     title = "同时下载",
                     items = listOf("1 个", "2 个", "3 个"),
                     selectedIndex = (AppSettings.downloadGalleryConcurrency - 1).coerceIn(0, 2),
@@ -379,7 +378,7 @@ fun SettingsScreen(
                     },
                 )
 
-                OverlayDropdownPreference(
+                ErosDropdownPreference(
                     title = "单画廊并发",
                     items = listOf("1 页", "2 页", "3 页", "5 页"),
                     selectedIndex = when (AppSettings.downloadPageConcurrency) {
@@ -405,7 +404,7 @@ fun SettingsScreen(
         item(key = "network") {
             AppSection("网络") {
                 var proxyType by remember { mutableStateOf(AppSettings.proxyType) }
-                OverlayDropdownPreference(
+                ErosDropdownPreference(
                     title = "代理类型",
                     items = listOf("跟随系统", "HTTP", "SOCKS5", "直连"),
                     selectedIndex = when (proxyType) {
@@ -450,7 +449,7 @@ fun SettingsScreen(
                         }
                     }
                 }
-                OverlayDropdownPreference(
+                ErosDropdownPreference(
                     title = "同主机并发数",
                     items = listOf("2", "4", "6", "8"),
                     selectedIndex = when (AppSettings.netMaxPerHost) {
@@ -466,7 +465,7 @@ fun SettingsScreen(
                         authMessage = "同主机并发数：$n"
                     },
                 )
-                OverlayDropdownPreference(
+                ErosDropdownPreference(
                     title = "全局限速",
                     summary = "过高会被限流",
                     items = listOf("不限", "4 次/秒", "6 次/秒", "8 次/秒", "12 次/秒"),
