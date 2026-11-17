@@ -4,6 +4,11 @@
 package app.eros.shared.ui
 
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -225,7 +230,12 @@ fun ErosGlassNavigationRail(
             }
         },
         backdrop = backdrop,
-        modifier = modifier,
+        // 官方 PersistentGlassNavigationRail 的做法：关掉组件自带 insets，
+        // 改为自己吃掉 systemBars ∪ displayCutout，避免胶囊压到状态栏/刘海/手势条。
+        defaultWindowInsetsPadding = false,
+        modifier = modifier.windowInsetsPadding(
+            WindowInsets.systemBars.union(WindowInsets.displayCutout),
+        ),
         state = state,
     )
 }

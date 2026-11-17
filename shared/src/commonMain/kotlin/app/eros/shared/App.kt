@@ -108,6 +108,7 @@ import top.yukonga.miuix.kmp.nav.core.rememberNavSystemCornerRadius
 import top.yukonga.miuix.kmp.nav.core.NavCornerClipMode
 
 import top.yukonga.miuix.kmp.nav.core.NavDisplayEffects
+import top.yukonga.miuix.kmp.nav.transition.NavTransitions
 
 import top.yukonga.miuix.kmp.basic.TopAppBar
 
@@ -169,6 +170,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
@@ -416,6 +418,17 @@ fun App() {
         // 官方示例的转场效果：跟随设备屏幕圆角、轻微调暗、底部露出宿主背景
         // 侧滑返回已固定关闭
         val swipeDismiss = NavSwipeDirection.None
+        // 从侧栏/底栏切根 tab 时，官方会抑制 NavDisplay 的推入/退出动画
+        // （AppContent.kt: onBeforeNavigate = { suppressNavTransition = true }）：
+        // 这里用一帧的短暂的标志实现同样效果，避免「详情→列表」时可见的整页滑入。
+        var suppressNavTransition by remember { mutableStateOf(false) }
+        LaunchedEffect(suppressNavTransition) {
+            if (suppressNavTransition) {
+                withFrameNanos { }
+                suppressNavTransition = false
+            }
+        }
+        val navTransition = if (suppressNavTransition) NavTransitions.None else NavTransitions.MiuixDefault
         val navEffects = NavDisplayEffects(
             cornerClipRadius = rememberNavSystemCornerRadius(),
             cornerClipMode = NavCornerClipMode.All,
@@ -493,6 +506,7 @@ fun App() {
                 detailDownloadLabel = detailDownloadLabel,
                 detailDownloadActive = detailTask != null,
                 onSelectTab = { index ->
+                    suppressNavTransition = true
                     AppStateHolder.selectedTab = index
                     while (backStack.size > 1) backStack.removeLastOrNull()
                 },
@@ -532,6 +546,7 @@ fun App() {
             modifier = Modifier.fillMaxSize(),
             backStack = backStack,
             onBack = { pop() },
+            transition = navTransition,
             effects = navEffects,
         ) {
             entry<Route.Tabs> {
