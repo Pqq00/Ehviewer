@@ -49,8 +49,13 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.lerp
+import androidx.compose.ui.unit.offset
 import app.eros.shared.reader.ReaderEngine
 import app.eros.shared.reader.ReaderSession
 import app.eros.shared.reader.ReaderSheet
@@ -465,22 +470,40 @@ private fun ReaderActionBar(session: ReaderSession, backdrop: LayerBackdrop?) {
             GlassNavigationItem(icon = MiuixIcons.Settings, label = "阅读设置", contentDescription = "阅读设置"),
             GlassNavigationItem(icon = MiuixIcons.Refresh, label = session.mode.label, contentDescription = "翻页模式"),
         )
-        GlassNavigationBar(
-            items = items,
-            // 动作栏没有「当前所在页」，指示器涂成透明只保留胶囊本体。
-            selectedIndex = 0,
-            onSelect = { index ->
-                when (index) {
-                    0 -> onShare()
-                    1 -> onSave()
-                    2 -> onSettings()
-                    3 -> onMode()
-                }
-            },
-            backdrop = backdrop,
-            indicatorColor = Color.Transparent,
-            indicatorPressedColor = Color.Transparent,
-        )
+        // 和主底栏（ErosBottomNavBar 的玻璃分支）保持一致：左右各留 24dp、
+        // 底部留白照官方 GlassPage.kt:244-257（安全区 + 8dp，最少 24dp）。
+        val safeBottom = WindowInsets.safeDrawing.asPaddingValues().calculateBottomPadding()
+        val capsuleBottomGap = maxOf(24.dp, safeBottom + 8.dp)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .layout { measurable, constraints ->
+                    val bottom = capsuleBottomGap.roundToPx().coerceIn(0, constraints.maxHeight)
+                    val placeable = measurable.measure(constraints.offset(vertical = -bottom))
+                    layout(placeable.width, placeable.height + bottom) {
+                        placeable.placeRelative(0, 0)
+                    }
+                },
+        ) {
+            GlassNavigationBar(
+                items = items,
+                // 动作栏没有「当前所在页」，指示器涂成透明只保留胶囊本体。
+                selectedIndex = 0,
+                onSelect = { index ->
+                    when (index) {
+                        0 -> onShare()
+                        1 -> onSave()
+                        2 -> onSettings()
+                        3 -> onMode()
+                    }
+                },
+                backdrop = backdrop,
+                indicatorColor = Color.Transparent,
+                indicatorPressedColor = Color.Transparent,
+                defaultWindowInsetsPadding = false,
+                modifier = Modifier.padding(horizontal = 24.dp),
+            )
+        }
     } else {
         val shape = RoundedCornerShape(FloatingToolbarDefaults.CornerRadius)
         val edge = glassEdgeStroke()
