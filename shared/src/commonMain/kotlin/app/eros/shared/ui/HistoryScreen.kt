@@ -154,7 +154,6 @@ fun HistoryScreen(
             Box(
                 Modifier
                     .fillMaxSize()
-                    .then(if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier),
             ) {
                 when {
                     loading -> HistorySkeleton(innerPadding = innerPadding, toolbarInset = toolbarInset)

@@ -216,7 +216,6 @@ fun SettingsScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .then(if (pageBackdrop != null) Modifier.layerBackdrop(pageBackdrop) else Modifier),
     ) {
     val contentPadding = PaddingValues(
         top = innerPadding.calculateTopPadding() + ErosDimens.topContentGap,

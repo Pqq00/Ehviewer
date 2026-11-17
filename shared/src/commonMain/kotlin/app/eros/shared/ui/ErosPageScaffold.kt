@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import top.yukonga.miuix.kmp.blur.layerBackdrop
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -117,8 +118,18 @@ fun ErosPageScaffold(
             // 水平安全区只作用于内容：横屏刘海/折叠屏铰链旁边的空间不用来放东西。
             // 垂直方向不动 —— 顶栏已经自己处理 top inset，底栏各自算底部留白。
             // 玻璃侧栏的让位同样是「内容内缩」：暴露在侧栏下方的是满宽背景与真实内容。
-            Box(Modifier.fillMaxSize().erosPageHorizontalInsets().erosGlassRailStartInset()) {
-                content(innerPadding, scrollBehavior, backdrop)
+            // 记录层（backdrop）必须整宽：侧栏/顶栏的渐变带要在「任意 x」都有采样数据。
+            // 让位（erosGlassRailStartInset）挂在记录层内部的子 Box 上，只影响内容摆放，
+            // 不影响记录范围 —— 对应官方 example 的「内容内缩、pager 保持满宽」。
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .then(if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier)
+                    .erosPageHorizontalInsets(),
+            ) {
+                Box(Modifier.fillMaxSize().erosGlassRailStartInset()) {
+                    content(innerPadding, scrollBehavior, backdrop)
+                }
             }
         }
     }

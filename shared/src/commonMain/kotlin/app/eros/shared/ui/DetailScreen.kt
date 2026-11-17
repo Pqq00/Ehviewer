@@ -435,7 +435,6 @@ fun DetailScreen(
         Box(
             Modifier
                 .fillMaxSize()
-                .then(if (pageBackdrop != null) Modifier.layerBackdrop(pageBackdrop) else Modifier),
         ) {
             when {
                 state.detail == null -> Column(

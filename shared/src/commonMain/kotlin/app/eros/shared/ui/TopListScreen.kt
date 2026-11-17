@@ -380,7 +380,6 @@ fun TopListScreen(
         Box(
             Modifier
                 .fillMaxSize()
-                .then(if (pageBackdrop != null) Modifier.layerBackdrop(pageBackdrop) else Modifier),
         ) {
             PullToRefresh(
                 isRefreshing = state.refreshing,

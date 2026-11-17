@@ -192,7 +192,6 @@ fun DownloadScreen(
             Box(
                 Modifier
                     .fillMaxSize()
-                    .then(if (pageBackdrop != null) Modifier.layerBackdrop(pageBackdrop) else Modifier),
             ) {
             LazyColumn(
                 state = listState,
