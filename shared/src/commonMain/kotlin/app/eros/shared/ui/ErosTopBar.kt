@@ -96,6 +96,7 @@ fun ErosTopBar(
     scrollBehavior: ScrollBehavior,
     backdrop: LayerBackdrop?,
     modifier: Modifier = Modifier,
+    contentModifier: Modifier = Modifier,
     actions: @Composable RowScope.() -> Unit = {},
     navigationIcon: @Composable () -> Unit = {},
     blurStyleOverride: BarBlurStyle? = null,
@@ -131,6 +132,9 @@ fun ErosTopBar(
             progressiveBlur = progressive,
             backdrop = backdrop,
             scrollBehavior = scrollBehavior,
+            // 前景（标题/图标）可以内缩，背景渐变带仍满宽 —— 官方 `contentModifier` 语义：
+            // "Modifier for the foreground bar; the background band remains stationary."
+            contentModifier = contentModifier,
             // 高斯模糊/纯色时底色由外层负责，关掉自带渐变带。
             backgroundAlpha = { if (progressive) 1f else 0f },
             navigationIcon = navigationIcon,

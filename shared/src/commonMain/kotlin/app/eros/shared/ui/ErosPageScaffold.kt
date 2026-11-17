@@ -13,6 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import app.eros.shared.ui.design.erosGlassRailStartInset
 import app.eros.shared.ui.design.erosPageHorizontalInsets
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
@@ -82,6 +83,9 @@ fun ErosPageScaffold(
                 title = title,
                 scrollBehavior = scrollBehavior,
                 backdrop = backdrop,
+                // 玻璃侧栏展开时只把前景（标题/图标/Tab）让开，栏体背景仍满宽，
+                // 这样面板右缘采到的是真实页面，不会出现位移造成的硬边界。
+                contentModifier = Modifier.erosGlassRailStartInset(),
                 navigationIcon = {
                     when {
                         navigationIcon != null -> navigationIcon()
@@ -112,7 +116,8 @@ fun ErosPageScaffold(
         CompositionLocalProvider(LocalPageBackdrop provides backdrop) {
             // 水平安全区只作用于内容：横屏刘海/折叠屏铰链旁边的空间不用来放东西。
             // 垂直方向不动 —— 顶栏已经自己处理 top inset，底栏各自算底部留白。
-            Box(Modifier.fillMaxSize().erosPageHorizontalInsets()) {
+            // 玻璃侧栏的让位同样是「内容内缩」：暴露在侧栏下方的是满宽背景与真实内容。
+            Box(Modifier.fillMaxSize().erosPageHorizontalInsets().erosGlassRailStartInset()) {
                 content(innerPadding, scrollBehavior, backdrop)
             }
         }

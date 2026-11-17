@@ -19,8 +19,9 @@ import app.eros.shared.download.DownloadManager
 import app.eros.shared.ui.ErosAppBottomBar
 import app.eros.shared.ui.ErosGlassNavigationRail
 import app.eros.shared.ui.ErosNavigationRail
-import app.eros.shared.ui.glassRailContentInset
+import app.eros.shared.ui.design.GlassRailStartInset
 import app.eros.shared.ui.rememberGlassNavigationRailStartsExpanded
+import top.yukonga.miuix.kmp.glass.GlassNavigationRailDefaults
 import top.yukonga.miuix.kmp.glass.rememberGlassNavigationRailState
 import app.eros.shared.ui.OverlayState
 import app.eros.shared.ui.rememberUseNavigationRail
@@ -513,11 +514,16 @@ fun App() {
                     .clipToBounds()
                     .then(if (appBarBackdrop != null) Modifier.layerBackdrop(appBarBackdrop) else Modifier),
             ) {
-        Box(
-            Modifier
-                .fillMaxSize()
-                .then(if (useGlassRail) Modifier.glassRailContentInset(glassRailState) else Modifier),
-        ) {
+        // 玻璃侧栏让位：页面内容自己内缩（各页 ErosPageScaffold / 顶栏前景），
+        // 记录层保持整窗、内容坐标 = 窗口坐标 —— 侧栏采样到的就是真实页面。
+        GlassRailStartInset.provider = {
+            if (useGlassRail) {
+                (GlassNavigationRailDefaults.Margin + GlassNavigationRailDefaults.ExpandedWidth + 12.dp) * glassRailState.progress
+            } else {
+                0.dp
+            }
+        }
+        Box(Modifier.fillMaxSize()) {
 
         NavDisplay(
             modifier = Modifier.fillMaxSize(),
