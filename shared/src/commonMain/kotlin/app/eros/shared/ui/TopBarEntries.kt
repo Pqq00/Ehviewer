@@ -11,6 +11,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.TooltipBox
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.glass.ClockOutline
 import top.yukonga.miuix.kmp.icon.glass.ContactsBook
@@ -34,12 +35,14 @@ private val BarIconSpacing = 8.dp
  */
 @Composable
 fun AccountEntry(onOpenAccount: () -> Unit) {
-    ErosBarIcon(onClick = onOpenAccount) {
-        Icon(
-            imageVector = MiuixIcons.Glass.ContactsBook,
-            contentDescription = "账号",
-            modifier = Modifier.size(BarIconSize),
-        )
+    TooltipBox(text = "账号") {
+        ErosBarIcon(onClick = onOpenAccount) {
+            Icon(
+                imageVector = MiuixIcons.Glass.ContactsBook,
+                contentDescription = "账号",
+                modifier = Modifier.size(BarIconSize),
+            )
+        }
     }
 }
 
@@ -51,19 +54,23 @@ fun RowScope.HistoryAndSearchEntries(
     onOpenHistory: () -> Unit,
     onOpenSearch: () -> Unit,
 ) {
-    ErosBarIcon(onClick = onOpenHistory) {
-        Icon(
-            imageVector = MiuixIcons.Glass.ClockOutline,
-            contentDescription = "浏览历史",
-            modifier = Modifier.size(BarIconSize),
-        )
+    TooltipBox(text = "浏览历史") {
+        ErosBarIcon(onClick = onOpenHistory) {
+            Icon(
+                imageVector = MiuixIcons.Glass.ClockOutline,
+                contentDescription = "浏览历史",
+                modifier = Modifier.size(BarIconSize),
+            )
+        }
     }
     Spacer(Modifier.width(BarIconSpacing))
-    ErosBarIcon(onClick = onOpenSearch) {
-        Icon(
-            imageVector = MiuixIcons.Glass.Search,
-            contentDescription = "搜索",
-            modifier = Modifier.size(BarIconSize),
-        )
+    TooltipBox(text = "搜索") {
+        ErosBarIcon(onClick = onOpenSearch) {
+            Icon(
+                imageVector = MiuixIcons.Glass.Search,
+                contentDescription = "搜索",
+                modifier = Modifier.size(BarIconSize),
+            )
+        }
     }
 }

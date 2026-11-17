@@ -3,14 +3,17 @@
 
 package app.eros.shared.ui
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import app.eros.shared.ui.design.erosPageHorizontalInsets
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
@@ -58,6 +61,7 @@ fun ErosPageScaffold(
     tabs: List<String>? = null,
     selectedTab: Int = 0,
     onTabSelected: (Int) -> Unit = {},
+    tabVariant: ErosTabVariant = ErosTabVariant.Segmented,
     content: @Composable (
         innerPadding: PaddingValues,
         scrollBehavior: ScrollBehavior,
@@ -96,6 +100,7 @@ fun ErosPageScaffold(
                             selectedIndex = selectedTab,
                             onSelect = onTabSelected,
                             backdrop = backdrop,
+                            variant = tabVariant,
                             modifier = Modifier.padding(horizontal = 12.dp).padding(top = 6.dp, bottom = 12.dp),
                         )
                     }
@@ -105,7 +110,11 @@ fun ErosPageScaffold(
     ) { innerPadding ->
         // 页面内容层对页面内的玻璃弹层可见（玻璃 sheet / 对话框从这里取采样源）。
         CompositionLocalProvider(LocalPageBackdrop provides backdrop) {
-            content(innerPadding, scrollBehavior, backdrop)
+            // 水平安全区只作用于内容：横屏刘海/折叠屏铰链旁边的空间不用来放东西。
+            // 垂直方向不动 —— 顶栏已经自己处理 top inset，底栏各自算底部留白。
+            Box(Modifier.fillMaxSize().erosPageHorizontalInsets()) {
+                content(innerPadding, scrollBehavior, backdrop)
+            }
         }
     }
 }

@@ -372,6 +372,7 @@ fun TopListScreen(
         tabs = RankPeriod.entries.map { it.first },
         selectedTab = state.periodIndex,
         onTabSelected = { state.selectPeriod(it) },
+        tabVariant = ErosTabVariant.Pill,
     ) { innerPadding, pageScrollBehavior, pageBackdrop ->
         Box(Modifier.fillMaxSize()) {
         // 内容层：整页记进 pageBackdrop，顶栏与浮在网格上方的玻璃时段 Tab 都从这一层采样。

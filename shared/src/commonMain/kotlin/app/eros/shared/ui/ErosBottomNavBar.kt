@@ -43,6 +43,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
+import app.eros.shared.ui.design.erosPageHorizontalInsets
 import androidx.compose.ui.unit.offset
 import androidx.compose.ui.unit.sp
 import app.eros.shared.settings.AppSettings
@@ -290,8 +291,14 @@ fun ErosAppBottomBar(
                     }
                 },
         ) {
-            GlassNavigationBar(
-                items = glassItems,
+            // 官方 GlassPage.kt:288-298 会在可用宽度 > 400dp 时把胶囊收到 344dp；这里把阈值抬到
+            // 600dp：手机（约 440dp 宽）保持满宽胶囊才像 OS4 底栏，只有平板/折叠屏展开才收窄。
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.Center,
+            ) {
+                GlassNavigationBar(
+                    items = glassItems,
                 selectedIndex = glassSelected,
                 onSelect = { index ->
                     if (!transitioning) {
@@ -308,11 +315,23 @@ fun ErosAppBottomBar(
                         }
                     }
                 },
-                backdrop = backdrop,
-                // 官方 AppContent.kt:697-700：玻璃底栏是左右各留 24dp 的胶囊；上下留白见外层包裹。
-                defaultWindowInsetsPadding = false,
-                modifier = modifier.padding(horizontal = 24.dp),
-            )
+                    backdrop = backdrop,
+                    // 官方 AppContent.kt:697-700：玻璃底栏是左右各留 24dp 的胶囊；上下留白见外层包裹。
+                    defaultWindowInsetsPadding = false,
+                    modifier = modifier
+                        .erosPageHorizontalInsets()
+                        .padding(horizontal = 24.dp)
+                        .layout { measurable, constraints ->
+                            val width = if (constraints.hasBoundedWidth && constraints.maxWidth > 600.dp.roundToPx()) {
+                                344.dp.roundToPx().coerceIn(constraints.minWidth, constraints.maxWidth)
+                            } else {
+                                constraints.maxWidth
+                            }
+                            val placeable = measurable.measure(constraints.copy(minWidth = width, maxWidth = width))
+                            layout(placeable.width, placeable.height) { placeable.placeRelative(0, 0) }
+                        },
+                )
+            }
         }
     } else if (AppSettings.navBarStyle == 1) {
         val shape = RoundedCornerShape(top.yukonga.miuix.kmp.basic.FloatingToolbarDefaults.CornerRadius)

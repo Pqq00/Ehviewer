@@ -14,6 +14,7 @@ import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.glass.GlassDropdownPreference
 import top.yukonga.miuix.kmp.glass.GlassFloatingToolbar
 import top.yukonga.miuix.kmp.glass.GlassSegmentedTabRow
+import top.yukonga.miuix.kmp.glass.GlassTabRow
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 
 /**
@@ -27,6 +28,15 @@ val LocalPageBackdrop = staticCompositionLocalOf<LayerBackdrop?> { null }
 
 /** 模糊是否可用：栏模糊开着、且设备支持 RuntimeShader。 */
 private fun glassAvailable(): Boolean = AppSettings.barBlurEnabled && isShaderSupported()
+
+/** 玻璃分段 Tab 的两种形态。 */
+enum class ErosTabVariant {
+    /** 一条轨道 + 滑动指示器（少数互斥选项，如「评论 / 预览」）。 */
+    Segmented,
+
+    /** 每颗 tab 各自一个胶囊，中间没有滑块（平级的多个筛选项）。 */
+    Pill,
+}
 
 /**
  * 分段 Tab。
@@ -46,9 +56,18 @@ fun ErosTabRow(
     onSelect: (Int) -> Unit,
     backdrop: LayerBackdrop? = null,
     modifier: Modifier = Modifier,
+    variant: ErosTabVariant = ErosTabVariant.Segmented,
 ) {
     val glassBackdrop = backdrop.takeIf { it != null && glassAvailable() }
-    if (glassBackdrop != null) {
+    if (glassBackdrop != null && variant == ErosTabVariant.Pill) {
+        GlassTabRow(
+            tabs = tabs,
+            selectedIndex = selectedIndex,
+            onSelect = onSelect,
+            backdrop = glassBackdrop,
+            modifier = modifier,
+        )
+    } else if (glassBackdrop != null) {
         GlassSegmentedTabRow(
             tabs = tabs,
             selectedIndex = selectedIndex,

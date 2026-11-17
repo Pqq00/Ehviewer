@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import app.eros.shared.ui.ErosPageScaffold
+import app.eros.shared.ui.ErosTabVariant
 import top.yukonga.miuix.kmp.basic.ScrollBehavior
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
 
@@ -36,6 +37,7 @@ fun AppScaffold(
     tabs: List<String>? = null,
     selectedTab: Int = 0,
     onTabSelected: (Int) -> Unit = {},
+    tabVariant: ErosTabVariant = ErosTabVariant.Segmented,
     content: @Composable (
         innerPadding: PaddingValues,
         scrollBehavior: ScrollBehavior,
@@ -52,6 +54,7 @@ fun AppScaffold(
         tabs = tabs,
         selectedTab = selectedTab,
         onTabSelected = onTabSelected,
+        tabVariant = tabVariant,
         content = content,
     )
 }
