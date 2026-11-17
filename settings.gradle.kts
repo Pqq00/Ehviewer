@@ -17,20 +17,10 @@ pluginManagement {
 
 dependencyResolutionManagement {
     repositories {
-        // miuix 的快照包（玻璃材质等新模块）只发布在 GitHub Packages 上，需 read:packages 凭据。
-        // 凭据放在 ~/.gradle/gradle.properties 的 gpr.user / gpr.key，不入仓库。
-        maven {
-            name = "miuixSnapshots"
-            url = uri("https://maven.pkg.github.com/compose-miuix-ui/miuix")
+        // miuix 新版本刚发 Central 时 aliyun 镜像通常还要滞后几小时，给这个 group 直连 Central。
+        maven("https://repo1.maven.org/maven2") {
+            name = "miuixCentral"
             content { includeGroup("top.yukonga.miuix.kmp") }
-            credentials {
-                username = providers.gradleProperty("gpr.user")
-                    .orElse(System.getenv("GITHUB_ACTOR") ?: "")
-                    .get()
-                password = providers.gradleProperty("gpr.key")
-                    .orElse(System.getenv("GITHUB_TOKEN") ?: "")
-                    .get()
-            }
         }
         maven("https://maven.aliyun.com/repository/public")
         maven("https://maven.aliyun.com/repository/google")
