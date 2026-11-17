@@ -12,8 +12,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.icon.MiuixIcons
-import top.yukonga.miuix.kmp.icon.extended.Contacts
 import top.yukonga.miuix.kmp.icon.glass.ClockOutline
+import top.yukonga.miuix.kmp.icon.glass.ContactsBook
 import top.yukonga.miuix.kmp.icon.glass.Search
 
 /**
@@ -36,7 +36,7 @@ private val BarIconSpacing = 8.dp
 fun AccountEntry(onOpenAccount: () -> Unit) {
     ErosBarIcon(onClick = onOpenAccount) {
         Icon(
-            imageVector = MiuixIcons.Contacts,
+            imageVector = MiuixIcons.Glass.ContactsBook,
             contentDescription = "账号",
             modifier = Modifier.size(BarIconSize),
         )
