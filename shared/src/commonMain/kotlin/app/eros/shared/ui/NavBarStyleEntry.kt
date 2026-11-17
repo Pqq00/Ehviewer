@@ -10,6 +10,7 @@ enum class NavBarStyleEntry(val label: String) {
     FIXED("固定"),
     FLOATING("悬浮"),
     IOS("iOS"),
+    GLASS("玻璃"),
 }
 
 /** 导航项显示模式。 */

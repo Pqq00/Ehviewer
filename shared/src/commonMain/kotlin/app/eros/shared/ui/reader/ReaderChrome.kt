@@ -60,7 +60,6 @@ import app.eros.shared.ui.barBlurColors
 import app.eros.shared.ui.currentBarBlurStyle
 import app.eros.shared.ui.effect.erosGlassBlur
 import app.eros.shared.ui.effect.erosProgressiveGlassBlur
-import app.eros.shared.ui.effect.rememberGlassHighlight
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import top.yukonga.miuix.kmp.basic.FloatingNavigationBar
@@ -127,13 +126,11 @@ private fun Modifier.readerFloatingSurface(
     if (backdrop == null) {
         return background(MiuixTheme.colorScheme.surfaceContainer)
     }
-    val highlight = rememberGlassHighlight()
     return erosGlassBlur(
         backdrop = backdrop,
         shape = shape,
         blurRadius = 25f,
         colors = barBlurColors(0.6f, useSurfaceContainer = true),
-        highlight = highlight,
     ).background(Color.Transparent)
 }
 
@@ -455,7 +452,6 @@ private fun ReaderActionBar(session: ReaderSession, backdrop: LayerBackdrop?) {
         }
     } else {
         val shape = RoundedCornerShape(FloatingToolbarDefaults.CornerRadius)
-        val highlight = rememberGlassHighlight()
         FloatingNavigationBar(
             modifier = if (backdrop != null) {
                 Modifier.erosGlassBlur(
@@ -463,7 +459,6 @@ private fun ReaderActionBar(session: ReaderSession, backdrop: LayerBackdrop?) {
                     shape = shape,
                     blurRadius = 25f,
                     colors = barBlurColors(0.6f, useSurfaceContainer = true),
-                    highlight = highlight,
                 )
             } else {
                 Modifier

@@ -41,7 +41,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.eros.shared.settings.AppSettings
 import app.eros.shared.ui.effect.erosGlassBlur
-import app.eros.shared.ui.effect.rememberGlassHighlight
 import kotlin.math.max
 import kotlin.math.roundToInt
 import top.yukonga.miuix.kmp.basic.Badge
@@ -54,6 +53,8 @@ import top.yukonga.miuix.kmp.basic.NavigationBarDisplayMode
 import top.yukonga.miuix.kmp.basic.NavigationBarItem
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
+import top.yukonga.miuix.kmp.glass.GlassNavigationBar
+import top.yukonga.miuix.kmp.glass.GlassNavigationItem
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Download
 import top.yukonga.miuix.kmp.icon.extended.Favorites
@@ -218,9 +219,74 @@ fun ErosAppBottomBar(
             // 详情态的三项与「悬浮」样式同款，用它的自然宽度对齐胶囊宽度与位置。
             measureContent = if (isDetail) detailContent else null,
         )
+    } else if (AppSettings.navBarStyle == 3) {
+        // 玻璃胶囊底栏：直接用 miuix 的 GlassNavigationBar（OS4 材质），
+        // 详情态换成「收藏 / 下载 / 阅读」三项，指示器跟随当前状态。
+        val glassItems: List<GlassNavigationItem>
+        val glassSelected: Int
+        if (isDetail) {
+            glassItems = listOf(
+                GlassNavigationItem(
+                    icon = MiuixIcons.Favorites,
+                    label = "收藏",
+                    contentDescription = "收藏",
+                    badge = detailFavoriteCount.takeIf { it > 0 }?.let { count ->
+                        { Badge { Text(count.toString()) } }
+                    },
+                ),
+                GlassNavigationItem(
+                    icon = MiuixIcons.Download,
+                    label = detailDownloadLabel,
+                    contentDescription = detailDownloadLabel,
+                ),
+                GlassNavigationItem(
+                    icon = MiuixIcons.Play,
+                    label = "阅读",
+                    contentDescription = "阅读",
+                    badge = detailReadPage?.takeIf { it > 0 }?.let { page ->
+                        { Badge { Text(page.toString()) } }
+                    },
+                ),
+            )
+            glassSelected = when {
+                detailFavorited -> 0
+                detailDownloadActive -> 1
+                detailReadStarted -> 2
+                else -> 0
+            }
+        } else {
+            glassItems = AppTabs.map { tab ->
+                GlassNavigationItem(
+                    icon = tab.icon,
+                    label = tab.title,
+                    contentDescription = tab.title,
+                )
+            }
+            glassSelected = selectedTab
+        }
+        GlassNavigationBar(
+            items = glassItems,
+            selectedIndex = glassSelected,
+            onSelect = { index ->
+                if (!transitioning) {
+                    if (isDetail) {
+                        if (detailEnabled) {
+                            when (index) {
+                                0 -> onDetailFavorite()
+                                1 -> onDetailDownload()
+                                else -> onDetailRead()
+                            }
+                        }
+                    } else {
+                        onSelectTab(index)
+                    }
+                }
+            },
+            backdrop = backdrop,
+            modifier = modifier,
+        )
     } else if (AppSettings.navBarStyle == 1) {
         val shape = RoundedCornerShape(top.yukonga.miuix.kmp.basic.FloatingToolbarDefaults.CornerRadius)
-        val highlight = rememberGlassHighlight()
         FloatingNavigationBar(
             modifier = modifier.then(
                 if (backdrop != null) {
@@ -229,7 +295,6 @@ fun ErosAppBottomBar(
                         shape = shape,
                         blurRadius = 25f,
                         colors = barBlurColors(0.6f, useSurfaceContainer = true),
-                        highlight = highlight,
                     )
                 } else {
                     Modifier
@@ -356,9 +421,9 @@ private fun NavigationItemFor(
     val unselected = MiuixTheme.colorScheme.onSurfaceContainer
     val contentColor = when {
         !enabled -> unselected.copy(alpha = unselected.alpha * 0.3f)
-        selected && pressed -> tint.copy(alpha = tint.alpha * FloatingNavigationBarDefaults.SelectedPressedAlpha)
+        selected && pressed -> tint.copy(alpha = tint.alpha * NavigationBarDefaults.SelectedPressedAlpha)
         selected -> tint
-        pressed -> unselected.copy(alpha = unselected.alpha * FloatingNavigationBarDefaults.UnselectedPressedAlpha)
+        pressed -> unselected.copy(alpha = unselected.alpha * NavigationBarDefaults.UnselectedPressedAlpha)
         else -> unselected.copy(alpha = unselected.alpha * FloatingNavigationBarDefaults.UnselectedAlpha)
     }
     val iconModifier = Modifier.size(IosNavIconSize)

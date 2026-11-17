@@ -3,7 +3,10 @@ agp = "9.4.1"
 kotlin = "2.4.20"
 compose = "1.12.0"
 activityCompose = "1.13.0"
-miuix = "0.9.4"
+# miuix main 分支的快照版本（发布在 GitHub Packages，见 settings.gradle.kts）。
+# 3a980f7c 是 miuix main 在 2026-11-17 的提交，含 miuix-material / miuix-glass / miuix-glass-icons。
+# 升级方式：把它换成 maven-metadata.xml 里的新哈希，同时确认 11 个模块都有该版本。
+miuix = "0.9.4-3a980f7c-SNAPSHOT"
 lifecycle = "2.11.0"
 coil = "3.6.3"
 coreKtx = "1.13.1"
@@ -16,6 +19,9 @@ miuix-icons = { module = "top.yukonga.miuix.kmp:miuix-icons", version.ref = "miu
 miuix-squircle = { module = "top.yukonga.miuix.kmp:miuix-squircle", version.ref = "miuix" }
 miuix-blur = { module = "top.yukonga.miuix.kmp:miuix-blur", version.ref = "miuix" }
 miuix-nav = { module = "top.yukonga.miuix.kmp:miuix-nav", version.ref = "miuix" }
+miuix-material = { module = "top.yukonga.miuix.kmp:miuix-material", version.ref = "miuix" }
+miuix-glass = { module = "top.yukonga.miuix.kmp:miuix-glass", version.ref = "miuix" }
+miuix-glass-icons = { module = "top.yukonga.miuix.kmp:miuix-glass-icons", version.ref = "miuix" }
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activityCompose" }
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }

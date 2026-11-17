@@ -696,7 +696,7 @@ private fun Tabs(
     onEditHomeEntry: (String?) -> Unit,
 ) {
     val current = selected
-    // 1 悬浮、2 iOS 风格都是悬浮底栏，内容需额外让出底部空间
+    // 1 悬浮、2 iOS、3 玻璃都是悬浮底栏，内容需额外让出底部空间
     val floatingBar = AppSettings.navBarStyle != 0
     // 宽屏下导航在左侧 rail 里，页面底部不再需要给底栏留位置
     val barBottomInset = if (rememberUseNavigationRail()) 0.dp else 96.dp

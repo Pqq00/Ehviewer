@@ -105,7 +105,7 @@ data class Settings(
         galleryTitleMode = galleryTitleMode.coerceIn(0, 1),
         cardStyle = if (cardStyle == "download") "download" else "classic",
         barBlurStyle = barBlurStyle.coerceIn(0, 1),
-        navBarStyle = navBarStyle.coerceIn(0, 2),
+        navBarStyle = navBarStyle.coerceIn(0, 3),
         navBarMode = navBarMode.coerceIn(0, 2),
         readerPreloadPages = readerPreloadPages.coerceIn(0, 10),
         pageCacheLimitMb = pageCacheLimitMb.coerceIn(100, 2000),

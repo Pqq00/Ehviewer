@@ -3,61 +3,50 @@
 
 package app.eros.shared.ui.effect
 
-import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shape
 import top.yukonga.miuix.kmp.blur.Backdrop
 import top.yukonga.miuix.kmp.blur.BlurColors
 import top.yukonga.miuix.kmp.blur.ProgressiveBlur
-import top.yukonga.miuix.kmp.blur.RuntimeShader
-import top.yukonga.miuix.kmp.blur.asBrush
-import top.yukonga.miuix.kmp.blur.highlight.Highlight
-import top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported
 import top.yukonga.miuix.kmp.blur.progressiveTextureBlur
 import top.yukonga.miuix.kmp.blur.textureBlur
+import top.yukonga.miuix.kmp.material.RuntimeShader
+import top.yukonga.miuix.kmp.material.asBrush
+import top.yukonga.miuix.kmp.material.isRuntimeShaderSupported
 
 /*
  * 全仓与 miuix 玻璃/着色器 API 的唯一直连点。
  *
- * 当前依赖 0.9.4。miuix main（0.10 起）的改动：
+ * 当前依赖 miuix main 的快照（0.9.4-3a980f7c-SNAPSHOT，见 settings.gradle.kts）。
+ * 相对 0.9.4 的变化：
  *   1. RuntimeShader / asBrush / isRuntimeShaderSupported 从 blur 移到 material；
- *   2. 删除 blur.highlight.*（Highlight / HighlightStyle）与 textureBlur 的 highlight 参数，
- *      边光改为 material 的 Modifier.edgeStroke(...) / EdgeStroke；
- *   3. 新增 miuix-material / miuix-glass / miuix-glass-icons 三个发布物。
+ *   2. 删除 blur.highlight.*（Highlight / HighlightStyle），textureBlur 与
+ *      progressiveTextureBlur 的 highlight 参数一并移除，边光改为 material 的
+ *      Modifier.edgeStroke(...) / EdgeStroke；
+ *   3. miuix-shader 模块被并入 miuix-material。
  *
- * 升级时只改本文件即可，界面代码无需改动。
+ * 所以界面代码只依赖本文件：以后 miuix 再挪包，改这里即可。
  */
-
-/** 边光预设。0.9.4：`blur.highlight.Highlight`；0.10 起换成 `material.EdgeStroke`。 */
-typealias GlassHighlight = Highlight
 
 /** 是否支持 RuntimeShader（Android 13+ 才有真实效果，低版本自动跳过）。 */
 fun isShaderSupported(): Boolean = isRuntimeShaderSupported()
 
-/** 深/浅色各一套中等强度边光。 */
-@Composable
-fun rememberGlassHighlight(): GlassHighlight {
-    val dark = isSystemInDarkTheme()
-    return remember(dark) {
-        if (dark) Highlight.GlassStrokeMiddleDark else Highlight.GlassStrokeMiddleLight
-    }
-}
-
-/** 玻璃模糊；传 [highlight] 时描一圈边光。 */
+/**
+ * 玻璃模糊。
+ *
+ * 0.9.4 时这里还接受 `highlight` 参数描边光；新版 miuix 把边光独立成
+ * `material.Modifier.edgeStroke(...)`，不在模糊里画，需要时另行叠加。
+ */
 fun Modifier.erosGlassBlur(
     backdrop: Backdrop,
     shape: Shape,
     blurRadius: Float,
     colors: BlurColors,
-    highlight: GlassHighlight? = null,
 ): Modifier = textureBlur(
     backdrop = backdrop,
     shape = shape,
     blurRadius = blurRadius,
     colors = colors,
-    highlight = highlight,
 )
 
 /** 渐变玻璃模糊（顶栏/底栏按方向淡出）。 */

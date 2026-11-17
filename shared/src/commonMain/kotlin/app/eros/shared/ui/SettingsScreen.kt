@@ -270,8 +270,8 @@ fun SettingsScreen(
                     selectedIndex = AppSettings.navBarStyle,
                     onSelectedIndexChange = { AppSettings.navBarStyle = it },
                 )
-                // 「导航项显示」只对固定/悬浮两种原生样式生效；iOS 样式的图标与文字恒定显示
-                AnimatedVisibility(visible = AppSettings.navBarStyle != 2) {
+                // 「导航项显示」只对固定/悬浮两种原生样式生效；iOS 与玻璃样式的图标与文字恒定显示
+                AnimatedVisibility(visible = AppSettings.navBarStyle != 2 && AppSettings.navBarStyle != 3) {
                     OverlayDropdownPreference(
                         title = "导航项显示",
                         items = NavBarModeEntry.entries.map { it.label },

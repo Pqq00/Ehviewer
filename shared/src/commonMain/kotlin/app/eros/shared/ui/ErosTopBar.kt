@@ -4,32 +4,28 @@
 package app.eros.shared.ui
 
 import androidx.compose.foundation.background
-
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import app.eros.shared.settings.AppSettings
 import app.eros.shared.ui.effect.erosGlassBlur
-import app.eros.shared.ui.effect.erosProgressiveGlassBlur
 import app.eros.shared.ui.effect.isShaderSupported
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
-import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.ScrollBehavior
-import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.blur.BlendColorEntry
 import top.yukonga.miuix.kmp.blur.BlurColors
 import top.yukonga.miuix.kmp.blur.BlurDefaults
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
-import top.yukonga.miuix.kmp.blur.ProgressiveBlur
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
+import top.yukonga.miuix.kmp.glass.GlassTopAppBar
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
@@ -61,10 +57,16 @@ fun rememberBarBackdrop(): LayerBackdrop? {
 }
 
 /**
- * 全应用统一的顶栏：模糊/纯色 + 大标题折叠 + 可选分隔线。
+ * 全应用统一的顶栏，基于 miuix `GlassTopAppBar`（OS4 玻璃材质）。
  *
- * 与官方 `BlurredBar + AdaptiveTopAppBar` 对应；各页面在自己的 Scaffold 里用它，
- * 这样切换 tab 时整页（含顶栏）一起滑动。
+ * 三种状态：
+ *  - 渐进模糊（`BarBlurStyle.PROGRESSIVE` + backdrop 可用）：交给 `GlassTopAppBar` 的
+ *    `progressiveBlur`，它自己合成「页面内容 + 渐变模糊带」，滚动时浮出。
+ *  - 高斯模糊（`BarBlurStyle.GAUSSIAN` + backdrop 可用）：外层套整块 `erosGlassBlur`，
+ *    并关掉 `GlassTopAppBar` 自带的渐变带（`backgroundAlpha = { 0f }`），避免双份底色。
+ *  - 纯色（backdrop 为 null）：同一个 `GlassTopAppBar`，只铺主题 surface 底色 + 分隔线。
+ *
+ * 标题折叠、大标题、滚动联动仍由 `GlassTopAppBar` 内部的 `BlurTopAppBar` 负责。
  */
 @Composable
 fun ErosTopBar(
@@ -76,50 +78,45 @@ fun ErosTopBar(
     navigationIcon: @Composable () -> Unit = {},
     blurStyleOverride: BarBlurStyle? = null,
 ) {
-    val effectiveBackdrop = backdrop
-    val useBlur = effectiveBackdrop != null
     val blurStyle = blurStyleOverride ?: currentBarBlurStyle()
-    Box(
+    val useBlur = backdrop != null
+    val progressive = useBlur && blurStyle == BarBlurStyle.PROGRESSIVE
+
+    Column(
         modifier = modifier
             .fillMaxWidth()
             .then(
-                if (useBlur) {
-                    if (blurStyle == BarBlurStyle.PROGRESSIVE) {
-                        Modifier.erosProgressiveGlassBlur(
-                            backdrop = effectiveBackdrop,
-                            shape = RectangleShape,
-                            gradient = ProgressiveBlur.Top.copy(curve = 1.8f),
-                            blurRadius = 14f,
-                            colors = barBlurColors(0.5f),
-                        )
-                    } else {
-                        Modifier.erosGlassBlur(
-                            backdrop = effectiveBackdrop,
-                            shape = RectangleShape,
-                            blurRadius = 25f,
-                            colors = barBlurColors(),
-                        )
-                    }
-                } else {
-                    Modifier
+                when {
+                    progressive -> Modifier
+                    useBlur -> Modifier.erosGlassBlur(
+                        backdrop = backdrop,
+                        shape = RectangleShape,
+                        blurRadius = 25f,
+                        colors = barBlurColors(),
+                    )
+                    else -> Modifier.background(MiuixTheme.colorScheme.surface)
                 },
             )
-            .background(if (useBlur) Color.Transparent else MiuixTheme.colorScheme.surface)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
                 onClick = {},
             ),
     ) {
-        TopAppBar(
+        GlassTopAppBar(
             title = title,
-            color = Color.Transparent,
+            progressiveBlur = progressive,
+            backdrop = backdrop,
             scrollBehavior = scrollBehavior,
+            // 高斯模糊/纯色时底色由外层负责，关掉自带渐变带。
+            backgroundAlpha = { if (progressive) 1f else 0f },
             navigationIcon = navigationIcon,
             actions = actions,
         )
         if (!useBlur) {
-            HorizontalDivider()
+            Box(modifier = Modifier.fillMaxWidth()) {
+                HorizontalDivider()
+            }
         }
     }
 }
