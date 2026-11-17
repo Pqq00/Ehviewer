@@ -66,7 +66,6 @@ import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.Checkbox
 import top.yukonga.miuix.kmp.basic.FloatingToolbar
 import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.LinearProgressIndicator
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.TabRow
@@ -160,7 +159,7 @@ fun DownloadScreen(
         title = if (selecting) "已选 ${selected.size} 项" else "下载",
         navigationIcon = if (selecting) {
             {
-                IconButton(onClick = { exitSelection() }) {
+                ErosBarIcon(onClick = { exitSelection() }) {
                     Icon(MiuixIcons.Close, contentDescription = "退出多选")
                 }
             }
@@ -169,7 +168,7 @@ fun DownloadScreen(
         },
         actions = {
             if (selecting) {
-                IconButton(onClick = { toggleAll() }) {
+                ErosBarIcon(onClick = { toggleAll() }) {
                     Icon(
                         MiuixIcons.SelectAll,
                         contentDescription = if (allSelected) "取消全选" else "全选",

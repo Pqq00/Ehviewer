@@ -18,6 +18,7 @@ import app.eros.shared.settings.AppSettings
 import app.eros.shared.ui.effect.erosGlassBlur
 import app.eros.shared.ui.effect.isShaderSupported
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
+import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.ScrollBehavior
 import top.yukonga.miuix.kmp.blur.BlendColorEntry
 import top.yukonga.miuix.kmp.blur.BlurColors
@@ -25,6 +26,7 @@ import top.yukonga.miuix.kmp.blur.BlurDefaults
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
+import top.yukonga.miuix.kmp.glass.GlassIconButton
 import top.yukonga.miuix.kmp.glass.GlassTopAppBar
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -53,6 +55,26 @@ fun rememberBarBackdrop(): LayerBackdrop? {
     return rememberLayerBackdrop {
         drawRect(surface)
         drawContent()
+    }
+}
+
+/**
+ * 顶栏图标按钮：模糊可用时用 miuix `GlassIconButton`（OS4 圆形玻璃，自动继承所在
+ * `GlassTopAppBar` 的 backdrop 与材质、以及按下时的缩放反馈），否则退回普通 `IconButton`。
+ *
+ * 只在 [ErosTopBar] 的 `navigationIcon` / `actions` 槽里使用。普通页面里的
+ * `SmallTopAppBar`（过滤规则、网络日志、关注标签）保持裸图标，不在本函数覆盖范围。
+ */
+@Composable
+fun ErosBarIcon(
+    onClick: () -> Unit,
+    enabled: Boolean = true,
+    content: @Composable () -> Unit,
+) {
+    if (enabled && AppSettings.barBlurEnabled && isShaderSupported()) {
+        GlassIconButton(onClick = onClick, content = content)
+    } else {
+        IconButton(onClick = onClick, enabled = enabled) { content() }
     }
 }
 

@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.ScrollBehavior
@@ -76,7 +75,7 @@ fun ErosPageScaffold(
                 navigationIcon = {
                     when {
                         navigationIcon != null -> navigationIcon()
-                        onBack != null -> IconButton(onClick = onBack) {
+                        onBack != null -> ErosBarIcon(onClick = onBack) {
                             Icon(imageVector = MiuixIcons.Back, contentDescription = "返回")
                         }
                     }

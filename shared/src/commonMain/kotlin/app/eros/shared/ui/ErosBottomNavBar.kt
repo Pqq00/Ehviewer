@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.eros.shared.settings.AppSettings
 import app.eros.shared.ui.effect.erosGlassBlur
+import app.eros.shared.ui.effect.glassEdgeStroke
 import kotlin.math.max
 import kotlin.math.roundToInt
 import top.yukonga.miuix.kmp.basic.Badge
@@ -63,6 +64,7 @@ import top.yukonga.miuix.kmp.icon.extended.Home
 import top.yukonga.miuix.kmp.icon.extended.Play
 import top.yukonga.miuix.kmp.icon.extended.Settings
 import top.yukonga.miuix.kmp.icon.extended.TopDownloads
+import top.yukonga.miuix.kmp.material.edgeStroke
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** 底部导航项。 */
@@ -290,12 +292,14 @@ fun ErosAppBottomBar(
         FloatingNavigationBar(
             modifier = modifier.then(
                 if (backdrop != null) {
-                    Modifier.erosGlassBlur(
-                        backdrop = backdrop,
-                        shape = shape,
-                        blurRadius = 25f,
-                        colors = barBlurColors(0.6f, useSurfaceContainer = true),
-                    )
+                    Modifier
+                        .erosGlassBlur(
+                            backdrop = backdrop,
+                            shape = shape,
+                            blurRadius = 25f,
+                            colors = barBlurColors(0.6f, useSurfaceContainer = true),
+                        )
+                        .edgeStroke(shape = shape, stroke = glassEdgeStroke())
                 } else {
                     Modifier
                 },

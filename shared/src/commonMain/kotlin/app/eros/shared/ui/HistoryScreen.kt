@@ -54,7 +54,6 @@ import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.Checkbox
 import top.yukonga.miuix.kmp.basic.FloatingToolbar
 import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.icon.MiuixIcons
@@ -115,7 +114,7 @@ fun HistoryScreen(
     // 多选态：左上角关闭、右上角全选/取消全选，删除放在底部 FloatingToolbar。
     val navigationIcon: (@Composable () -> Unit)? = if (selecting) {
         {
-            IconButton(onClick = { exitSelection() }) {
+            ErosBarIcon(onClick = { exitSelection() }) {
                 Icon(imageVector = MiuixIcons.Close, contentDescription = "退出多选")
             }
         }
@@ -135,7 +134,7 @@ fun HistoryScreen(
                 if (selecting) {
                     // 一个图标两种语义：点一次全选，再点一次取消全选（清空后自动退出多选，
                     // 与「取消掉最后一条卡片」的行为一致）。
-                    IconButton(
+                    ErosBarIcon(
                         onClick = {
                             if (allSelected) {
                                 exitSelection()

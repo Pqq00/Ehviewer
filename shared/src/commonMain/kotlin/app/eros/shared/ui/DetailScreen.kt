@@ -91,7 +91,6 @@ import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.TabRow
 import top.yukonga.miuix.kmp.basic.Text
@@ -417,7 +416,7 @@ fun DetailScreen(
         actions = {
             val detail = state.detail
             if (detail != null) {
-                IconButton(
+                ErosBarIcon(
                     onClick = {
                         // 只分享链接，标题由接收方自己解析，避免各平台拼出难看的纯文本。
                         app.eros.shared.platformShare(

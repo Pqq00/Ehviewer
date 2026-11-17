@@ -6,7 +6,6 @@ package app.eros.shared.ui
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.runtime.Composable
 import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Contacts
 import top.yukonga.miuix.kmp.icon.extended.Recent
@@ -20,7 +19,7 @@ import top.yukonga.miuix.kmp.icon.extended.Search
  */
 @Composable
 fun AccountEntry(onOpenAccount: () -> Unit) {
-    IconButton(onClick = onOpenAccount) {
+    ErosBarIcon(onClick = onOpenAccount) {
         Icon(imageVector = MiuixIcons.Contacts, contentDescription = "账号")
     }
 }
@@ -33,10 +32,10 @@ fun RowScope.HistoryAndSearchEntries(
     onOpenHistory: () -> Unit,
     onOpenSearch: () -> Unit,
 ) {
-    IconButton(onClick = onOpenHistory) {
+    ErosBarIcon(onClick = onOpenHistory) {
         Icon(imageVector = MiuixIcons.Recent, contentDescription = "浏览历史")
     }
-    IconButton(onClick = onOpenSearch) {
+    ErosBarIcon(onClick = onOpenSearch) {
         Icon(imageVector = MiuixIcons.Search, contentDescription = "搜索")
     }
 }

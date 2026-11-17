@@ -204,7 +204,7 @@ fun AccountScreen(
                 scrollBehavior = pageScrollBehavior,
                 backdrop = barBackdrop,
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    ErosBarIcon(onClick = onBack) {
                         Icon(imageVector = MiuixIcons.Back, contentDescription = "返回")
                     }
                 },

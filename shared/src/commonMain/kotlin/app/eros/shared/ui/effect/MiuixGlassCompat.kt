@@ -3,16 +3,21 @@
 
 package app.eros.shared.ui.effect
 
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.luminance
 import top.yukonga.miuix.kmp.blur.Backdrop
 import top.yukonga.miuix.kmp.blur.BlurColors
 import top.yukonga.miuix.kmp.blur.ProgressiveBlur
 import top.yukonga.miuix.kmp.blur.progressiveTextureBlur
 import top.yukonga.miuix.kmp.blur.textureBlur
+import top.yukonga.miuix.kmp.material.EdgeStroke
+import top.yukonga.miuix.kmp.material.GlassEdgeStrokes
 import top.yukonga.miuix.kmp.material.RuntimeShader
 import top.yukonga.miuix.kmp.material.asBrush
 import top.yukonga.miuix.kmp.material.isRuntimeShaderSupported
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /*
  * 全仓与 miuix 玻璃/着色器 API 的唯一直连点。
@@ -69,3 +74,14 @@ fun glassRuntimeShader(shaderCode: String): RuntimeShader = RuntimeShader(shader
 
 /** RuntimeShader 转成可用的 Brush。 */
 fun RuntimeShader.asGlassBrush() = asBrush()
+
+/**
+ * 玻璃边光：深浅色各取一档。
+ *
+ * 0.9.4 里这圈光由 `textureBlur(..., highlight = ...)` 顺手画掉；新版拆成独立的
+ * `Modifier.edgeStroke(shape, stroke)`，调用方在模糊之后叠加一次即可。
+ */
+@Composable
+fun glassEdgeStroke(): EdgeStroke =
+    if (MiuixTheme.colorScheme.background.luminance() < 0.5f) GlassEdgeStrokes.MiddleDark
+    else GlassEdgeStrokes.MiddleLight
