@@ -238,6 +238,28 @@ private fun readFileLogTail(maxBytes: Int = 200 * 1024): String {
     return if (old.isBlank()) current else old + current
 }
 
+/** 行首的 `HH:mm:ss.SSS`（内存缓冲与文件日志用同一套格式）。 */
+private val LOG_TIMESTAMP = Regex("""^\d{2}:\d{2}:\d{2}\.\d{3}""")
+
+/**
+ * 文件日志尾部去掉「已经被内存缓冲那段覆盖」的部分。
+ * 文件是环形缓冲，里面天然包含刚刚还在内存里的行，两段都导出会让同一批内容出现两遍
+ * （实测占一次导出体积的 15%）。这里以内存段第一行的时间戳为界，只补更早的历史。
+ */
+private fun readFileLogTailWithoutOverlap(memoryLog: String): String {
+    val tail = readFileLogTail()
+    if (tail.isBlank()) return tail
+    val boundary = memoryLog.lineSequence()
+        .firstOrNull { LOG_TIMESTAMP.containsMatchIn(it) }
+        ?.take(12)
+        ?: return tail
+    val kept = tail.lineSequence().filter { line ->
+        val stamp = line.take(12)
+        !LOG_TIMESTAMP.containsMatchIn(line) || stamp < boundary
+    }
+    return kept.joinToString("\n")
+}
+
 /** 「启动 20:45:06 · 已运行 3h17m」——判断日志覆盖不到整晚时最直观的一行。 */
 private fun processUptimeText(): String {
     val elapsed = SystemClock.elapsedRealtime() - Process.getStartElapsedRealtime()
@@ -252,6 +274,7 @@ private fun processUptimeText(): String {
 private fun buildBundle(): String {
     val now = Date()
     val crash = latestCrashFile()
+    val memoryLog = AppLog.dump()
 
     // 头部只留关键信息：生成时间、版本、系统、登录与里站、进程启动时间与运行时长。
     // 设备名、ABI、屏幕、语言时区、主题导航这些对定位问题没什么帮助，反而让头部变长。
@@ -267,12 +290,12 @@ private fun buildBundle(): String {
         appendLine("# ${processUptimeText()}")
         appendLine()
         appendLine("## 最近运行日志")
-        appendLine(AppLog.dump())
+        appendLine(memoryLog)
         appendLine()
-        appendLine("## 文件日志（尾部）")
-        appendLine(readFileLogTail())
+        appendLine("## 文件日志（尾部，已去掉与上一段重叠的部分）")
+        appendLine(readFileLogTailWithoutOverlap(memoryLog))
         appendLine()
-        appendLine("## 网络记录")
+        appendLine("## 网络请求记录")
         appendLine(
             if (AppSettings.netLogEnabled) {
                 NetLog.dump()

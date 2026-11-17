@@ -18,7 +18,7 @@ import java.util.Locale
  */
 object NetLog {
 
-    const val MAX_ENTRIES = 500
+    const val MAX_ENTRIES = 200
 
     @Volatile
     var enabled: Boolean = false

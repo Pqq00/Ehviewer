@@ -326,7 +326,6 @@ fun SearchScreen(
         BoxWithConstraints(
             Modifier
                 .fillMaxSize()
-                .then(if (pageBackdrop != null) Modifier.layerBackdrop(pageBackdrop) else Modifier),
         ) {
             // 与首页同构：网格从 y=0 铺满，顶栏与导航栏的高度只体现在 contentPadding 里，
             // 这样滚动时卡片会从模糊顶栏后面滑过，栏模糊才有内容可采样。

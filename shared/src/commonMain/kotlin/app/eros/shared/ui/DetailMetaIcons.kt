@@ -17,17 +17,17 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.icon.MiuixIcons
-import top.yukonga.miuix.kmp.icon.extended.Favorites
 import top.yukonga.miuix.kmp.icon.extended.Folder
+import top.yukonga.miuix.kmp.icon.extended.Favorites
 import top.yukonga.miuix.kmp.icon.extended.Notes
-import top.yukonga.miuix.kmp.icon.extended.Translate
+import top.yukonga.miuix.kmp.icon.glass.GlobalVpn
+import top.yukonga.miuix.kmp.icon.glass.StarOutline
 
 /**
  * 详情页元信息用的小图标。
  *
- * 语言 / 收藏数 / 页数 / 体积 / 日期直接用 miuix 扩展图标，与 App 其它地方的线性风格一致；
- * 评分在 miuix-icons 0.9.4 的 156 个扩展图标里没有对应图形（无 star），仍用 Canvas 画，
- * 且与下方 [RatingStars] 共用同一套画法。
+ * 语言（GlobalVpn）/ 评分（StarOutline）用 miuix 玻璃图标集，其余沿用 miuix 扩展图标；
+ * 日期图标（Clock）在扩展集里没有纯线框时钟，仍用 Canvas 画，与下方 [RatingStars] 同一套画法。
  */
 internal enum class MetaIconKind { Globe, Disk, Star, Heart, Doc, Clock }
 
@@ -39,11 +39,12 @@ internal fun MetaIcon(
     size: Dp = 15.dp,
 ) {
     val vector = when (kind) {
-        MetaIconKind.Globe -> MiuixIcons.Translate
+        MetaIconKind.Globe -> MiuixIcons.Glass.GlobalVpn
+        MetaIconKind.Star -> MiuixIcons.Glass.StarOutline
         MetaIconKind.Heart -> MiuixIcons.Favorites
         MetaIconKind.Doc -> MiuixIcons.Notes
         MetaIconKind.Disk -> MiuixIcons.Folder
-        MetaIconKind.Clock, MetaIconKind.Star -> null
+        MetaIconKind.Clock -> null
     }
     if (vector != null) {
         Icon(
@@ -57,7 +58,6 @@ internal fun MetaIcon(
     Canvas(modifier = modifier.then(Modifier.size(size))) {
         when (kind) {
             MetaIconKind.Clock -> drawClock(tint)
-            MetaIconKind.Star -> drawStar(tint, 1f)
             else -> Unit
         }
     }
@@ -100,10 +100,6 @@ private fun DrawScope.drawClock(color: Color) {
     drawCircle(color, r, c, style = Stroke(sw))
     drawLine(color, c, Offset(c.x, c.y - r * 0.55f), sw)
     drawLine(color, c, Offset(c.x + r * 0.42f, c.y + r * 0.2f), sw)
-}
-
-private fun DrawScope.drawStar(color: Color, fraction: Float) {
-    drawStarPath(color, 0f, 0f, size.width, size.height)
 }
 
 private fun DrawScope.drawStarPath(color: Color, left: Float, top: Float, w: Float, h: Float) {

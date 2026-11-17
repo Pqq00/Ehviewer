@@ -17,6 +17,11 @@ pluginManagement {
 
 dependencyResolutionManagement {
     repositories {
+        // miuix 新版本刚发 Central 时 aliyun 镜像通常还要滞后几小时，给这个 group 直连 Central。
+        maven("https://repo1.maven.org/maven2") {
+            name = "miuixCentral"
+            content { includeGroup("top.yukonga.miuix.kmp") }
+        }
         maven("https://maven.aliyun.com/repository/public")
         maven("https://maven.aliyun.com/repository/google")
         google {

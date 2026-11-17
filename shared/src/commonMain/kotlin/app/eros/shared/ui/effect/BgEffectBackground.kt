@@ -15,7 +15,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
-import top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.foundation.isSystemInDarkTheme
 import kotlin.math.floor
@@ -31,7 +30,7 @@ fun BgEffectBackground(
     alpha: () -> Float = { 1f },
     content: @Composable (BoxScope.() -> Unit),
 ) {
-    val shaderSupported = remember { isRuntimeShaderSupported() }
+    val shaderSupported = remember { isShaderSupported() }
     if (!shaderSupported) {
         Box(modifier = modifier, content = content)
         return

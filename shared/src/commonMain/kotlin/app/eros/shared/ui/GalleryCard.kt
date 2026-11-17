@@ -66,7 +66,6 @@ import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Download
 import top.yukonga.miuix.kmp.icon.extended.Ok
-import top.yukonga.miuix.kmp.overlay.OverlayBottomSheet
 import top.yukonga.miuix.kmp.squircle.squircleClip
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.PressFeedbackType
@@ -368,7 +367,7 @@ fun GalleryCard(
     }
 
     TrackOverlay(showSheet)
-    OverlayBottomSheet(
+    ErosBottomSheet(
         show = showSheet,
         title = GalleryTitles.primary(gallery.title, gallery.titleJpn),
             onDismissRequest = { showSheet = false },

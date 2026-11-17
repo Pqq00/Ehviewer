@@ -514,7 +514,6 @@ fun FavouritesScreen(
         Box(
             Modifier
                 .fillMaxSize()
-                .then(if (pageBackdrop != null) Modifier.layerBackdrop(pageBackdrop) else Modifier),
         ) {
             PullToRefresh(
                 isRefreshing = state.loading && state.items.isNotEmpty(),

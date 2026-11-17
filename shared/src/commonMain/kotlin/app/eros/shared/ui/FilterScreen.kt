@@ -41,7 +41,6 @@ import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Add
 import top.yukonga.miuix.kmp.icon.extended.Back
-import top.yukonga.miuix.kmp.overlay.OverlayBottomSheet
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -136,7 +135,7 @@ fun FilterScreen(onBack: () -> Unit) {
             }
 
             TrackOverlay(showAdd)
-            OverlayBottomSheet(
+            ErosBottomSheet(
                 show = showAdd,
                 title = "添加过滤规则",
                 onDismissRequest = { showAdd = false },

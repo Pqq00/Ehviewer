@@ -4,13 +4,28 @@
 package app.eros.shared.ui
 
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.TooltipBox
 import top.yukonga.miuix.kmp.icon.MiuixIcons
-import top.yukonga.miuix.kmp.icon.extended.Contacts
-import top.yukonga.miuix.kmp.icon.extended.Recent
-import top.yukonga.miuix.kmp.icon.extended.Search
+import top.yukonga.miuix.kmp.icon.glass.ClockOutline
+import top.yukonga.miuix.kmp.icon.glass.ContactsBook
+import top.yukonga.miuix.kmp.icon.glass.Search
+
+/**
+ * 顶栏玻璃圆钮里的图标尺寸与两钮间距，对齐 miuix 官方示例首页右上角
+ * （`example/.../MainPage.kt:214-258`：`Icon(... Modifier.size(28.dp))` + `Spacer(Modifier.width(8.dp))`）。
+ *
+ * 圆钮本体是 `GlassTopAppBarDefaults.ButtonSize`（44dp），边距由顶栏的
+ * `actionIconPadding = 12.dp` 控制，这里不改。
+ */
+private val BarIconSize = 28.dp
+private val BarIconSpacing = 8.dp
 
 /**
  * 顶栏左侧的账号入口。
@@ -20,8 +35,14 @@ import top.yukonga.miuix.kmp.icon.extended.Search
  */
 @Composable
 fun AccountEntry(onOpenAccount: () -> Unit) {
-    IconButton(onClick = onOpenAccount) {
-        Icon(imageVector = MiuixIcons.Contacts, contentDescription = "账号")
+    TooltipBox(text = "账号") {
+        ErosBarIcon(onClick = onOpenAccount) {
+            Icon(
+                imageVector = MiuixIcons.Glass.ContactsBook,
+                contentDescription = "账号",
+                modifier = Modifier.size(BarIconSize),
+            )
+        }
     }
 }
 
@@ -33,10 +54,23 @@ fun RowScope.HistoryAndSearchEntries(
     onOpenHistory: () -> Unit,
     onOpenSearch: () -> Unit,
 ) {
-    IconButton(onClick = onOpenHistory) {
-        Icon(imageVector = MiuixIcons.Recent, contentDescription = "浏览历史")
+    TooltipBox(text = "浏览历史") {
+        ErosBarIcon(onClick = onOpenHistory) {
+            Icon(
+                imageVector = MiuixIcons.Glass.ClockOutline,
+                contentDescription = "浏览历史",
+                modifier = Modifier.size(BarIconSize),
+            )
+        }
     }
-    IconButton(onClick = onOpenSearch) {
-        Icon(imageVector = MiuixIcons.Search, contentDescription = "搜索")
+    Spacer(Modifier.width(BarIconSpacing))
+    TooltipBox(text = "搜索") {
+        ErosBarIcon(onClick = onOpenSearch) {
+            Icon(
+                imageVector = MiuixIcons.Glass.Search,
+                contentDescription = "搜索",
+                modifier = Modifier.size(BarIconSize),
+            )
+        }
     }
 }

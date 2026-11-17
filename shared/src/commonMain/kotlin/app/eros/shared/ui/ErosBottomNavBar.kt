@@ -11,14 +11,17 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.selection.selectable
@@ -35,12 +38,17 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.SubcomposeLayout
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
+import app.eros.shared.ui.design.erosPageHorizontalInsets
+import androidx.compose.ui.unit.offset
 import androidx.compose.ui.unit.sp
 import app.eros.shared.settings.AppSettings
+import app.eros.shared.ui.effect.erosGlassBlur
+import app.eros.shared.ui.effect.glassEdgeStroke
 import kotlin.math.max
 import kotlin.math.roundToInt
 import top.yukonga.miuix.kmp.basic.Badge
@@ -53,9 +61,11 @@ import top.yukonga.miuix.kmp.basic.NavigationBarDisplayMode
 import top.yukonga.miuix.kmp.basic.NavigationBarItem
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
-import top.yukonga.miuix.kmp.blur.highlight.Highlight
-import top.yukonga.miuix.kmp.blur.textureBlur
+import top.yukonga.miuix.kmp.glass.GlassNavigationBar
+import top.yukonga.miuix.kmp.glass.GlassNavigationItem
 import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.glass.BookmarkOutline
+import top.yukonga.miuix.kmp.icon.glass.HomeOutline
 import top.yukonga.miuix.kmp.icon.extended.Download
 import top.yukonga.miuix.kmp.icon.extended.Favorites
 import top.yukonga.miuix.kmp.icon.extended.FavoritesFill
@@ -63,6 +73,7 @@ import top.yukonga.miuix.kmp.icon.extended.Home
 import top.yukonga.miuix.kmp.icon.extended.Play
 import top.yukonga.miuix.kmp.icon.extended.Settings
 import top.yukonga.miuix.kmp.icon.extended.TopDownloads
+import top.yukonga.miuix.kmp.material.edgeStroke
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** 底部导航项。 */
@@ -70,9 +81,9 @@ data class BottomTab(val title: String, val icon: ImageVector)
 
 /** 应用主导航项（Tabs 页与详情页共用）。 */
 val AppTabs = listOf(
-    BottomTab("首页", MiuixIcons.Home),
+    BottomTab("首页", MiuixIcons.Glass.HomeOutline),
     BottomTab("排行榜", MiuixIcons.TopDownloads),
-    BottomTab("收藏", MiuixIcons.Favorites),
+    BottomTab("收藏", MiuixIcons.Glass.BookmarkOutline),
     BottomTab("下载", MiuixIcons.Download),
     BottomTab("设置", MiuixIcons.Settings),
 )
@@ -219,22 +230,122 @@ fun ErosAppBottomBar(
             // 详情态的三项与「悬浮」样式同款，用它的自然宽度对齐胶囊宽度与位置。
             measureContent = if (isDetail) detailContent else null,
         )
+    } else if (AppSettings.navBarStyle == 3) {
+        // 玻璃胶囊底栏：直接用 miuix 的 GlassNavigationBar（OS4 材质），
+        // 详情态换成「收藏 / 下载 / 阅读」三项，指示器跟随当前状态。
+        // 底部留白照官方 GlassPage.kt:244-257：安全区 + 8dp，最少 24dp。
+        val safeBottom = WindowInsets.safeDrawing.asPaddingValues().calculateBottomPadding()
+        val capsuleBottomGap = maxOf(24.dp, safeBottom + 8.dp)
+        val glassItems: List<GlassNavigationItem>
+        val glassSelected: Int
+        if (isDetail) {
+            glassItems = listOf(
+                GlassNavigationItem(
+                    icon = MiuixIcons.Favorites,
+                    label = "收藏",
+                    contentDescription = "收藏",
+                    badge = detailFavoriteCount.takeIf { it > 0 }?.let { count ->
+                        { Badge { Text(count.toString()) } }
+                    },
+                ),
+                GlassNavigationItem(
+                    icon = MiuixIcons.Download,
+                    label = detailDownloadLabel,
+                    contentDescription = detailDownloadLabel,
+                ),
+                GlassNavigationItem(
+                    icon = MiuixIcons.Play,
+                    label = "阅读",
+                    contentDescription = "阅读",
+                    badge = detailReadPage?.takeIf { it > 0 }?.let { page ->
+                        { Badge { Text(page.toString()) } }
+                    },
+                ),
+            )
+            glassSelected = when {
+                detailFavorited -> 0
+                detailDownloadActive -> 1
+                detailReadStarted -> 2
+                else -> 0
+            }
+        } else {
+            glassItems = AppTabs.map { tab ->
+                GlassNavigationItem(
+                    icon = tab.icon,
+                    label = tab.title,
+                    contentDescription = tab.title,
+                )
+            }
+            glassSelected = selectedTab
+        }
+        // 官方 GlassPage.kt:250-257 用 layout 在胶囊下方补一段安全区留白：
+        // 胶囊本身按约束原位摆放，容器高度多出让出的那一段，从而实现「浮在安全区之上」。
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .layout { measurable, constraints ->
+                    val bottom = capsuleBottomGap.roundToPx().coerceIn(0, constraints.maxHeight)
+                    val placeable = measurable.measure(constraints.offset(vertical = -bottom))
+                    layout(placeable.width, placeable.height + bottom) {
+                        placeable.placeRelative(0, 0)
+                    }
+                },
+        ) {
+            // 官方 GlassPage.kt:288-298 会在可用宽度 > 400dp 时把胶囊收到 344dp；这里把阈值抬到
+            // 600dp：手机（约 440dp 宽）保持满宽胶囊才像 OS4 底栏，只有平板/折叠屏展开才收窄。
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.Center,
+            ) {
+                GlassNavigationBar(
+                    items = glassItems,
+                selectedIndex = glassSelected,
+                onSelect = { index ->
+                    if (!transitioning) {
+                        if (isDetail) {
+                            if (detailEnabled) {
+                                when (index) {
+                                    0 -> onDetailFavorite()
+                                    1 -> onDetailDownload()
+                                    else -> onDetailRead()
+                                }
+                            }
+                        } else {
+                            onSelectTab(index)
+                        }
+                    }
+                },
+                    backdrop = backdrop,
+                    // 官方 AppContent.kt:697-700：玻璃底栏是左右各留 24dp 的胶囊；上下留白见外层包裹。
+                    defaultWindowInsetsPadding = false,
+                    modifier = modifier
+                        .erosPageHorizontalInsets()
+                        .padding(horizontal = 24.dp)
+                        .layout { measurable, constraints ->
+                            val width = if (constraints.hasBoundedWidth && constraints.maxWidth > 600.dp.roundToPx()) {
+                                344.dp.roundToPx().coerceIn(constraints.minWidth, constraints.maxWidth)
+                            } else {
+                                constraints.maxWidth
+                            }
+                            val placeable = measurable.measure(constraints.copy(minWidth = width, maxWidth = width))
+                            layout(placeable.width, placeable.height) { placeable.placeRelative(0, 0) }
+                        },
+                )
+            }
+        }
     } else if (AppSettings.navBarStyle == 1) {
         val shape = RoundedCornerShape(top.yukonga.miuix.kmp.basic.FloatingToolbarDefaults.CornerRadius)
-        val dark = isSystemInDarkTheme()
-        val highlight = remember(dark) {
-            if (dark) Highlight.GlassStrokeMiddleDark else Highlight.GlassStrokeMiddleLight
-        }
         FloatingNavigationBar(
             modifier = modifier.then(
                 if (backdrop != null) {
-                    Modifier.textureBlur(
-                        backdrop = backdrop,
-                        shape = shape,
-                        blurRadius = 25f,
-                        colors = barBlurColors(0.6f, useSurfaceContainer = true),
-                        highlight = highlight,
-                    )
+                    Modifier
+                        .erosGlassBlur(
+                            backdrop = backdrop,
+                            shape = shape,
+                            blurRadius = 25f,
+                            colors = barBlurColors(0.6f, useSurfaceContainer = true),
+                        )
+                        .edgeStroke(shape = shape, stroke = glassEdgeStroke())
                 } else {
                     Modifier
                 },
@@ -258,7 +369,7 @@ fun ErosAppBottomBar(
             modifier = modifier
                 .then(
                     if (backdrop != null) {
-                        Modifier.textureBlur(
+                        Modifier.erosGlassBlur(
                             backdrop = backdrop,
                             shape = RectangleShape,
                             blurRadius = 25f,
@@ -360,9 +471,9 @@ private fun NavigationItemFor(
     val unselected = MiuixTheme.colorScheme.onSurfaceContainer
     val contentColor = when {
         !enabled -> unselected.copy(alpha = unselected.alpha * 0.3f)
-        selected && pressed -> tint.copy(alpha = tint.alpha * FloatingNavigationBarDefaults.SelectedPressedAlpha)
+        selected && pressed -> tint.copy(alpha = tint.alpha * NavigationBarDefaults.SelectedPressedAlpha)
         selected -> tint
-        pressed -> unselected.copy(alpha = unselected.alpha * FloatingNavigationBarDefaults.UnselectedPressedAlpha)
+        pressed -> unselected.copy(alpha = unselected.alpha * NavigationBarDefaults.UnselectedPressedAlpha)
         else -> unselected.copy(alpha = unselected.alpha * FloatingNavigationBarDefaults.UnselectedAlpha)
     }
     val iconModifier = Modifier.size(IosNavIconSize)

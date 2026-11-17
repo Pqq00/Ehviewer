@@ -4,8 +4,7 @@
 package app.eros.shared.ui.effect
 
 import androidx.compose.ui.graphics.Brush
-import top.yukonga.miuix.kmp.blur.RuntimeShader
-import top.yukonga.miuix.kmp.blur.asBrush
+import top.yukonga.miuix.kmp.material.RuntimeShader
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -15,12 +14,12 @@ internal class BgEffectPainter(
 
     val runtimeShader by lazy {
         val shaderCode = if (isOs3) OS3_BG_FRAG else OS2_BG_FRAG
-        RuntimeShader(shaderCode).also {
+        glassRuntimeShader(shaderCode).also {
             initStaticUniforms(it)
         }
     }
 
-    val brush: Brush get() = runtimeShader.asBrush()
+    val brush: Brush get() = runtimeShader.asGlassBrush()
 
     private val resolution = FloatArray(2)
     private val bound = FloatArray(4)

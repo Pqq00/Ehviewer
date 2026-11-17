@@ -4,11 +4,21 @@
 package app.eros.shared.ui
 
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.captionBar
+import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import app.eros.shared.settings.AppSettings
 import top.yukonga.miuix.kmp.basic.Badge
@@ -16,6 +26,12 @@ import top.yukonga.miuix.kmp.basic.NavigationRail
 import top.yukonga.miuix.kmp.basic.NavigationRailItem
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.rememberNavigationRailState
+import top.yukonga.miuix.kmp.blur.LayerBackdrop
+import top.yukonga.miuix.kmp.glass.GlassNavigationBarDefaults
+import top.yukonga.miuix.kmp.glass.GlassNavigationItem
+import top.yukonga.miuix.kmp.glass.GlassNavigationRail
+import top.yukonga.miuix.kmp.glass.GlassNavigationRailDefaults
+import top.yukonga.miuix.kmp.glass.GlassNavigationRailState
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Download
 import top.yukonga.miuix.kmp.icon.extended.Favorites
@@ -35,6 +51,17 @@ fun rememberNavigationRailBreakpointReached(): Boolean {
     val widthPx = LocalWindowInfo.current.containerSize.width
     val density = LocalDensity.current
     return with(density) { widthPx.toDp() } >= NavigationRailBreakpoint
+}
+
+/** 玻璃侧栏默认展开的宽度断点：平板与横屏大屏直接展开成面板，窄一点的横屏先收成胶囊。 */
+val GlassNavigationRailExpandedBreakpoint = 840.dp
+
+/** 玻璃侧栏首次出现时是否直接展开（宽 ≥ [GlassNavigationRailExpandedBreakpoint]）。 */
+@Composable
+fun rememberGlassNavigationRailStartsExpanded(): Boolean {
+    val widthPx = LocalWindowInfo.current.containerSize.width
+    val density = LocalDensity.current
+    return with(density) { widthPx.toDp() } >= GlassNavigationRailExpandedBreakpoint
 }
 
 /**
@@ -112,6 +139,136 @@ fun ErosNavigationRail(
                 label = tab.title,
                 enabled = !isDetail,
             )
+        }
+    }
+}
+
+/**
+ * 玻璃侧栏（平板 / 横屏，仅在「导航栏样式 = 玻璃」时启用）。
+ *
+ * 与 [ErosNavigationRail] 的三点区别：
+ * - 面板**浮在页面之上**，不占 Row 的一列；页面靠 [glassRailContentInset] 让位；
+ * - 展开 / 收起（44dp 胶囊 ↔ 250dp 面板）由组件内置的开关胶囊负责，`state` 由调用方持有；
+ * - [GlassNavigationItem] 没有 `enabled`，禁用语义改成在回调里判空（未加载完的详情、已在下载中的项点上去是空操作）。
+ *
+ * 详情页把三项动作排在最前，选中态仍落在「当前 tab」上（选中项 = tab 序号 + 动作数）。
+ */
+@Composable
+fun ErosGlassNavigationRail(
+    isDetail: Boolean,
+    selectedTab: Int,
+    detailEnabled: Boolean,
+    detailFavoriteCount: Int,
+    detailReadPage: Int?,
+    detailDownloadLabel: String,
+    detailDownloadActive: Boolean,
+    onSelectTab: (Int) -> Unit,
+    onDetailFavorite: () -> Unit,
+    onDetailDownload: () -> Unit,
+    onDetailRead: () -> Unit,
+    state: GlassNavigationRailState,
+    backdrop: LayerBackdrop?,
+    modifier: Modifier = Modifier,
+) {
+    // 详情页只放三个动作（收藏/下载/阅读），不再把顶部五个 tab 一起排进来：
+    // 八项挤在一行既看不清，也让「收藏」这种动作和「收藏」这个 tab 撞名。
+    val items = remember(
+        isDetail,
+        detailFavoriteCount,
+        detailReadPage,
+        detailDownloadLabel,
+    ) {
+        if (isDetail) {
+            listOf(
+                GlassNavigationItem(
+                    icon = MiuixIcons.Favorites,
+                    label = if (detailFavoriteCount > 0) "收藏 $detailFavoriteCount" else "收藏",
+                    contentDescription = "收藏",
+                ),
+                GlassNavigationItem(
+                    icon = MiuixIcons.Download,
+                    label = detailDownloadLabel,
+                    contentDescription = "下载",
+                ),
+                GlassNavigationItem(
+                    icon = MiuixIcons.Play,
+                    label = "阅读",
+                    contentDescription = "阅读",
+                    badge = detailReadPage?.takeIf { it > 0 }?.let { page ->
+                        { Badge { Text(page.toString()) } }
+                    },
+                ),
+            )
+        } else {
+            AppTabs.map { tab ->
+                GlassNavigationItem(
+                    icon = tab.icon,
+                    label = tab.title,
+                    contentDescription = tab.title,
+                )
+            }
+        }
+    }
+    GlassNavigationRail(
+        items = items,
+        // 详情页是「动作栏」而不是导航：固定高亮第一项会很误导，所以把指示器整个隐藏。
+        selectedIndex = if (isDetail) 0 else selectedTab,
+        indicatorColor = if (isDetail) Color.Transparent else GlassNavigationBarDefaults.indicatorColor(),
+        indicatorPressedColor = if (isDetail) {
+            Color.Transparent
+        } else {
+            GlassNavigationBarDefaults.indicatorPressedColor()
+        },
+        onSelect = { index ->
+            if (isDetail) {
+                when (index) {
+                    0 -> if (detailEnabled) onDetailFavorite()
+                    1 -> if (detailEnabled && !detailDownloadActive) onDetailDownload()
+                    else -> if (detailEnabled) onDetailRead()
+                }
+            } else {
+                onSelectTab(index)
+            }
+        },
+        backdrop = backdrop,
+        // 官方 PersistentGlassNavigationRail 的做法：关掉组件自带 insets，由调用方给，
+        // 集合与组件默认一致 —— systemBars ∪ captionBar ∪ displayCutout
+        //（AppContent.kt:558,561；PageUtils.kt:87,102），避免胶囊压到状态栏/刘海/手势条。
+        defaultWindowInsetsPadding = false,
+        modifier = modifier.windowInsetsPadding(
+            WindowInsets.systemBars
+                .union(WindowInsets.captionBar)
+                .union(WindowInsets.displayCutout),
+        ),
+        state = state,
+    )
+}
+
+/**
+ * 让页面给玻璃侧栏腾出位置：按 [GlassNavigationRailState.progress]（面板展开程度 0→1）在 layout 阶段
+ * 收窄并右移内容，不触发页面重组。
+ */
+@Composable
+fun Modifier.glassRailContentInset(state: GlassNavigationRailState): Modifier {
+    val density = LocalDensity.current
+    return this.layout { measurable, constraints ->
+        // 官方 PageUtils.kt:overlayStart = (Margin + ExpandedWidth) * progress；
+        // 额外补 12dp 视觉缝，让面板右缘落在底色上而不是卡片硬边上（模糊核不会把卡片卷进面板）。
+        val shift = with(density) {
+            ((GlassNavigationRailDefaults.Margin + GlassNavigationRailDefaults.ExpandedWidth + 12.dp) * state.progress)
+                .roundToPx()
+        }
+        val maxWidth = (constraints.maxWidth - shift).coerceAtLeast(0)
+        val placeable = measurable.measure(
+            Constraints(
+                minWidth = 0,
+                maxWidth = maxWidth,
+                minHeight = constraints.minHeight,
+                maxHeight = constraints.maxHeight,
+            ),
+        )
+        layout(constraints.maxWidth, placeable.height) {
+            placeable.placeRelative(shift, 0)
         }
     }
 }

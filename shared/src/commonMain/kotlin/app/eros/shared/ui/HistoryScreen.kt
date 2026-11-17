@@ -52,9 +52,7 @@ import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.Checkbox
-import top.yukonga.miuix.kmp.basic.FloatingToolbar
 import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.icon.MiuixIcons
@@ -63,7 +61,6 @@ import top.yukonga.miuix.kmp.icon.extended.Close
 import top.yukonga.miuix.kmp.icon.extended.Delete
 import top.yukonga.miuix.kmp.icon.extended.Play
 import top.yukonga.miuix.kmp.icon.extended.SelectAll
-import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.squircle.squircleClip
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.PressFeedbackType
@@ -115,7 +112,7 @@ fun HistoryScreen(
     // 多选态：左上角关闭、右上角全选/取消全选，删除放在底部 FloatingToolbar。
     val navigationIcon: (@Composable () -> Unit)? = if (selecting) {
         {
-            IconButton(onClick = { exitSelection() }) {
+            ErosBarIcon(onClick = { exitSelection() }) {
                 Icon(imageVector = MiuixIcons.Close, contentDescription = "退出多选")
             }
         }
@@ -135,7 +132,7 @@ fun HistoryScreen(
                 if (selecting) {
                     // 一个图标两种语义：点一次全选，再点一次取消全选（清空后自动退出多选，
                     // 与「取消掉最后一条卡片」的行为一致）。
-                    IconButton(
+                    ErosBarIcon(
                         onClick = {
                             if (allSelected) {
                                 exitSelection()
@@ -157,7 +154,6 @@ fun HistoryScreen(
             Box(
                 Modifier
                     .fillMaxSize()
-                    .then(if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier),
             ) {
                 when {
                     loading -> HistorySkeleton(innerPadding = innerPadding, toolbarInset = toolbarInset)
@@ -227,7 +223,7 @@ fun HistoryScreen(
             } else {
                 MiuixTheme.colorScheme.onSurface.copy(alpha = 0.35f)
             }
-            FloatingToolbar(
+            ErosFloatingToolbar(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .padding(bottom = 24.dp),
@@ -261,7 +257,7 @@ fun HistoryScreen(
         // 删除确认：miuix 原生 OverlayDialog（与「图片缓存」一致），
         // 宿主由 App.kt 在外层补的 MiuixPopupUtils.MiuixPopupHost 提供。
         TrackOverlay(confirming)
-        OverlayDialog(
+        ErosDialog(
             show = confirming,
             title = "删除 ${selected.size} 条浏览记录？",
             summary = "只删除本机的浏览记录与封面缓存，不影响画廊本身。",

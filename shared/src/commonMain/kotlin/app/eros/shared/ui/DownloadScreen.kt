@@ -64,12 +64,9 @@ import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.Checkbox
-import top.yukonga.miuix.kmp.basic.FloatingToolbar
 import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.LinearProgressIndicator
 import top.yukonga.miuix.kmp.basic.SmallTitle
-import top.yukonga.miuix.kmp.basic.TabRow
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.squircle.squircleClip
@@ -81,7 +78,6 @@ import top.yukonga.miuix.kmp.icon.extended.Pause
 import top.yukonga.miuix.kmp.icon.extended.Play
 import top.yukonga.miuix.kmp.icon.extended.Refresh
 import top.yukonga.miuix.kmp.icon.extended.SelectAll
-import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.PressFeedbackType
 
@@ -160,7 +156,7 @@ fun DownloadScreen(
         title = if (selecting) "已选 ${selected.size} 项" else "下载",
         navigationIcon = if (selecting) {
             {
-                IconButton(onClick = { exitSelection() }) {
+                ErosBarIcon(onClick = { exitSelection() }) {
                     Icon(MiuixIcons.Close, contentDescription = "退出多选")
                 }
             }
@@ -169,7 +165,7 @@ fun DownloadScreen(
         },
         actions = {
             if (selecting) {
-                IconButton(onClick = { toggleAll() }) {
+                ErosBarIcon(onClick = { toggleAll() }) {
                     Icon(
                         MiuixIcons.SelectAll,
                         contentDescription = if (allSelected) "取消全选" else "全选",
@@ -181,12 +177,21 @@ fun DownloadScreen(
             }
         },
         floatingToolbar = {},
+        tabs = listOf(
+            "全部 ${tasks.size}",
+            "下载中 ${active.size}",
+            "已完成 ${done.size}",
+        ),
+        selectedTab = tab,
+        onTabSelected = { tab = it },
     ) { innerPadding, pageScrollBehavior, pageBackdrop ->
-        Box(
-            Modifier
-                .fillMaxSize()
-                .then(if (pageBackdrop != null) Modifier.layerBackdrop(pageBackdrop) else Modifier),
-        ) {
+        Box(Modifier.fillMaxSize()) {
+            // 内容层：整页记进 pageBackdrop，顶栏（含它底部的玻璃 Tab）从这一层采样。
+            // Tab 在顶栏里、不在这一层，所以不会采到自己（否则 hwui 递归 → 栈溢出）。
+            Box(
+                Modifier
+                    .fillMaxSize()
+            ) {
             LazyColumn(
                 state = listState,
                 // 和首页/排行榜一致：把滚动喂给顶栏的 scrollBehavior，大标题才会随滚动收起。
@@ -196,24 +201,11 @@ fun DownloadScreen(
                 contentPadding = PaddingValues(
                     start = 12.dp,
                     end = 12.dp,
-                    top = innerPadding.calculateTopPadding(),
+                    top = innerPadding.calculateTopPadding() + 12.dp,
                     bottom = bottomInset + 12.dp + toolbarInset,
                 ),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                item(key = "tabs") {
-                    TabRow(
-                        tabs = listOf(
-                            "全部 ${tasks.size}",
-                            "下载中 ${active.size}",
-                            "已完成 ${done.size}",
-                        ),
-                        selectedTabIndex = tab,
-                        onTabSelected = { tab = it },
-                        modifier = Modifier.padding(vertical = 8.dp),
-                    )
-                }
-
                 if (showActive.isNotEmpty()) {
                     item(key = "activeTitle") { SmallTitle(text = "下载中") }
                     items(showActive.size, key = { "active-${showActive[it].gid}" }) { index ->
@@ -298,12 +290,13 @@ fun DownloadScreen(
                     }
                 }
             }
+            }
 
             if (selecting) {
                 val enabled = selected.isNotEmpty()
                 // 多选态隐藏底部导航栏，工具栏与历史页一样贴屏幕底 24dp
                 TrackOverlay()
-                FloatingToolbar(
+                ErosFloatingToolbar(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .padding(bottom = 24.dp),
@@ -343,7 +336,7 @@ fun DownloadScreen(
 
             TrackOverlay(confirming)
             val pending = visibleTasks.filter { selected.containsKey(it.gid) }
-            OverlayDialog(
+            ErosDialog(
                 show = confirming,
                 title = "删除 ${pending.size} 项下载？",
                 summary = "将同时删除已下载的图片文件，不影响画廊本身。",

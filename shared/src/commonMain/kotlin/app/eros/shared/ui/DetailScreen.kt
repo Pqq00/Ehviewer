@@ -91,16 +91,13 @@ import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.SmallTitle
-import top.yukonga.miuix.kmp.basic.TabRow
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Ok
 import top.yukonga.miuix.kmp.icon.extended.Share
-import top.yukonga.miuix.kmp.overlay.OverlayBottomSheet
 import top.yukonga.miuix.kmp.squircle.squircleClip
 import top.yukonga.miuix.kmp.squircle.squircleSurface
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -414,10 +411,17 @@ fun DetailScreen(
     ErosPageScaffold(
         title = topTitle,
         onBack = onBack,
+        // 评论 / 预览的分段 Tab 挂在顶栏底部（和排行榜、下载页同一套做法）：
+        // 滚到哪儿都在，且它采样的是页面内容层、自己不在那一层里，不会自引用。
+        tabs = state.detail?.let {
+            listOf("评论 ${it.comments.size}", "预览 ${it.pages}")
+        },
+        selectedTab = tab,
+        onTabSelected = { tab = it },
         actions = {
             val detail = state.detail
             if (detail != null) {
-                IconButton(
+                ErosBarIcon(
                     onClick = {
                         // 只分享链接，标题由接收方自己解析，避免各平台拼出难看的纯文本。
                         app.eros.shared.platformShare(
@@ -431,7 +435,6 @@ fun DetailScreen(
         Box(
             Modifier
                 .fillMaxSize()
-                .then(if (pageBackdrop != null) Modifier.layerBackdrop(pageBackdrop) else Modifier),
         ) {
             when {
                 state.detail == null -> Column(
@@ -496,16 +499,6 @@ fun DetailScreen(
                             }
                         }
 
-                        item(span = { GridItemSpan(maxLineSpan) }, key = "tabs") {
-                            SmallTitle(text = if (tab == 0) "评论" else "预览")
-                            TabRow(
-                                tabs = listOf("评论 ${detail.comments.size}", "预览 ${detail.pages}"),
-                                selectedTabIndex = tab,
-                                onTabSelected = { tab = it },
-                                modifier = Modifier.padding(bottom = 8.dp),
-                            )
-                        }
-
                         if (tab == 0) {
                             item(span = { GridItemSpan(maxLineSpan) }, key = "comments") {
                                 CommentsSection(detail, onOpenComments, onOpenGallery)
@@ -541,7 +534,7 @@ fun DetailScreen(
             }
         if (state.detail != null) {
             TrackOverlay(state.favSheet)
-            OverlayBottomSheet(
+            ErosBottomSheet(
                 show = state.favSheet,
                 title = if (state.favorited) "收藏夹" else "收藏到",
                 insideMargin = DpSize(16.dp, 4.dp),
@@ -866,7 +859,7 @@ private fun TagsSection(
     val tagSelection = selected
     val raw = tagSelection?.let { "${it.first}:${it.second}" } ?: ""
     TrackOverlay(tagSelection != null)
-    OverlayBottomSheet(
+    ErosBottomSheet(
         show = tagSelection != null,
         title = raw,
         onDismissRequest = { selected = null },

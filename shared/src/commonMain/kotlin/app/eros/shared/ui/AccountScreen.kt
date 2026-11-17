@@ -102,8 +102,6 @@ import top.yukonga.miuix.kmp.icon.extended.Background
 import top.yukonga.miuix.kmp.icon.extended.Contacts
 import top.yukonga.miuix.kmp.icon.extended.Ok
 import top.yukonga.miuix.kmp.icon.extended.ScreenCapture
-import top.yukonga.miuix.kmp.overlay.OverlayBottomSheet
-import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -204,7 +202,7 @@ fun AccountScreen(
                 scrollBehavior = pageScrollBehavior,
                 backdrop = barBackdrop,
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    ErosBarIcon(onClick = onBack) {
                         Icon(imageVector = MiuixIcons.Back, contentDescription = "返回")
                     }
                 },
@@ -458,11 +456,12 @@ fun AccountScreen(
 
     // 站点 Profile 选择。切换只写 cookie `sp`，已经取到的列表不会变，所以提示用户下拉刷新。
     // 站点选择（E-Hentai / ExHentai）
-    OverlayBottomSheet(
+    ErosBottomSheet(
         show = showSitePicker,
         title = "站点选择",
         insideMargin = DpSize(16.dp, 4.dp),
         onDismissRequest = { showSitePicker = false },
+        backdrop = barBackdrop,
         onDismissFinished = { },
     ) {
         Column(Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
@@ -499,11 +498,12 @@ fun AccountScreen(
         }
     }
 
-    OverlayBottomSheet(
+    ErosBottomSheet(
         show = showProfiles,
         title = "站点 Profile",
         insideMargin = DpSize(16.dp, 4.dp),
         onDismissRequest = { showProfiles = false },
+        backdrop = barBackdrop,
         onDismissFinished = { },
     ) {
         Column(Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
@@ -540,11 +540,12 @@ fun AccountScreen(
     }
 
     // 退出登录：用 miuix 的 OverlayDialog（同一棵 Compose 树内的浮层），跟站点 Profile 弹层一致
-    OverlayDialog(
+    ErosDialog(
         show = confirmSignOut,
         title = "退出登录",
         summary = "退出后会清除本地登录 Cookie，需要重新登录才能访问里站。",
         onDismissRequest = { confirmSignOut = false },
+        backdrop = barBackdrop,
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(top = 16.dp),

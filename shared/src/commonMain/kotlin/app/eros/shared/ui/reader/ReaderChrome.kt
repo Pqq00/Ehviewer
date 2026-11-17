@@ -13,7 +13,6 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -50,8 +49,13 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.lerp
+import androidx.compose.ui.unit.offset
 import app.eros.shared.reader.ReaderEngine
 import app.eros.shared.reader.ReaderSession
 import app.eros.shared.reader.ReaderSheet
@@ -59,6 +63,9 @@ import app.eros.shared.settings.AppSettings
 import app.eros.shared.ui.BarBlurStyle
 import app.eros.shared.ui.barBlurColors
 import app.eros.shared.ui.currentBarBlurStyle
+import app.eros.shared.ui.effect.erosGlassBlur
+import app.eros.shared.ui.effect.erosProgressiveGlassBlur
+import app.eros.shared.ui.effect.glassEdgeStroke
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import top.yukonga.miuix.kmp.basic.FloatingNavigationBar
@@ -75,9 +82,8 @@ import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.blur.ProgressiveBlur
-import top.yukonga.miuix.kmp.blur.highlight.Highlight
-import top.yukonga.miuix.kmp.blur.progressiveTextureBlur
-import top.yukonga.miuix.kmp.blur.textureBlur
+import top.yukonga.miuix.kmp.glass.GlassNavigationBar
+import top.yukonga.miuix.kmp.glass.GlassNavigationItem
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.icon.extended.ChevronBackward
@@ -86,6 +92,7 @@ import top.yukonga.miuix.kmp.icon.extended.Download
 import top.yukonga.miuix.kmp.icon.extended.Refresh
 import top.yukonga.miuix.kmp.icon.extended.Settings
 import top.yukonga.miuix.kmp.icon.extended.Share
+import top.yukonga.miuix.kmp.material.edgeStroke
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
@@ -98,7 +105,7 @@ private fun Modifier.readerTopBarSurface(backdrop: LayerBackdrop?): Modifier {
         return background(MiuixTheme.colorScheme.surface)
     }
     val blur = if (currentBarBlurStyle() == BarBlurStyle.PROGRESSIVE) {
-        Modifier.progressiveTextureBlur(
+        Modifier.erosProgressiveGlassBlur(
             backdrop = backdrop,
             shape = RectangleShape,
             gradient = ProgressiveBlur.Top.copy(curve = 1.8f),
@@ -106,7 +113,7 @@ private fun Modifier.readerTopBarSurface(backdrop: LayerBackdrop?): Modifier {
             colors = barBlurColors(0.5f),
         )
     } else {
-        Modifier.textureBlur(
+        Modifier.erosGlassBlur(
             backdrop = backdrop,
             shape = RectangleShape,
             blurRadius = 25f,
@@ -128,17 +135,12 @@ private fun Modifier.readerFloatingSurface(
     if (backdrop == null) {
         return background(MiuixTheme.colorScheme.surfaceContainer)
     }
-    val dark = isSystemInDarkTheme()
-    val highlight = remember(dark) {
-        if (dark) Highlight.GlassStrokeMiddleDark else Highlight.GlassStrokeMiddleLight
-    }
-    return textureBlur(
+    return erosGlassBlur(
         backdrop = backdrop,
         shape = shape,
         blurRadius = 25f,
         colors = barBlurColors(0.6f, useSurfaceContainer = true),
-        highlight = highlight,
-    ).background(Color.Transparent)
+    ).edgeStroke(shape = shape, stroke = glassEdgeStroke()).background(Color.Transparent)
 }
 
 /**
@@ -322,10 +324,12 @@ private fun ReaderProgressBar(
                 )
                 val filled = usable * progress
                 if (filled > 0f) {
+                    // 首页/前几页时 filled 只有几像素，圆角一裁就成了「小竖条」；
+                    // 让已读段至少有一倍轨道高宽，视觉上是个圆点而不是杂线。
                     drawRoundRect(
                         color = activeColor,
                         topLeft = Offset(inset, centerY - track / 2f),
-                        size = Size(filled, track),
+                        size = Size(maxOf(filled, track), track),
                         cornerRadius = radius,
                     )
                 }
@@ -391,7 +395,11 @@ private fun isReaderLandscape(): Boolean {
 }
 
 /**
- * 底栏按钮：保存 / 阅读设置 / 翻页模式。按应用导航栏样式走固定（[NavigationBar]，自带 64dp 高）或悬浮（[FloatingNavigationBar]）。
+ * 底栏按钮：保存 / 阅读设置 / 翻页模式。按应用导航栏样式走固定（[NavigationBar]，自带 64dp 高）、
+ * 悬浮（[FloatingNavigationBar]）或玻璃（[GlassNavigationBar]）。
+ *
+ * 玻璃样式沿用底部导航栏那颗 OS4 胶囊，但阅读器这几个按钮是「动作」而非「目的地」，
+ * 没有选中态，所以把指示器涂成透明，只留胶囊本体。
  */
 @Composable
 private fun ReaderActionBar(session: ReaderSession, backdrop: LayerBackdrop?) {
@@ -418,7 +426,7 @@ private fun ReaderActionBar(session: ReaderSession, backdrop: LayerBackdrop?) {
                 .fillMaxWidth()
                 .then(
                     if (backdrop != null) {
-                        Modifier.textureBlur(
+                        Modifier.erosGlassBlur(
                             backdrop = backdrop,
                             shape = RectangleShape,
                             blurRadius = 25f,
@@ -457,21 +465,60 @@ private fun ReaderActionBar(session: ReaderSession, backdrop: LayerBackdrop?) {
                 )
             }
         }
+    } else if (AppSettings.navBarStyle == 3) {
+        val items = listOf(
+            GlassNavigationItem(icon = MiuixIcons.Share, label = "发送", contentDescription = "发送"),
+            GlassNavigationItem(icon = MiuixIcons.Download, label = "保存", contentDescription = "保存"),
+            GlassNavigationItem(icon = MiuixIcons.Settings, label = "阅读设置", contentDescription = "阅读设置"),
+            GlassNavigationItem(icon = MiuixIcons.Refresh, label = session.mode.label, contentDescription = "翻页模式"),
+        )
+        // 和主底栏（ErosBottomNavBar 的玻璃分支）保持一致：左右各留 24dp、
+        // 底部留白照官方 GlassPage.kt:244-257（安全区 + 8dp，最少 24dp）。
+        val safeBottom = WindowInsets.safeDrawing.asPaddingValues().calculateBottomPadding()
+        val capsuleBottomGap = maxOf(24.dp, safeBottom + 8.dp)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .layout { measurable, constraints ->
+                    val bottom = capsuleBottomGap.roundToPx().coerceIn(0, constraints.maxHeight)
+                    val placeable = measurable.measure(constraints.offset(vertical = -bottom))
+                    layout(placeable.width, placeable.height + bottom) {
+                        placeable.placeRelative(0, 0)
+                    }
+                },
+        ) {
+            GlassNavigationBar(
+                items = items,
+                // 动作栏没有「当前所在页」，指示器涂成透明只保留胶囊本体。
+                selectedIndex = 0,
+                onSelect = { index ->
+                    when (index) {
+                        0 -> onShare()
+                        1 -> onSave()
+                        2 -> onSettings()
+                        3 -> onMode()
+                    }
+                },
+                backdrop = backdrop,
+                indicatorColor = Color.Transparent,
+                indicatorPressedColor = Color.Transparent,
+                defaultWindowInsetsPadding = false,
+                modifier = Modifier.padding(horizontal = 24.dp),
+            )
+        }
     } else {
         val shape = RoundedCornerShape(FloatingToolbarDefaults.CornerRadius)
-        val dark = isSystemInDarkTheme()
-        val highlight = remember(dark) {
-            if (dark) Highlight.GlassStrokeMiddleDark else Highlight.GlassStrokeMiddleLight
-        }
+        val edge = glassEdgeStroke()
         FloatingNavigationBar(
             modifier = if (backdrop != null) {
-                Modifier.textureBlur(
-                    backdrop = backdrop,
-                    shape = shape,
-                    blurRadius = 25f,
-                    colors = barBlurColors(0.6f, useSurfaceContainer = true),
-                    highlight = highlight,
-                )
+                Modifier
+                    .erosGlassBlur(
+                        backdrop = backdrop,
+                        shape = shape,
+                        blurRadius = 25f,
+                        colors = barBlurColors(0.6f, useSurfaceContainer = true),
+                    )
+                    .edgeStroke(shape = shape, stroke = edge)
             } else {
                 Modifier
             },

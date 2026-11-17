@@ -65,42 +65,6 @@ import top.yukonga.miuix.kmp.squircle.squircleSurface
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
- * 时段 chips（今日/本月/今年/全部）。抽成独立 composable 是为了让首屏骨架覆盖层
- * 也能画出同一行 —— 骨架期间上半部分就是真的。
- */
-@Composable
-private fun TopListPeriodRow(state: TopListState) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState())
-            .padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        RankPeriod.entries.forEachIndexed { index, (label, _) ->
-            val selected = index == state.periodIndex
-            Box(
-                modifier = Modifier
-                    .squircleSurface(
-                        color = if (selected) MiuixTheme.colorScheme.primary
-                        else MiuixTheme.colorScheme.surfaceVariant,
-                        cornerRadius = 12.dp,
-                    )
-                    .clickable { state.selectPeriod(index) }
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-            ) {
-                Text(
-                    label,
-                    style = MiuixTheme.textStyles.footnote2,
-                    color = if (selected) MiuixTheme.colorScheme.onPrimary
-                    else MiuixTheme.colorScheme.onSurface,
-                )
-            }
-        }
-    }
-}
-
-/**
  * 排行榜状态。
  *
  * 数据源：`toplist.php?tl=<tl>&p=<page>`（带 tl/p 时站点返回**紧凑画廊列表**并分页）。
@@ -405,11 +369,16 @@ fun TopListScreen(
         title = "排行榜",
         navigationIcon = { AccountEntry(onOpenAccount) },
         actions = { HistoryAndSearchEntries(onOpenHistory, onOpenSearch) },
+        tabs = RankPeriod.entries.map { it.first },
+        selectedTab = state.periodIndex,
+        onTabSelected = { state.selectPeriod(it) },
     ) { innerPadding, pageScrollBehavior, pageBackdrop ->
+        Box(Modifier.fillMaxSize()) {
+        // 内容层：整页记进 pageBackdrop，顶栏与浮在网格上方的玻璃时段 Tab 都从这一层采样。
+        // Tab 本身必须留在这一层外面，否则会采到自己（hwui 无限递归 → 栈溢出）。
         Box(
             Modifier
                 .fillMaxSize()
-                .then(if (pageBackdrop != null) Modifier.layerBackdrop(pageBackdrop) else Modifier),
         ) {
             PullToRefresh(
                 isRefreshing = state.refreshing,
@@ -445,11 +414,7 @@ fun TopListScreen(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    // 时段 chips：与首页/收藏页的 chips 一样作为网格首项
-                    item(span = { GridItemSpan(maxLineSpan) }, key = "periodRow") {
-                        TopListPeriodRow(state)
-                    }
-
+                    // 时段 Tab 已浮在网格上方（见外层 ErosTabRow），这里不再作为网格首项。
                     when {
                         // 骨架由外层 [SkeletonGridOverlay] 负责淡出，这里不再画骨架项。
                         state.loading && state.items.isEmpty() -> Unit
@@ -508,10 +473,11 @@ fun TopListScreen(
                         top = innerPadding.calculateTopPadding() + 12.dp,
                         bottom = bottomInset + 12.dp,
                     ),
-                    header = { TopListPeriodRow(state) },
+                    header = {},
                 )
                 }
             }
+        }
         }
     }
 }
