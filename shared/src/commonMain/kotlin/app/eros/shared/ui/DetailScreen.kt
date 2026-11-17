@@ -411,6 +411,13 @@ fun DetailScreen(
     ErosPageScaffold(
         title = topTitle,
         onBack = onBack,
+        // 评论 / 预览的分段 Tab 挂在顶栏底部（和排行榜、下载页同一套做法）：
+        // 滚到哪儿都在，且它采样的是页面内容层、自己不在那一层里，不会自引用。
+        tabs = state.detail?.let {
+            listOf("评论 ${it.comments.size}", "预览 ${it.pages}")
+        },
+        selectedTab = tab,
+        onTabSelected = { tab = it },
         actions = {
             val detail = state.detail
             if (detail != null) {
@@ -491,16 +498,6 @@ fun DetailScreen(
                                     onSearchTag = onSearchTag,
                                 )
                             }
-                        }
-
-                        item(span = { GridItemSpan(maxLineSpan) }, key = "tabs") {
-                            SmallTitle(text = if (tab == 0) "评论" else "预览")
-                            ErosTabRow(
-                                tabs = listOf("评论 ${detail.comments.size}", "预览 ${detail.pages}"),
-                                selectedIndex = tab,
-                                onSelect = { tab = it },
-                                modifier = Modifier.padding(bottom = 8.dp),
-                            )
                         }
 
                         if (tab == 0) {
