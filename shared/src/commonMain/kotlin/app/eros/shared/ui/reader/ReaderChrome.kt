@@ -77,6 +77,8 @@ import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.blur.ProgressiveBlur
+import top.yukonga.miuix.kmp.glass.GlassNavigationBar
+import top.yukonga.miuix.kmp.glass.GlassNavigationItem
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.icon.extended.ChevronBackward
@@ -386,7 +388,11 @@ private fun isReaderLandscape(): Boolean {
 }
 
 /**
- * 底栏按钮：保存 / 阅读设置 / 翻页模式。按应用导航栏样式走固定（[NavigationBar]，自带 64dp 高）或悬浮（[FloatingNavigationBar]）。
+ * 底栏按钮：保存 / 阅读设置 / 翻页模式。按应用导航栏样式走固定（[NavigationBar]，自带 64dp 高）、
+ * 悬浮（[FloatingNavigationBar]）或玻璃（[GlassNavigationBar]）。
+ *
+ * 玻璃样式沿用底部导航栏那颗 OS4 胶囊，但阅读器这几个按钮是「动作」而非「目的地」，
+ * 没有选中态，所以把指示器涂成透明，只留胶囊本体。
  */
 @Composable
 private fun ReaderActionBar(session: ReaderSession, backdrop: LayerBackdrop?) {
@@ -452,6 +458,29 @@ private fun ReaderActionBar(session: ReaderSession, backdrop: LayerBackdrop?) {
                 )
             }
         }
+    } else if (AppSettings.navBarStyle == 3) {
+        val items = listOf(
+            GlassNavigationItem(icon = MiuixIcons.Share, label = "发送", contentDescription = "发送"),
+            GlassNavigationItem(icon = MiuixIcons.Download, label = "保存", contentDescription = "保存"),
+            GlassNavigationItem(icon = MiuixIcons.Settings, label = "阅读设置", contentDescription = "阅读设置"),
+            GlassNavigationItem(icon = MiuixIcons.Refresh, label = session.mode.label, contentDescription = "翻页模式"),
+        )
+        GlassNavigationBar(
+            items = items,
+            // 动作栏没有「当前所在页」，指示器涂成透明只保留胶囊本体。
+            selectedIndex = 0,
+            onSelect = { index ->
+                when (index) {
+                    0 -> onShare()
+                    1 -> onSave()
+                    2 -> onSettings()
+                    3 -> onMode()
+                }
+            },
+            backdrop = backdrop,
+            indicatorColor = Color.Transparent,
+            indicatorPressedColor = Color.Transparent,
+        )
     } else {
         val shape = RoundedCornerShape(FloatingToolbarDefaults.CornerRadius)
         val edge = glassEdgeStroke()
