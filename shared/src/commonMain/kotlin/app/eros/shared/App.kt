@@ -17,7 +17,11 @@ import app.eros.shared.download.DownloadStatus
 import app.eros.shared.download.DownloadManager
 
 import app.eros.shared.ui.ErosAppBottomBar
+import app.eros.shared.ui.ErosGlassNavigationRail
 import app.eros.shared.ui.ErosNavigationRail
+import app.eros.shared.ui.glassRailContentInset
+import app.eros.shared.ui.rememberGlassNavigationRailStartsExpanded
+import top.yukonga.miuix.kmp.glass.rememberGlassNavigationRailState
 import app.eros.shared.ui.OverlayState
 import app.eros.shared.ui.rememberUseNavigationRail
 import app.eros.shared.ui.ReadStore
@@ -433,6 +437,11 @@ fun App() {
         // 宽屏（≥600dp）把导航搬到左侧 rail：Tabs 与详情页共用，详情动作也进 rail
         val railAllowed = currentRoute is Route.Tabs || detailRoute != null
         val useNavigationRail = railAllowed && rememberUseNavigationRail()
+        // 导航栏样式 = 玻璃时，宽屏侧栏也换成玻璃版：面板浮在页面上，页面按展开进度让位
+        val useGlassRail = useNavigationRail && AppSettings.navBarStyle == 3
+        val glassRailState = rememberGlassNavigationRailState(
+            initialExpanded = rememberGlassNavigationRailStartsExpanded(),
+        )
 
         // 详情动作由底栏与 rail 共用，状态与回调只算一次
         val downloadTasks by DownloadManager.tasks.collectAsState()
@@ -471,7 +480,7 @@ fun App() {
         // 宽屏：左侧 rail + 右侧内容区；底栏只对齐右 pane 底部
         Row(Modifier.fillMaxSize()) {
 
-        if (useNavigationRail) {
+        if (useNavigationRail && !useGlassRail) {
             ErosNavigationRail(
                 isDetail = detailRoute != null,
                 selectedTab = tabIndex,
@@ -493,11 +502,23 @@ fun App() {
         }
 
         Box(Modifier.weight(1f)) {
+            // 玻璃侧栏采样的是「整窗」这一层：layerBackdrop 放在不让位的整窗容器上，
+            // 让位（glassRailContentInset）只作用在内层页面容器，否则面板会采到右移后留下的空白。
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    // 整窗底色：玻璃侧栏展开时页面右移，左条不再被页面绘制，靠它兜住背景
+                    .background(MiuixTheme.colorScheme.surface)
+                    .then(if (appBarBackdrop != null) Modifier.layerBackdrop(appBarBackdrop) else Modifier),
+            ) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .then(if (useGlassRail) Modifier.glassRailContentInset(glassRailState) else Modifier),
+        ) {
 
         NavDisplay(
-            modifier = Modifier
-                .fillMaxSize()
-                .then(if (appBarBackdrop != null) Modifier.layerBackdrop(appBarBackdrop) else Modifier),
+            modifier = Modifier.fillMaxSize(),
             backStack = backStack,
             onBack = { pop() },
             effects = navEffects,
@@ -627,7 +648,32 @@ fun App() {
             }
         }
         }
+            }
+        }
 
+        }
+
+        // 玻璃侧栏：浮在页面之上，不占 Row 的一列（页面已按 state.progress 让位）
+        if (useGlassRail) {
+            ErosGlassNavigationRail(
+                isDetail = detailRoute != null,
+                selectedTab = tabIndex,
+                detailEnabled = activeDetail?.detail != null,
+                detailFavoriteCount = activeDetail?.favoriteCount ?: 0,
+                detailReadPage = readProgress?.first?.plus(1),
+                detailDownloadLabel = detailDownloadLabel,
+                detailDownloadActive = detailTask != null,
+                onSelectTab = { index ->
+                    AppStateHolder.selectedTab = index
+                    while (backStack.size > 1) backStack.removeLastOrNull()
+                },
+                onDetailFavorite = { activeDetail?.openFavSheet() },
+                onDetailDownload = onDetailDownloadAction,
+                onDetailRead = onDetailReadAction,
+                state = glassRailState,
+                backdrop = appBarBackdrop,
+                modifier = Modifier.zIndex(2f),
+            )
         }
 
         // 统一底栏（NavDisplay 之外）：Tabs 与 Detail 共用同一实例，只切换内容
