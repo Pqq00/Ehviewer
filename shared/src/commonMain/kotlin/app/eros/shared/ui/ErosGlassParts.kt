@@ -70,9 +70,10 @@ fun ErosTabRow(
  * 下拉选项行：玻璃可用时走 `GlassDropdownPreference`（弹层是玻璃面板），否则退回
  * `OverlayDropdownPreference`。
  *
- * 注意：弹层自身不在页面内容层里（它挂在 Scaffold 浮层），所以传页面内容层的 `backdrop`
- * 不会自引用；但**调用方必须确认这一点** —— 如果调用点在页面内容层内部，请传 `null`
- * （弹层退回不透明底色），否则会重演 [ErosTabRow] 的 hwui 栈溢出。
+ * `renderInRootScaffold = true`：弹层被挂到根 Scaffold 的浮层里，因此**不在**页面内容层内，
+ * 采样页面内容层的 `backdrop` 不会自引用（这是 [ErosTabRow] 那个 hwui 栈溢出的前提条件）。
+ * 默认 `backdrop = LocalPageBackdrop.current`，即页面骨架下发的这一层；没有骨架（自带 Scaffold
+ * 的页面，例如阅读器）的调用点请显式传自己的 backdrop 或 `null`。
  */
 @Composable
 fun ErosDropdownPreference(
@@ -80,7 +81,7 @@ fun ErosDropdownPreference(
     items: List<String>,
     selectedIndex: Int,
     onSelectedIndexChange: (Int) -> Unit,
-    backdrop: LayerBackdrop? = null,
+    backdrop: LayerBackdrop? = LocalPageBackdrop.current,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     summary: String? = null,
@@ -95,7 +96,7 @@ fun ErosDropdownPreference(
             modifier = modifier,
             enabled = enabled,
             summary = summary,
-            renderInRootScaffold = false,
+            renderInRootScaffold = true,
         )
     } else {
         OverlayDropdownPreference(
