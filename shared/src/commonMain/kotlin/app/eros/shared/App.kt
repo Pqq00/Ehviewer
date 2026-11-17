@@ -443,7 +443,8 @@ fun App() {
 
         // 统一底栏：放在 NavDisplay 之外，Tabs↔Detail 共用同一个实例，
         // 只做内容淡变 + 宽度平滑过渡，位置/高度/模糊保持不变。
-        val appBarBackdrop = rememberBarBackdrop()
+        // 记录「页面内容」的层：侧栏/顶栏/底栏都采样它（官方把同一角色叫 sidebarBackdrop）。
+        val pageBackdrop = rememberBarBackdrop()
         val currentRoute = backStack.lastOrNull()
         val detailRoute = currentRoute as? Route.Detail
         val activeDetail: DetailState? = detailRoute?.let { r ->
@@ -532,22 +533,19 @@ fun App() {
                     // 整窗底色：玻璃侧栏展开时页面右移，左条不再被页面绘制，靠它兜住背景
                     .background(MiuixTheme.colorScheme.surface)
                     .clipToBounds()
-                    .then(if (appBarBackdrop != null) Modifier.layerBackdrop(appBarBackdrop) else Modifier),
+                    .then(if (pageBackdrop != null) Modifier.layerBackdrop(pageBackdrop) else Modifier),
             ) {
         // 玻璃侧栏让位：页面内容自己内缩（各页 ErosPageScaffold / 顶栏前景），
         // 记录层保持整窗、内容坐标 = 窗口坐标 —— 侧栏采样到的就是真实页面。
-    GlassRailChrome.railMode = useNavigationRail
-    GlassRailChrome.expanded = glassRailState.expanded
-        // 侧栏自己吃掉了 systemBars ∪ displayCutout（见 ErosNavigationRail），横屏时左侧
-        // 状态栏宽度会把面板整体右推；让位量必须叠加同一份左侧安全区，否则第一列卡片
-        // 会被面板压住。
-        val railSafeStart = WindowInsets.systemBars
-            .union(WindowInsets.displayCutout)
-            .asPaddingValues()
-            .calculateStartPadding(LocalLayoutDirection.current)
+        GlassRailChrome.railMode = useNavigationRail
+        GlassRailChrome.expanded = glassRailState.expanded
+        // 对齐官方 example：让位量就是 (Margin + ExpandedWidth) * progress。
+        // 左侧安全区不叠加在这里 —— ErosPageScaffold 的 erosPageHorizontalInsets() 已经把
+        // safeDrawing 的 start 消费掉了，侧栏自己的 windowInsetsPadding 也是同一份，
+        // 两边一致时内容起点正好落在面板右缘（官方同样是「安全区内缩 + overlayStart」）。
         GlassRailStartInset.update {
             if (useGlassRail) {
-                railSafeStart + (GlassNavigationRailDefaults.Margin + GlassNavigationRailDefaults.ExpandedWidth + 12.dp) * glassRailState.progress
+                (GlassNavigationRailDefaults.Margin + GlassNavigationRailDefaults.ExpandedWidth) * glassRailState.progress
             } else {
                 0.dp
             }
@@ -709,7 +707,8 @@ fun App() {
                 onDetailDownload = onDetailDownloadAction,
                 onDetailRead = onDetailReadAction,
                 state = glassRailState,
-                backdrop = appBarBackdrop,
+                // 采样页面内容层；侧栏自己在记录层之外，不会采到自己（见 Glass.kt:44-45）。
+                backdrop = pageBackdrop,
                 modifier = Modifier.zIndex(2f),
             )
         }
@@ -738,7 +737,7 @@ fun App() {
                     onDetailFavorite = { activeDetail?.openFavSheet() },
                     onDetailDownload = onDetailDownloadAction,
                     onDetailRead = onDetailReadAction,
-                    backdrop = appBarBackdrop,
+                    backdrop = pageBackdrop,
                 )
         }
 
