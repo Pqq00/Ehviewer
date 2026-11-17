@@ -15,9 +15,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.selection.selectable
@@ -34,10 +38,12 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.SubcomposeLayout
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.offset
 import androidx.compose.ui.unit.sp
 import app.eros.shared.settings.AppSettings
 import app.eros.shared.ui.effect.erosGlassBlur
@@ -48,16 +54,13 @@ import top.yukonga.miuix.kmp.basic.Badge
 import top.yukonga.miuix.kmp.basic.BadgedBox
 import top.yukonga.miuix.kmp.basic.FloatingNavigationBar
 import top.yukonga.miuix.kmp.basic.FloatingNavigationBarDefaults
-import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.NavigationBar
 import top.yukonga.miuix.kmp.basic.NavigationBarDefaults
 import top.yukonga.miuix.kmp.basic.NavigationBarDisplayMode
 import top.yukonga.miuix.kmp.basic.NavigationBarItem
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
-import top.yukonga.miuix.kmp.glass.GlassIconButton
 import top.yukonga.miuix.kmp.glass.GlassNavigationBar
-import top.yukonga.miuix.kmp.glass.GlassNavigationBarDefaults
 import top.yukonga.miuix.kmp.glass.GlassNavigationItem
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Download
@@ -65,10 +68,8 @@ import top.yukonga.miuix.kmp.icon.extended.Favorites
 import top.yukonga.miuix.kmp.icon.extended.FavoritesFill
 import top.yukonga.miuix.kmp.icon.extended.Home
 import top.yukonga.miuix.kmp.icon.extended.Play
-import top.yukonga.miuix.kmp.icon.extended.Search
 import top.yukonga.miuix.kmp.icon.extended.Settings
 import top.yukonga.miuix.kmp.icon.extended.TopDownloads
-import top.yukonga.miuix.kmp.material.GlassShadows
 import top.yukonga.miuix.kmp.material.edgeStroke
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -108,10 +109,6 @@ fun ErosAppBottomBar(
     onDetailRead: () -> Unit,
     backdrop: LayerBackdrop?,
     modifier: Modifier = Modifier,
-    /** 玻璃样式下胶囊右侧的独立动作（官方示例的 `trailingAction`，一颗独立玻璃圆钮）；其余样式忽略。 */
-    onTrailingAction: (() -> Unit)? = null,
-    trailingIcon: ImageVector? = null,
-    trailingDescription: String = "更多",
 ) {
     // 0 = 导航项，1 = 详情操作项
     val progress by animateFloatAsState(
@@ -233,6 +230,9 @@ fun ErosAppBottomBar(
     } else if (AppSettings.navBarStyle == 3) {
         // 玻璃胶囊底栏：直接用 miuix 的 GlassNavigationBar（OS4 材质），
         // 详情态换成「收藏 / 下载 / 阅读」三项，指示器跟随当前状态。
+        // 底部留白照官方 GlassPage.kt:244-257：安全区 + 8dp，最少 24dp。
+        val safeBottom = WindowInsets.safeDrawing.asPaddingValues().calculateBottomPadding()
+        val capsuleBottomGap = maxOf(24.dp, safeBottom + 8.dp)
         val glassItems: List<GlassNavigationItem>
         val glassSelected: Int
         if (isDetail) {
@@ -275,46 +275,43 @@ fun ErosAppBottomBar(
             }
             glassSelected = selectedTab
         }
-        GlassNavigationBar(
-            items = glassItems,
-            selectedIndex = glassSelected,
-            onSelect = { index ->
-                if (!transitioning) {
-                    if (isDetail) {
-                        if (detailEnabled) {
-                            when (index) {
-                                0 -> onDetailFavorite()
-                                1 -> onDetailDownload()
-                                else -> onDetailRead()
+        // 官方 GlassPage.kt:250-257 用 layout 在胶囊下方补一段安全区留白：
+        // 胶囊本身按约束原位摆放，容器高度多出让出的那一段，从而实现「浮在安全区之上」。
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .layout { measurable, constraints ->
+                    val bottom = capsuleBottomGap.roundToPx().coerceIn(0, constraints.maxHeight)
+                    val placeable = measurable.measure(constraints.offset(vertical = -bottom))
+                    layout(placeable.width, placeable.height + bottom) {
+                        placeable.placeRelative(0, 0)
+                    }
+                },
+        ) {
+            GlassNavigationBar(
+                items = glassItems,
+                selectedIndex = glassSelected,
+                onSelect = { index ->
+                    if (!transitioning) {
+                        if (isDetail) {
+                            if (detailEnabled) {
+                                when (index) {
+                                    0 -> onDetailFavorite()
+                                    1 -> onDetailDownload()
+                                    else -> onDetailRead()
+                                }
                             }
+                        } else {
+                            onSelectTab(index)
                         }
-                    } else {
-                        onSelectTab(index)
                     }
-                }
-            },
-            backdrop = backdrop,
-            // 官方 AppContent.kt:697-700 的玻璃底栏是「左右各留 24dp」的胶囊，不贴屏幕边。
-            modifier = modifier.padding(horizontal = 24.dp),
-            // 官方 GlassPage.kt:282-301 的 trailingAction：胶囊右侧挂一颗独立玻璃圆钮。
-            trailingAction = onTrailingAction?.let { action ->
-                {
-                    GlassIconButton(
-                        onClick = action,
-                        backdrop = backdrop,
-                        size = GlassNavigationBarDefaults.Height,
-                        shadow = GlassShadows.Float,
-                    ) {
-                        Icon(
-                            imageVector = trailingIcon ?: MiuixIcons.Search,
-                            contentDescription = trailingDescription,
-                            modifier = Modifier.size(24.dp),
-                            tint = MiuixTheme.colorScheme.onSurface,
-                        )
-                    }
-                }
-            },
-        )
+                },
+                backdrop = backdrop,
+                // 官方 AppContent.kt:697-700：玻璃底栏是左右各留 24dp 的胶囊；上下留白见外层包裹。
+                defaultWindowInsetsPadding = false,
+                modifier = modifier.padding(horizontal = 24.dp),
+            )
+        }
     } else if (AppSettings.navBarStyle == 1) {
         val shape = RoundedCornerShape(top.yukonga.miuix.kmp.basic.FloatingToolbarDefaults.CornerRadius)
         FloatingNavigationBar(

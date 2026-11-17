@@ -39,6 +39,7 @@ import androidx.compose.runtime.movableContentOf
 
 
 
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.statusBarsPadding
 
 import app.eros.shared.ui.FPSMonitor
@@ -654,10 +655,6 @@ fun App() {
                     onDetailDownload = onDetailDownloadAction,
                     onDetailRead = onDetailReadAction,
                     backdrop = appBarBackdrop,
-                    // 玻璃底栏右侧那颗独立圆钮（官方 GlassPage 的 trailingAction）：页签态给搜索。
-                    onTrailingAction = if (detailRoute == null) ({ push(Route.Search) }) else null,
-                    trailingIcon = MiuixIcons.Search,
-                    trailingDescription = "搜索",
                 )
         }
 
@@ -703,7 +700,15 @@ private fun Tabs(
     // 1 悬浮、2 iOS、3 玻璃都是悬浮底栏，内容需额外让出底部空间
     val floatingBar = AppSettings.navBarStyle != 0
     // 宽屏下导航在左侧 rail 里，页面底部不再需要给底栏留位置
-    val barBottomInset = if (rememberUseNavigationRail()) 0.dp else 96.dp
+    // 玻璃底栏自己按安全区留白（GlassNavigationBar.Height = 54dp + 最少 24dp 间隙），
+    // 这里按同样的算法算出让位高度，避免底栏盖住最后一行。
+    val glassBar = AppSettings.navBarStyle == 3
+    val safeBottomInset = WindowInsets.safeDrawing.asPaddingValues().calculateBottomPadding()
+    val barBottomInset = when {
+        rememberUseNavigationRail() -> 0.dp
+        glassBar -> maxOf(24.dp, safeBottomInset + 8.dp) + 54.dp + 8.dp
+        else -> 96.dp
+    }
     // 底栏模糊用的 backdrop（捕获 pager 区域），与各页顶栏的 backdrop 互不影响
     val barBackdrop = rememberBarBackdrop()
     // 只有「下载」这个占位页还用 Tabs 层提供的顶栏资源
