@@ -15,6 +15,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
+import app.eros.shared.ui.ErosBottomSheet
 import app.eros.shared.reader.ReaderFit
 import app.eros.shared.reader.ReaderMode
 import app.eros.shared.reader.ReaderSession
@@ -25,7 +26,6 @@ import top.yukonga.miuix.kmp.preference.CheckboxPreference
 import top.yukonga.miuix.kmp.preference.CheckboxLocation
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.overlay.OverlayBottomSheet
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
@@ -37,7 +37,7 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 internal fun ReaderSheets(session: ReaderSession) {
     val sheet = session.sheet
 
-    OverlayBottomSheet(
+    ErosBottomSheet(
         show = sheet == ReaderSheet.Jump,
         title = "跳转到页面",
         insideMargin = DpSize(16.dp, 4.dp),
@@ -70,7 +70,7 @@ internal fun ReaderSheets(session: ReaderSession) {
         }
     }
 
-    OverlayBottomSheet(
+    ErosBottomSheet(
         show = sheet == ReaderSheet.Settings,
         title = "阅读设置",
         insideMargin = DpSize(16.dp, 4.dp),

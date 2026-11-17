@@ -17,7 +17,6 @@ import top.yukonga.miuix.kmp.preference.ArrowPreference
 
 import androidx.compose.runtime.mutableIntStateOf
 
-import top.yukonga.miuix.kmp.overlay.OverlayDialog
 
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 
@@ -638,7 +637,7 @@ fun SettingsScreen(
     // OverlayDialog：420dp 最大宽度、32dp 圆角、DialogDefaults 的配色与进出场动画都由官方实现给出。
     // TrackOverlay 让弹窗显示期间隐藏底部导航栏（下载页「删除下载」同样处理），否则底栏会盖住按钮。
     TrackOverlay(confirmClearCache)
-    OverlayDialog(
+    ErosDialog(
         show = confirmClearCache,
         title = "清理图片缓存",
         summary = "删除后需重新下载",

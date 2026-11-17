@@ -4,6 +4,7 @@
 package app.eros.shared.ui
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import app.eros.shared.settings.AppSettings
 import app.eros.shared.ui.effect.isShaderSupported
@@ -12,6 +13,15 @@ import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.glass.GlassDropdownPreference
 import top.yukonga.miuix.kmp.glass.GlassSegmentedTabRow
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
+
+/**
+ * 当前页面的「内容层 backdrop」，由 [ErosPageScaffold] 下发。
+ *
+ * 页内玻璃控件（Tab、弹层）拿它做采样源；没有下发时退回普通控件。
+ * 注意：它必须是不包含使用者自身的那一层，否则 hwui 会因自引用递归而栈溢出（见 [ErosTabRow]）。
+ */
+val LocalPageBackdrop = staticCompositionLocalOf<LayerBackdrop?> { null }
+
 
 /** 模糊是否可用：栏模糊开着、且设备支持 RuntimeShader。 */
 private fun glassAvailable(): Boolean = AppSettings.barBlurEnabled && isShaderSupported()

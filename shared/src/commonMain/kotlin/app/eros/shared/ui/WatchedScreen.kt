@@ -51,7 +51,6 @@ import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Add
 import top.yukonga.miuix.kmp.icon.extended.Back
-import top.yukonga.miuix.kmp.overlay.OverlayBottomSheet
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** 关注标签页状态（`/watched`，需要登录）。 */
@@ -286,7 +285,7 @@ fun WatchedScreen(
 
             // 底部滑出面板（必须在 Scaffold content 内才有 popup 宿主）
             TrackOverlay(showAdd)
-            OverlayBottomSheet(
+            ErosBottomSheet(
                 show = showAdd,
                 title = "添加关注标签",
                 onDismissRequest = { showAdd = false },

@@ -62,7 +62,6 @@ import top.yukonga.miuix.kmp.icon.extended.Close
 import top.yukonga.miuix.kmp.icon.extended.Delete
 import top.yukonga.miuix.kmp.icon.extended.Play
 import top.yukonga.miuix.kmp.icon.extended.SelectAll
-import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.squircle.squircleClip
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.PressFeedbackType
@@ -260,7 +259,7 @@ fun HistoryScreen(
         // 删除确认：miuix 原生 OverlayDialog（与「图片缓存」一致），
         // 宿主由 App.kt 在外层补的 MiuixPopupUtils.MiuixPopupHost 提供。
         TrackOverlay(confirming)
-        OverlayDialog(
+        ErosDialog(
             show = confirming,
             title = "删除 ${selected.size} 条浏览记录？",
             summary = "只删除本机的浏览记录与封面缓存，不影响画廊本身。",

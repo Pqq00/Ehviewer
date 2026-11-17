@@ -98,7 +98,6 @@ import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Ok
 import top.yukonga.miuix.kmp.icon.extended.Share
-import top.yukonga.miuix.kmp.overlay.OverlayBottomSheet
 import top.yukonga.miuix.kmp.squircle.squircleClip
 import top.yukonga.miuix.kmp.squircle.squircleSurface
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -539,7 +538,7 @@ fun DetailScreen(
             }
         if (state.detail != null) {
             TrackOverlay(state.favSheet)
-            OverlayBottomSheet(
+            ErosBottomSheet(
                 show = state.favSheet,
                 title = if (state.favorited) "收藏夹" else "收藏到",
                 insideMargin = DpSize(16.dp, 4.dp),
@@ -864,7 +863,7 @@ private fun TagsSection(
     val tagSelection = selected
     val raw = tagSelection?.let { "${it.first}:${it.second}" } ?: ""
     TrackOverlay(tagSelection != null)
-    OverlayBottomSheet(
+    ErosBottomSheet(
         show = tagSelection != null,
         title = raw,
         onDismissRequest = { selected = null },

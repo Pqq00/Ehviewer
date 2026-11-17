@@ -79,7 +79,6 @@ import top.yukonga.miuix.kmp.icon.extended.Pause
 import top.yukonga.miuix.kmp.icon.extended.Play
 import top.yukonga.miuix.kmp.icon.extended.Refresh
 import top.yukonga.miuix.kmp.icon.extended.SelectAll
-import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.PressFeedbackType
 
@@ -339,7 +338,7 @@ fun DownloadScreen(
 
             TrackOverlay(confirming)
             val pending = visibleTasks.filter { selected.containsKey(it.gid) }
-            OverlayDialog(
+            ErosDialog(
                 show = confirming,
                 title = "删除 ${pending.size} 项下载？",
                 summary = "将同时删除已下载的图片文件，不影响画廊本身。",

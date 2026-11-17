@@ -63,7 +63,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.overlay.OverlayBottomSheet
 import top.yukonga.miuix.kmp.squircle.squircleClip
 import top.yukonga.miuix.kmp.squircle.squircleSurface
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -468,7 +467,7 @@ internal fun GalleryCardDownloadStyle(
     }
 
     TrackOverlay(showSheet)
-    OverlayBottomSheet(
+    ErosBottomSheet(
         show = showSheet,
         title = GalleryTitles.primary(gallery.title, gallery.titleJpn),
         onDismissRequest = { showSheet = false },

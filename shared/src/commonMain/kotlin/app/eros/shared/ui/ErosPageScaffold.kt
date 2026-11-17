@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import top.yukonga.miuix.kmp.basic.Icon
@@ -102,6 +103,9 @@ fun ErosPageScaffold(
             )
         },
     ) { innerPadding ->
-        content(innerPadding, scrollBehavior, backdrop)
+        // 页面内容层对页面内的玻璃弹层可见（玻璃 sheet / 对话框从这里取采样源）。
+        CompositionLocalProvider(LocalPageBackdrop provides backdrop) {
+            content(innerPadding, scrollBehavior, backdrop)
+        }
     }
 }
