@@ -8,7 +8,7 @@ import androidx.compose.runtime.Composable
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Contacts
-import top.yukonga.miuix.kmp.icon.extended.Recent
+import top.yukonga.miuix.kmp.icon.glass.ClockOutline
 import top.yukonga.miuix.kmp.icon.extended.Search
 
 /**
@@ -33,7 +33,7 @@ fun RowScope.HistoryAndSearchEntries(
     onOpenSearch: () -> Unit,
 ) {
     ErosBarIcon(onClick = onOpenHistory) {
-        Icon(imageVector = MiuixIcons.Recent, contentDescription = "浏览历史")
+        Icon(imageVector = MiuixIcons.Glass.ClockOutline, contentDescription = "浏览历史")
     }
     ErosBarIcon(onClick = onOpenSearch) {
         Icon(imageVector = MiuixIcons.Search, contentDescription = "搜索")

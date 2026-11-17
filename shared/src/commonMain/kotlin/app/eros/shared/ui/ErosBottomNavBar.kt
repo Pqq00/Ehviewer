@@ -63,6 +63,8 @@ import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.glass.GlassNavigationBar
 import top.yukonga.miuix.kmp.glass.GlassNavigationItem
 import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.glass.BookmarkOutline
+import top.yukonga.miuix.kmp.icon.glass.HomeOutline
 import top.yukonga.miuix.kmp.icon.extended.Download
 import top.yukonga.miuix.kmp.icon.extended.Favorites
 import top.yukonga.miuix.kmp.icon.extended.FavoritesFill
@@ -78,9 +80,9 @@ data class BottomTab(val title: String, val icon: ImageVector)
 
 /** 应用主导航项（Tabs 页与详情页共用）。 */
 val AppTabs = listOf(
-    BottomTab("首页", MiuixIcons.Home),
+    BottomTab("首页", MiuixIcons.Glass.HomeOutline),
     BottomTab("排行榜", MiuixIcons.TopDownloads),
-    BottomTab("收藏", MiuixIcons.Favorites),
+    BottomTab("收藏", MiuixIcons.Glass.BookmarkOutline),
     BottomTab("下载", MiuixIcons.Download),
     BottomTab("设置", MiuixIcons.Settings),
 )

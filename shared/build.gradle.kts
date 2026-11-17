@@ -31,6 +31,8 @@ kotlin {
     // 玻璃材质与玻璃控件：miuix main 分支的新模块，来自 GitHub Packages 快照（见 settings.gradle.kts）。
     implementation(libs.miuix.material)
     implementation(libs.miuix.glass)
+    // 玻璃图标集（MiuixIcons.Glass.*，ClockOutline/BookmarkOutline/HomeOutline/GlobalVpn/StarOutline 等）。
+    implementation(libs.miuix.glass.icons)
     implementation(libs.kotlinx.serialization.json)
             implementation(libs.coil.compose)
             implementation(compose.runtime)
