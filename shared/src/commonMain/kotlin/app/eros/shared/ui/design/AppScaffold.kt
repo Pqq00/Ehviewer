@@ -33,6 +33,9 @@ fun AppScaffold(
     navigationIcon: (@Composable () -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {},
     snackbarHost: @Composable () -> Unit = {},
+    tabs: List<String>? = null,
+    selectedTab: Int = 0,
+    onTabSelected: (Int) -> Unit = {},
     content: @Composable (
         innerPadding: PaddingValues,
         scrollBehavior: ScrollBehavior,
@@ -46,6 +49,9 @@ fun AppScaffold(
         navigationIcon = navigationIcon,
         actions = actions,
         snackbarHost = snackbarHost,
+        tabs = tabs,
+        selectedTab = selectedTab,
+        onTabSelected = onTabSelected,
         content = content,
     )
 }

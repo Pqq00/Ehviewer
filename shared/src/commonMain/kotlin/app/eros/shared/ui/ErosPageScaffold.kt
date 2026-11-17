@@ -6,8 +6,10 @@ package app.eros.shared.ui
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
@@ -52,6 +54,9 @@ fun ErosPageScaffold(
     snackbarHost: @Composable () -> Unit = {},
     floatingToolbar: @Composable () -> Unit = {},
     floatingToolbarPosition: ToolbarPosition = ToolbarPosition.BottomCenter,
+    tabs: List<String>? = null,
+    selectedTab: Int = 0,
+    onTabSelected: (Int) -> Unit = {},
     content: @Composable (
         innerPadding: PaddingValues,
         scrollBehavior: ScrollBehavior,
@@ -81,6 +86,19 @@ fun ErosPageScaffold(
                     }
                 },
                 actions = actions,
+                // 分段 Tab 挂在顶栏底部（官方示例的用法）：跟着顶栏一起展开/收起，
+                // 不需要自己算钉位；它采样的是页面内容层，而它本身不在那层里。
+                bottomContent = {
+                    if (tabs != null) {
+                        ErosTabRow(
+                            tabs = tabs,
+                            selectedIndex = selectedTab,
+                            onSelect = onTabSelected,
+                            backdrop = backdrop,
+                            modifier = Modifier.padding(horizontal = 12.dp).padding(top = 6.dp, bottom = 12.dp),
+                        )
+                    }
+                },
             )
         },
     ) { innerPadding ->

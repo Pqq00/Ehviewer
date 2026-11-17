@@ -179,10 +179,17 @@ fun DownloadScreen(
             }
         },
         floatingToolbar = {},
+        tabs = listOf(
+            "全部 ${tasks.size}",
+            "下载中 ${active.size}",
+            "已完成 ${done.size}",
+        ),
+        selectedTab = tab,
+        onTabSelected = { tab = it },
     ) { innerPadding, pageScrollBehavior, pageBackdrop ->
         Box(Modifier.fillMaxSize()) {
-            // 内容层：整页记进 pageBackdrop，顶栏与浮在列表上方的玻璃 Tab 都从这一层采样。
-            // Tab 本身必须留在这一层的外面，否则会采到自己（hwui 无限递归 → 栈溢出）。
+            // 内容层：整页记进 pageBackdrop，顶栏（含它底部的玻璃 Tab）从这一层采样。
+            // Tab 在顶栏里、不在这一层，所以不会采到自己（否则 hwui 递归 → 栈溢出）。
             Box(
                 Modifier
                     .fillMaxSize()
@@ -197,7 +204,7 @@ fun DownloadScreen(
                 contentPadding = PaddingValues(
                     start = 12.dp,
                     end = 12.dp,
-                    top = innerPadding.calculateTopPadding() + 56.dp,
+                    top = innerPadding.calculateTopPadding() + 12.dp,
                     bottom = bottomInset + 12.dp + toolbarInset,
                 ),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -287,35 +294,6 @@ fun DownloadScreen(
                 }
             }
             }
-
-            // 顶栏会随滚动收起、innerPadding 跟着变小；Tab 用「见过的最大顶栏高度」钉住，
-            // 否则它会跟着顶栏一起往上滑、被顶栏盖住。
-            val tabTopPad = remember { mutableStateOf(innerPadding.calculateTopPadding()) }
-            LaunchedEffect(innerPadding.calculateTopPadding()) {
-                if (innerPadding.calculateTopPadding() > tabTopPad.value) {
-                    tabTopPad.value = innerPadding.calculateTopPadding()
-                }
-            }
-
-            // 玻璃 Tab 浮在列表上方：不在内容层里，所以可以安全采样 pageBackdrop；
-            // 列表滚动时卡片会从它下面穿过，模糊采样的是真实内容。
-            ErosTabRow(
-                tabs = listOf(
-                    "全部 ${tasks.size}",
-                    "下载中 ${active.size}",
-                    "已完成 ${done.size}",
-                ),
-                selectedIndex = tab,
-                onSelect = { tab = it },
-                backdrop = pageBackdrop,
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(
-                        start = 12.dp,
-                        end = 12.dp,
-                        top = tabTopPad.value + 8.dp,
-                    ),
-            )
 
             if (selecting) {
                 val enabled = selected.isNotEmpty()

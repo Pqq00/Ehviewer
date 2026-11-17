@@ -99,6 +99,7 @@ fun ErosTopBar(
     actions: @Composable RowScope.() -> Unit = {},
     navigationIcon: @Composable () -> Unit = {},
     blurStyleOverride: BarBlurStyle? = null,
+    bottomContent: @Composable () -> Unit = {},
 ) {
     val blurStyle = blurStyleOverride ?: currentBarBlurStyle()
     val useBlur = backdrop != null
@@ -134,6 +135,9 @@ fun ErosTopBar(
             backgroundAlpha = { if (progressive) 1f else 0f },
             navigationIcon = navigationIcon,
             actions = actions,
+            // 官方示例（example/shared/.../IconPage.kt:222-234）把玻璃分段 Tab 放在顶栏的
+            // bottomContent 里：它属于顶栏、不在内容层里，滚起来跟着顶栏走，也不会采到自己。
+            bottomContent = bottomContent,
         )
         if (!useBlur) {
             Box(modifier = Modifier.fillMaxWidth()) {

@@ -369,6 +369,9 @@ fun TopListScreen(
         title = "排行榜",
         navigationIcon = { AccountEntry(onOpenAccount) },
         actions = { HistoryAndSearchEntries(onOpenHistory, onOpenSearch) },
+        tabs = RankPeriod.entries.map { it.first },
+        selectedTab = state.periodIndex,
+        onTabSelected = { state.selectPeriod(it) },
     ) { innerPadding, pageScrollBehavior, pageBackdrop ->
         Box(Modifier.fillMaxSize()) {
         // 内容层：整页记进 pageBackdrop，顶栏与浮在网格上方的玻璃时段 Tab 都从这一层采样。
@@ -385,7 +388,7 @@ fun TopListScreen(
                 contentPadding = PaddingValues(
                     start = 12.dp,
                     end = 12.dp,
-                    top = innerPadding.calculateTopPadding() + 56.dp,
+                    top = innerPadding.calculateTopPadding() + 12.dp,
                     bottom = bottomInset + 12.dp,
                 ),
                 topAppBarScrollBehavior = pageScrollBehavior,
@@ -406,7 +409,7 @@ fun TopListScreen(
                     contentPadding = PaddingValues(
                         start = 12.dp,
                         end = 12.dp,
-                        top = innerPadding.calculateTopPadding() + 56.dp,
+                        top = innerPadding.calculateTopPadding() + 12.dp,
                         bottom = bottomInset + 12.dp,
                     ),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -468,7 +471,7 @@ fun TopListScreen(
                     contentPadding = PaddingValues(
                         start = 12.dp,
                         end = 12.dp,
-                        top = innerPadding.calculateTopPadding() + 56.dp,
+                        top = innerPadding.calculateTopPadding() + 12.dp,
                         bottom = bottomInset + 12.dp,
                     ),
                     header = {},
@@ -476,31 +479,6 @@ fun TopListScreen(
                 }
             }
         }
-
-        // 顶栏会随滚动收起，innerPadding 也跟着变小；Tab 用「见过的最大顶栏高度」钉住，
-        // 否则它会跟着顶栏一起往上滑、被顶栏盖住。
-        val tabTopPad = remember { mutableStateOf(innerPadding.calculateTopPadding()) }
-        LaunchedEffect(innerPadding.calculateTopPadding()) {
-            if (innerPadding.calculateTopPadding() > tabTopPad.value) {
-                tabTopPad.value = innerPadding.calculateTopPadding()
-            }
-        }
-
-        // 玻璃时段 Tab 浮在网格上方：不在内容层里，采样 pageBackdrop 不会采到自己；
-        // 网格滚动时卡片从它下面穿过，模糊采样的是真实内容。
-        ErosTabRow(
-            tabs = RankPeriod.entries.map { it.first },
-            selectedIndex = state.periodIndex,
-            onSelect = { state.selectPeriod(it) },
-            backdrop = pageBackdrop,
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(
-                    start = 12.dp,
-                    end = 12.dp,
-                    top = tabTopPad.value + 8.dp,
-                ),
-        )
         }
     }
 }
