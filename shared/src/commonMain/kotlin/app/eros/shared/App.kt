@@ -156,6 +156,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.foundation.layout.calculateStartPadding
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
@@ -533,9 +538,16 @@ fun App() {
         // 记录层保持整窗、内容坐标 = 窗口坐标 —— 侧栏采样到的就是真实页面。
     GlassRailChrome.railMode = useNavigationRail
     GlassRailChrome.expanded = glassRailState.expanded
+        // 侧栏自己吃掉了 systemBars ∪ displayCutout（见 ErosNavigationRail），横屏时左侧
+        // 状态栏宽度会把面板整体右推；让位量必须叠加同一份左侧安全区，否则第一列卡片
+        // 会被面板压住。
+        val railSafeStart = WindowInsets.systemBars
+            .union(WindowInsets.displayCutout)
+            .asPaddingValues()
+            .calculateStartPadding(LocalLayoutDirection.current)
         GlassRailStartInset.update {
             if (useGlassRail) {
-                (GlassNavigationRailDefaults.Margin + GlassNavigationRailDefaults.ExpandedWidth + 12.dp) * glassRailState.progress
+                railSafeStart + (GlassNavigationRailDefaults.Margin + GlassNavigationRailDefaults.ExpandedWidth + 12.dp) * glassRailState.progress
             } else {
                 0.dp
             }
