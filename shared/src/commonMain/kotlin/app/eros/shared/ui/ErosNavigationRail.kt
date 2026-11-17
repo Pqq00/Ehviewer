@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
@@ -20,6 +21,7 @@ import top.yukonga.miuix.kmp.basic.NavigationRailItem
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.rememberNavigationRailState
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
+import top.yukonga.miuix.kmp.glass.GlassNavigationBarDefaults
 import top.yukonga.miuix.kmp.glass.GlassNavigationItem
 import top.yukonga.miuix.kmp.glass.GlassNavigationRail
 import top.yukonga.miuix.kmp.glass.GlassNavigationRailDefaults
@@ -162,63 +164,64 @@ fun ErosGlassNavigationRail(
     backdrop: LayerBackdrop?,
     modifier: Modifier = Modifier,
 ) {
-    val actionCount = if (isDetail) 3 else 0
+    // 详情页只放三个动作（收藏/下载/阅读），不再把顶部五个 tab 一起排进来：
+    // 八项挤在一行既看不清，也让「收藏」这种动作和「收藏」这个 tab 撞名。
     val items = remember(
         isDetail,
         detailFavoriteCount,
         detailReadPage,
         detailDownloadLabel,
     ) {
-        buildList {
-            if (isDetail) {
-                add(
-                    GlassNavigationItem(
-                        icon = MiuixIcons.Favorites,
-                        label = if (detailFavoriteCount > 0) "收藏 $detailFavoriteCount" else "收藏",
-                        contentDescription = "收藏",
-                    ),
-                )
-                add(
-                    GlassNavigationItem(
-                        icon = MiuixIcons.Download,
-                        label = detailDownloadLabel,
-                        contentDescription = "下载",
-                    ),
-                )
-                add(
-                    GlassNavigationItem(
-                        icon = MiuixIcons.Play,
-                        label = "阅读",
-                        contentDescription = "阅读",
-                        badge = detailReadPage?.takeIf { it > 0 }?.let { page ->
-                            { Badge { Text(page.toString()) } }
-                        },
-                    ),
-                )
-            }
-            AppTabs.forEach { tab ->
-                add(
-                    GlassNavigationItem(
-                        icon = tab.icon,
-                        label = tab.title,
-                        contentDescription = tab.title,
-                    ),
+        if (isDetail) {
+            listOf(
+                GlassNavigationItem(
+                    icon = MiuixIcons.Favorites,
+                    label = if (detailFavoriteCount > 0) "收藏 $detailFavoriteCount" else "收藏",
+                    contentDescription = "收藏",
+                ),
+                GlassNavigationItem(
+                    icon = MiuixIcons.Download,
+                    label = detailDownloadLabel,
+                    contentDescription = "下载",
+                ),
+                GlassNavigationItem(
+                    icon = MiuixIcons.Play,
+                    label = "阅读",
+                    contentDescription = "阅读",
+                    badge = detailReadPage?.takeIf { it > 0 }?.let { page ->
+                        { Badge { Text(page.toString()) } }
+                    },
+                ),
+            )
+        } else {
+            AppTabs.map { tab ->
+                GlassNavigationItem(
+                    icon = tab.icon,
+                    label = tab.title,
+                    contentDescription = tab.title,
                 )
             }
         }
     }
     GlassNavigationRail(
         items = items,
-        selectedIndex = actionCount + selectedTab,
+        // 详情页是「动作栏」而不是导航：固定高亮第一项会很误导，所以把指示器整个隐藏。
+        selectedIndex = if (isDetail) 0 else selectedTab,
+        indicatorColor = if (isDetail) Color.Transparent else GlassNavigationBarDefaults.indicatorColor(),
+        indicatorPressedColor = if (isDetail) {
+            Color.Transparent
+        } else {
+            GlassNavigationBarDefaults.indicatorPressedColor()
+        },
         onSelect = { index ->
-            if (isDetail && index < actionCount) {
+            if (isDetail) {
                 when (index) {
                     0 -> if (detailEnabled) onDetailFavorite()
                     1 -> if (detailEnabled && !detailDownloadActive) onDetailDownload()
                     else -> if (detailEnabled) onDetailRead()
                 }
             } else {
-                onSelectTab(index - actionCount)
+                onSelectTab(index)
             }
         },
         backdrop = backdrop,
