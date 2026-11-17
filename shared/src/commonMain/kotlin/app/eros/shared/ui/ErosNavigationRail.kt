@@ -238,8 +238,10 @@ fun ErosGlassNavigationRail(
 fun Modifier.glassRailContentInset(state: GlassNavigationRailState): Modifier {
     val density = LocalDensity.current
     return this.layout { measurable, constraints ->
+        // 官方 PageUtils.kt:overlayStart = (Margin + ExpandedWidth) * progress；
+        // 额外补 12dp 视觉缝，让面板右缘落在底色上而不是卡片硬边上（模糊核不会把卡片卷进面板）。
         val shift = with(density) {
-            ((GlassNavigationRailDefaults.Margin + GlassNavigationRailDefaults.ExpandedWidth) * state.progress)
+            ((GlassNavigationRailDefaults.Margin + GlassNavigationRailDefaults.ExpandedWidth + 12.dp) * state.progress)
                 .roundToPx()
         }
         val maxWidth = (constraints.maxWidth - shift).coerceAtLeast(0)

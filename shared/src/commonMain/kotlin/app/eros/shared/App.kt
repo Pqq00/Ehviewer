@@ -169,6 +169,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import app.eros.shared.auth.applyExHentai
@@ -502,13 +503,14 @@ fun App() {
         }
 
         Box(Modifier.weight(1f)) {
-            // 玻璃侧栏采样的是「整窗」这一层：layerBackdrop 放在不让位的整窗容器上，
-            // 让位（glassRailContentInset）只作用在内层页面容器，否则面板会采到右移后留下的空白。
+            // 对齐官方 AppContent.kt:335-376：整窗先铺底色并裁剪（clipToBounds），
+            // 记录层（layerBackdrop）尺寸始终等于窗口；页面让位只作用于内层容器。
             Box(
                 Modifier
                     .fillMaxSize()
                     // 整窗底色：玻璃侧栏展开时页面右移，左条不再被页面绘制，靠它兜住背景
                     .background(MiuixTheme.colorScheme.surface)
+                    .clipToBounds()
                     .then(if (appBarBackdrop != null) Modifier.layerBackdrop(appBarBackdrop) else Modifier),
             ) {
         Box(
