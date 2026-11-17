@@ -41,8 +41,15 @@ fun Modifier.erosPageHorizontalInsets(): Modifier =
  * 对应官方 example 的 `AppPageInsets.contentInsets`：`overlayStart = (Margin + ExpandedWidth) * progress`。
  */
 object GlassRailStartInset {
-    /** 返回当前应让开的起始边宽度；返回 0 表示不让位。 */
-    var provider: () -> Dp = { 0.dp }
+    private var provider: () -> Dp = { 0.dp }
+
+    /** 由 `App.kt` 在组合期更新；只是替换引用，不读状态。 */
+    fun update(p: () -> Dp) {
+        provider = p
+    }
+
+    /** **只在 layout 阶段调用**：这时读到的是最新的 provider，而不是某一帧组合时捕获的旧 lambda。 */
+    fun current(): Dp = provider()
 }
 
 /**
@@ -58,9 +65,10 @@ object GlassRailStartInset {
  */
 @Composable
 fun Modifier.erosGlassRailStartInset(): Modifier {
-    val startInset = GlassRailStartInset.provider
     return layout { measurable, constraints ->
-        val start = startInset().roundToPx().coerceIn(0, constraints.maxWidth)
+        // 在这里（layout 阶段）才取 provider：竖屏→横屏切换后页面不一定重组，
+        // 但一定会重新测量，所以能拿到 App.kt 最新的让位宽度。
+        val start = GlassRailStartInset.current().roundToPx().coerceIn(0, constraints.maxWidth)
         val placeable = measurable.measure(constraints.offset(horizontal = -start))
         layout(placeable.width + start, placeable.height) {
             placeable.placeRelative(start, 0)
