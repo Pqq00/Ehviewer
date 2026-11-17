@@ -43,6 +43,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
+import app.eros.shared.ui.design.erosBottomBarWidthLimit
 import app.eros.shared.ui.design.erosPageHorizontalInsets
 import androidx.compose.ui.unit.offset
 import androidx.compose.ui.unit.sp
@@ -321,15 +322,8 @@ fun ErosAppBottomBar(
                     modifier = modifier
                         .erosPageHorizontalInsets()
                         .padding(horizontal = 24.dp)
-                        .layout { measurable, constraints ->
-                            val width = if (constraints.hasBoundedWidth && constraints.maxWidth > 600.dp.roundToPx()) {
-                                344.dp.roundToPx().coerceIn(constraints.minWidth, constraints.maxWidth)
-                            } else {
-                                constraints.maxWidth
-                            }
-                            val placeable = measurable.measure(constraints.copy(minWidth = width, maxWidth = width))
-                            layout(placeable.width, placeable.height) { placeable.placeRelative(0, 0) }
-                        },
+                        // 宽屏（>600dp）收窄到 344dp，规则见 design/PageInsets.kt。
+                        .erosBottomBarWidthLimit(),
                 )
             }
         }

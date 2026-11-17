@@ -63,6 +63,7 @@ import app.eros.shared.settings.AppSettings
 import app.eros.shared.ui.BarBlurStyle
 import app.eros.shared.ui.barBlurColors
 import app.eros.shared.ui.currentBarBlurStyle
+import app.eros.shared.ui.design.erosBottomBarWidthLimit
 import app.eros.shared.ui.effect.erosGlassBlur
 import app.eros.shared.ui.effect.erosProgressiveGlassBlur
 import app.eros.shared.ui.effect.glassEdgeStroke
@@ -234,7 +235,10 @@ private fun ReaderProgressBar(
     // 外层高度固定 58dp：展开时只让胶囊在内部长高，避免底栏跟着重排、
     // 手指下的坐标随布局位移漂移（那会把「点击」误判成「拖动」）。
     Box(
-        modifier = modifier.height(58.dp),
+        modifier = modifier
+            .height(58.dp)
+            // 与主底栏同一套宽屏规则：>600dp 收窄到 344dp。
+            .erosBottomBarWidthLimit(),
         contentAlignment = Alignment.Center,
     ) {
         Box(
@@ -486,6 +490,8 @@ private fun ReaderActionBar(session: ReaderSession, backdrop: LayerBackdrop?) {
                         placeable.placeRelative(0, 0)
                     }
                 },
+            // 胶囊在宽屏下被 erosBottomBarWidthLimit() 收窄，这里负责居中。
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             GlassNavigationBar(
                 items = items,
@@ -503,7 +509,10 @@ private fun ReaderActionBar(session: ReaderSession, backdrop: LayerBackdrop?) {
                 indicatorColor = Color.Transparent,
                 indicatorPressedColor = Color.Transparent,
                 defaultWindowInsetsPadding = false,
-                modifier = Modifier.padding(horizontal = 24.dp),
+                // 与主底栏同一套宽屏规则：>600dp 收窄到 344dp（design/PageInsets.kt）。
+                modifier = Modifier
+                    .padding(horizontal = 24.dp)
+                    .erosBottomBarWidthLimit(),
             )
         }
     } else {
@@ -562,7 +571,11 @@ private fun ReaderActionBar(session: ReaderSession, backdrop: LayerBackdrop?) {
  */
 @Composable
 internal fun ReaderBottomBar(session: ReaderSession, backdrop: LayerBackdrop? = null) {
-    Column(modifier = Modifier.fillMaxWidth()) {
+    // 宽屏下两颗胶囊都会被 erosBottomBarWidthLimit() 收窄，这里负责居中。
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
         ReaderProgressBar(
             session = session,
             backdrop = backdrop,

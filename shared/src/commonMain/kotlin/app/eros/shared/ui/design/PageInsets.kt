@@ -80,6 +80,33 @@ fun Modifier.erosGlassRailStartInset(): Modifier {
 }
 
 /**
+ * 底部浮层（主底栏、阅读器进度栏/动作栏）在宽屏下的收窄规则：
+ * 窗口宽度超过 [ErosBottomBarWideBreakpoint] 时，胶囊固定收窄到 [ErosBottomBarMaxWidth]。
+ *
+ * 数值来自官方示例的宽屏处理（`example/.../AppContent.kt` 的底栏宽度约束）：
+ * 平板/横屏下不让胶囊横跨整块屏幕，保持和手机一致的观感。
+ */
+val ErosBottomBarWideBreakpoint = 600.dp
+val ErosBottomBarMaxWidth = 344.dp
+
+/**
+ * 给底部胶囊套上宽屏收窄：超过断点就按 [ErosBottomBarMaxWidth] 重新测量。
+ *
+ * 只改自身宽度，不做定位 —— 调用方用 `Box(contentAlignment = BottomCenter)` 或
+ * `Column(horizontalAlignment = CenterHorizontally)` 负责居中（与 [app.eros.shared.ui.ErosAppBottomBar]
+ * 在 `App.kt` 里的挂法一致）。
+ */
+fun Modifier.erosBottomBarWidthLimit(): Modifier = layout { measurable, constraints ->
+    val bounded = constraints.hasBoundedWidth
+    val wide = bounded && constraints.maxWidth > ErosBottomBarWideBreakpoint.roundToPx()
+    // 不能 coerceIn(constraints.minWidth, …)：调用方常用 fillMaxWidth()，此时 min == max == 全宽，
+    // 收窄值会被 min 顶回去（实测会打印 max=2500 min=2500 -> 2500）。这里直接改写约束。
+    val width = if (wide) ErosBottomBarMaxWidth.roundToPx() else constraints.maxWidth
+    val placeable = measurable.measure(constraints.copy(minWidth = width, maxWidth = width))
+    layout(placeable.width, placeable.height) { placeable.placeRelative(0, 0) }
+}
+
+/**
  * 玻璃侧栏对顶栏的影响（宽屏 chrome）：
  *  - [railMode]：当前是否走玻璃侧栏布局（宽屏）。为 true 时顶栏 `expandable = false`，
  *    也就是官方示例在宽屏下「没有大标题」的行为。
