@@ -654,6 +654,10 @@ fun App() {
                     onDetailDownload = onDetailDownloadAction,
                     onDetailRead = onDetailReadAction,
                     backdrop = appBarBackdrop,
+                    // 玻璃底栏右侧那颗独立圆钮（官方 GlassPage 的 trailingAction）：页签态给搜索。
+                    onTrailingAction = if (detailRoute == null) ({ push(Route.Search) }) else null,
+                    trailingIcon = MiuixIcons.Search,
+                    trailingDescription = "搜索",
                 )
         }
 
