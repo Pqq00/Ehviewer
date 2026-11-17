@@ -64,7 +64,6 @@ import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.Checkbox
-import top.yukonga.miuix.kmp.basic.FloatingToolbar
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.LinearProgressIndicator
 import top.yukonga.miuix.kmp.basic.SmallTitle
@@ -298,7 +297,7 @@ fun DownloadScreen(
                 val enabled = selected.isNotEmpty()
                 // 多选态隐藏底部导航栏，工具栏与历史页一样贴屏幕底 24dp
                 TrackOverlay()
-                FloatingToolbar(
+                ErosFloatingToolbar(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .padding(bottom = 24.dp),

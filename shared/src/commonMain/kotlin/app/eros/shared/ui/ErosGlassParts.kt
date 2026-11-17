@@ -8,9 +8,11 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import app.eros.shared.settings.AppSettings
 import app.eros.shared.ui.effect.isShaderSupported
+import top.yukonga.miuix.kmp.basic.FloatingToolbar
 import top.yukonga.miuix.kmp.basic.TabRow
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.glass.GlassDropdownPreference
+import top.yukonga.miuix.kmp.glass.GlassFloatingToolbar
 import top.yukonga.miuix.kmp.glass.GlassSegmentedTabRow
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 
@@ -104,5 +106,29 @@ fun ErosDropdownPreference(
             enabled = enabled,
             summary = summary,
         )
+    }
+}
+
+/**
+ * 多选态底部浮动工具栏：玻璃可用时走 `GlassFloatingToolbar`（采样页面内容层 backdrop），
+ * 否则退回普通 `FloatingToolbar`。
+ *
+ * 工具栏是浮在页面之上的兄弟节点、不在内容层里，所以采样 `LocalPageBackdrop` 不会自引用。
+ */
+@Composable
+fun ErosFloatingToolbar(
+    modifier: Modifier = Modifier,
+    backdrop: LayerBackdrop? = LocalPageBackdrop.current,
+    content: @Composable () -> Unit,
+) {
+    val glassBackdrop = backdrop.takeIf { it != null && glassAvailable() }
+    if (glassBackdrop != null) {
+        GlassFloatingToolbar(
+            modifier = modifier,
+            backdrop = glassBackdrop,
+            content = content,
+        )
+    } else {
+        FloatingToolbar(modifier = modifier, content = content)
     }
 }
