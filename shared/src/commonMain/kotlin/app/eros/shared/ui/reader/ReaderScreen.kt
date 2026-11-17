@@ -231,7 +231,7 @@ fun ReaderScreen(session: ReaderSession, onBack: () -> Unit) {
             }
         }
 
-        ReaderSheets(session)
+        ReaderSheets(session = session, backdrop = backdrop)
     }
 }
 
