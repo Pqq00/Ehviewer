@@ -324,10 +324,12 @@ private fun ReaderProgressBar(
                 )
                 val filled = usable * progress
                 if (filled > 0f) {
+                    // 首页/前几页时 filled 只有几像素，圆角一裁就成了「小竖条」；
+                    // 让已读段至少有一倍轨道高宽，视觉上是个圆点而不是杂线。
                     drawRoundRect(
                         color = activeColor,
                         topLeft = Offset(inset, centerY - track / 2f),
-                        size = Size(filled, track),
+                        size = Size(maxOf(filled, track), track),
                         cornerRadius = radius,
                     )
                 }
