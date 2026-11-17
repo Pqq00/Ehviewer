@@ -288,6 +288,15 @@ fun DownloadScreen(
             }
             }
 
+            // 顶栏会随滚动收起、innerPadding 跟着变小；Tab 用「见过的最大顶栏高度」钉住，
+            // 否则它会跟着顶栏一起往上滑、被顶栏盖住。
+            val tabTopPad = remember { mutableStateOf(innerPadding.calculateTopPadding()) }
+            LaunchedEffect(innerPadding.calculateTopPadding()) {
+                if (innerPadding.calculateTopPadding() > tabTopPad.value) {
+                    tabTopPad.value = innerPadding.calculateTopPadding()
+                }
+            }
+
             // 玻璃 Tab 浮在列表上方：不在内容层里，所以可以安全采样 pageBackdrop；
             // 列表滚动时卡片会从它下面穿过，模糊采样的是真实内容。
             ErosTabRow(
@@ -304,7 +313,7 @@ fun DownloadScreen(
                     .padding(
                         start = 12.dp,
                         end = 12.dp,
-                        top = innerPadding.calculateTopPadding() + 8.dp,
+                        top = tabTopPad.value + 8.dp,
                     ),
             )
 
