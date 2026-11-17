@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.RectangleShape
@@ -91,6 +92,12 @@ fun ErosBarIcon(
  *
  * 标题折叠、大标题、滚动联动仍由 `GlassTopAppBar` 内部的 `BlurTopAppBar` 负责。
  */
+/**
+ * 官方 `LocalTopAppBarTitleAlpha`（`example\shared\...\PageUtils.kt:57-60`）的等价物。
+ * 宽屏玻璃侧栏展开/收起时，用它给标题做 alpha 过渡，而不是把标题字符串置空。
+ */
+val LocalTopAppBarTitleAlpha = staticCompositionLocalOf<() -> Float> { { 1f } }
+
 @Composable
 fun ErosTopBar(
     title: String,
@@ -105,10 +112,10 @@ fun ErosTopBar(
 ) {
     val blurStyle = blurStyleOverride ?: currentBarBlurStyle()
     // 宽屏玻璃侧栏：官方 `AdaptiveTopAppBar(expandable = !isWideScreen)` —— 宽屏不放大标题；
-    // 侧栏收成顶部胶囊时胶囊会盖住标题，所以折叠态直接把标题置空。
+    // 侧栏收成顶部胶囊时标题要靠 alpha 淡出（官方 `titleAlpha` + `chromeTitleAlpha`），
+    // 而不是把字符串置空，这样展开/收起是连续过渡。
     val railMode = GlassRailChrome.railMode
-    val railExpanded = GlassRailChrome.expanded
-    val effectiveTitle = if (railMode && !railExpanded) "" else title
+    val chromeTitleAlpha = LocalTopAppBarTitleAlpha.current
     val useBlur = backdrop != null
     val progressive = useBlur && blurStyle == BarBlurStyle.PROGRESSIVE
 
@@ -134,7 +141,8 @@ fun ErosTopBar(
             ),
     ) {
         GlassTopAppBar(
-            title = effectiveTitle,
+            title = title,
+            titleAlpha = { chromeTitleAlpha() },
             expandable = !railMode,
             progressiveBlur = progressive,
             backdrop = backdrop,

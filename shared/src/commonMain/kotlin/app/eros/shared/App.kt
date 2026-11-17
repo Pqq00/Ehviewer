@@ -64,6 +64,7 @@ import app.eros.shared.ui.DownloadScreen
 import app.eros.shared.ui.AppTabs
 import app.eros.shared.ui.BottomTab
 import app.eros.shared.ui.ErosTopBar
+import app.eros.shared.ui.LocalTopAppBarTitleAlpha
 
 import kotlinx.coroutines.job
 
@@ -167,6 +168,7 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -552,6 +554,11 @@ fun App() {
         }
         Box(Modifier.fillMaxSize()) {
 
+        // 官方 `LocalTopAppBarTitleAlpha provides { sidebarState.progress }`：
+        // 宽屏玻璃侧栏展开时标题淡入，收起时淡出（在 draw 阶段读 progress，不触发重组）。
+        CompositionLocalProvider(
+            LocalTopAppBarTitleAlpha provides { if (useGlassRail) glassRailState.progress else 1f },
+        ) {
         NavDisplay(
             modifier = Modifier.fillMaxSize(),
             backStack = backStack,
@@ -687,6 +694,7 @@ fun App() {
             }
         }
 
+        }
         }
 
         // 玻璃侧栏：浮在页面之上，不占 Row 的一列（页面已按 state.progress 让位）
