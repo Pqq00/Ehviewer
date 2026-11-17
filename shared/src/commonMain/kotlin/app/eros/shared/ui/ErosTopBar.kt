@@ -15,6 +15,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.RectangleShape
 import app.eros.shared.settings.AppSettings
+import app.eros.shared.ui.design.GlassRailChrome
 import app.eros.shared.ui.effect.erosGlassBlur
 import app.eros.shared.ui.effect.isShaderSupported
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
@@ -103,6 +104,11 @@ fun ErosTopBar(
     bottomContent: @Composable () -> Unit = {},
 ) {
     val blurStyle = blurStyleOverride ?: currentBarBlurStyle()
+    // 宽屏玻璃侧栏：官方 `AdaptiveTopAppBar(expandable = !isWideScreen)` —— 宽屏不放大标题；
+    // 侧栏收成顶部胶囊时胶囊会盖住标题，所以折叠态直接把标题置空。
+    val railMode = GlassRailChrome.railMode
+    val railExpanded = GlassRailChrome.expanded
+    val effectiveTitle = if (railMode && !railExpanded) "" else title
     val useBlur = backdrop != null
     val progressive = useBlur && blurStyle == BarBlurStyle.PROGRESSIVE
 
@@ -128,7 +134,8 @@ fun ErosTopBar(
             ),
     ) {
         GlassTopAppBar(
-            title = title,
+            title = effectiveTitle,
+            expandable = !railMode,
             progressiveBlur = progressive,
             backdrop = backdrop,
             scrollBehavior = scrollBehavior,

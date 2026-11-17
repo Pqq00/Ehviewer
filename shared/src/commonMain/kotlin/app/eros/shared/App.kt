@@ -19,6 +19,7 @@ import app.eros.shared.download.DownloadManager
 import app.eros.shared.ui.ErosAppBottomBar
 import app.eros.shared.ui.ErosGlassNavigationRail
 import app.eros.shared.ui.ErosNavigationRail
+import app.eros.shared.ui.design.GlassRailChrome
 import app.eros.shared.ui.design.GlassRailStartInset
 import app.eros.shared.ui.rememberGlassNavigationRailStartsExpanded
 import top.yukonga.miuix.kmp.glass.GlassNavigationRailDefaults
@@ -516,6 +517,8 @@ fun App() {
             ) {
         // 玻璃侧栏让位：页面内容自己内缩（各页 ErosPageScaffold / 顶栏前景），
         // 记录层保持整窗、内容坐标 = 窗口坐标 —— 侧栏采样到的就是真实页面。
+    GlassRailChrome.railMode = useNavigationRail
+    GlassRailChrome.expanded = glassRailState.expanded
         GlassRailStartInset.update {
             if (useGlassRail) {
                 (GlassNavigationRailDefaults.Margin + GlassNavigationRailDefaults.ExpandedWidth + 12.dp) * glassRailState.progress

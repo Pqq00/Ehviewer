@@ -9,6 +9,9 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.layout
@@ -74,4 +77,17 @@ fun Modifier.erosGlassRailStartInset(): Modifier {
             placeable.placeRelative(start, 0)
         }
     }
+}
+
+/**
+ * 玻璃侧栏对顶栏的影响（宽屏 chrome）：
+ *  - [railMode]：当前是否走玻璃侧栏布局（宽屏）。为 true 时顶栏 `expandable = false`，
+ *    也就是官方示例在宽屏下「没有大标题」的行为。
+ *  - [expanded]：侧栏是否展开。侧栏收成顶部胶囊时会盖住标题，因此折叠态不显示标题
+ *    （官方用 `titleAlpha` 驱动淡出；这里改用组合期状态切换，因为实测把进度传进
+ *    `titleAlpha` 的 lambda 在 draw 阶段读不到更新）。
+ */
+object GlassRailChrome {
+    var railMode by mutableStateOf(false)
+    var expanded by mutableStateOf(false)
 }
