@@ -10,18 +10,22 @@ import app.eros.shared.ui.effect.isShaderSupported
 import top.yukonga.miuix.kmp.basic.TabRow
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.glass.GlassDropdownPreference
+import top.yukonga.miuix.kmp.glass.GlassSegmentedTabRow
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 
 /** 模糊是否可用：栏模糊开着、且设备支持 RuntimeShader。 */
 private fun glassAvailable(): Boolean = AppSettings.barBlurEnabled && isShaderSupported()
 
 /**
- * 分段 Tab。**目前固定走普通 [TabRow]**。
+ * 分段 Tab。
  *
- * 原因：本项目的页面背景层是「整个内容 Box 挂 `Modifier.layerBackdrop(pageBackdrop)`」，
- * 页面内的元素如果又去采样同一个 backdrop，就会采到自己 —— miuix 的 `GlassSegmentedTabRow`
- * 在这种自引用下会让 hwui 的 `RenderNode::prepareTreeImpl` 无限递归、直接栈溢出崩进程
- * （设置页 / 下载页必现）。等我们把页面拆成「内容层 backdrop + 独立控件层」再启用。
+ * [backdrop] 非空且模糊可用时走 miuix 的 `GlassSegmentedTabRow`（一条轨道 + 滑动指示器，玻璃底）。
+ *
+ * **注意**：`backdrop` 必须是「不包含这个 Tab 自身」的那一层的 backdrop。本项目页面骨架把整页内容
+ * 记在一层里（`Modifier.layerBackdrop(pageBackdrop)`），如果 Tab 本身就在这一层里、又拿这一层去采样，
+ * 就会采到自己 —— hwui 的 `RenderNode::prepareTreeImpl` 会无限递归、直接栈溢出崩进程。
+ * 所以只有把 Tab 放在内容层**外面**（例如浮在列表上方的兄弟节点）时才能传 backdrop；
+ * 列表里随内容滚动的 Tab 请传 `null`，走普通 `TabRow`。
  */
 @Composable
 fun ErosTabRow(
@@ -31,12 +35,23 @@ fun ErosTabRow(
     backdrop: LayerBackdrop? = null,
     modifier: Modifier = Modifier,
 ) {
-    TabRow(
-        tabs = tabs,
-        selectedTabIndex = selectedIndex,
-        onTabSelected = onSelect,
-        modifier = modifier,
-    )
+    val glassBackdrop = backdrop.takeIf { it != null && glassAvailable() }
+    if (glassBackdrop != null) {
+        GlassSegmentedTabRow(
+            tabs = tabs,
+            selectedIndex = selectedIndex,
+            onSelect = onSelect,
+            backdrop = glassBackdrop,
+            modifier = modifier,
+        )
+    } else {
+        TabRow(
+            tabs = tabs,
+            selectedTabIndex = selectedIndex,
+            onTabSelected = onSelect,
+            modifier = modifier,
+        )
+    }
 }
 
 /**

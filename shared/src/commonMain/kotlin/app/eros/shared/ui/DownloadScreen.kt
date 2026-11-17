@@ -180,11 +180,14 @@ fun DownloadScreen(
         },
         floatingToolbar = {},
     ) { innerPadding, pageScrollBehavior, pageBackdrop ->
-        Box(
-            Modifier
-                .fillMaxSize()
-                .then(if (pageBackdrop != null) Modifier.layerBackdrop(pageBackdrop) else Modifier),
-        ) {
+        Box(Modifier.fillMaxSize()) {
+            // 内容层：整页记进 pageBackdrop，顶栏与浮在列表上方的玻璃 Tab 都从这一层采样。
+            // Tab 本身必须留在这一层的外面，否则会采到自己（hwui 无限递归 → 栈溢出）。
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .then(if (pageBackdrop != null) Modifier.layerBackdrop(pageBackdrop) else Modifier),
+            ) {
             LazyColumn(
                 state = listState,
                 // 和首页/排行榜一致：把滚动喂给顶栏的 scrollBehavior，大标题才会随滚动收起。
@@ -194,24 +197,11 @@ fun DownloadScreen(
                 contentPadding = PaddingValues(
                     start = 12.dp,
                     end = 12.dp,
-                    top = innerPadding.calculateTopPadding(),
+                    top = innerPadding.calculateTopPadding() + 56.dp,
                     bottom = bottomInset + 12.dp + toolbarInset,
                 ),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                item(key = "tabs") {
-                    ErosTabRow(
-                        tabs = listOf(
-                            "全部 ${tasks.size}",
-                            "下载中 ${active.size}",
-                            "已完成 ${done.size}",
-                        ),
-                        selectedIndex = tab,
-                        onSelect = { tab = it },
-                        modifier = Modifier.padding(vertical = 8.dp),
-                    )
-                }
-
                 if (showActive.isNotEmpty()) {
                     item(key = "activeTitle") { SmallTitle(text = "下载中") }
                     items(showActive.size, key = { "active-${showActive[it].gid}" }) { index ->
@@ -296,6 +286,27 @@ fun DownloadScreen(
                     }
                 }
             }
+            }
+
+            // 玻璃 Tab 浮在列表上方：不在内容层里，所以可以安全采样 pageBackdrop；
+            // 列表滚动时卡片会从它下面穿过，模糊采样的是真实内容。
+            ErosTabRow(
+                tabs = listOf(
+                    "全部 ${tasks.size}",
+                    "下载中 ${active.size}",
+                    "已完成 ${done.size}",
+                ),
+                selectedIndex = tab,
+                onSelect = { tab = it },
+                backdrop = pageBackdrop,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(
+                        start = 12.dp,
+                        end = 12.dp,
+                        top = innerPadding.calculateTopPadding() + 8.dp,
+                    ),
+            )
 
             if (selecting) {
                 val enabled = selected.isNotEmpty()
