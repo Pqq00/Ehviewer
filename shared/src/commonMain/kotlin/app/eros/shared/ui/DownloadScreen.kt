@@ -184,7 +184,6 @@ fun DownloadScreen(
         ),
         selectedTab = tab,
         onTabSelected = { tab = it },
-        tabVariant = ErosTabVariant.Pill,
     ) { innerPadding, pageScrollBehavior, pageBackdrop ->
         Box(Modifier.fillMaxSize()) {
             // 内容层：整页记进 pageBackdrop，顶栏（含它底部的玻璃 Tab）从这一层采样。
