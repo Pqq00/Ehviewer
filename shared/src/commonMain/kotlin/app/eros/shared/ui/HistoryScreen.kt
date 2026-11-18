@@ -234,6 +234,7 @@ fun HistoryScreen(
         // 宿主由 App.kt 在外层补的 MiuixPopupUtils.MiuixPopupHost 提供。
         TrackOverlay(confirming)
         ErosDialog(
+            backdrop = LocalPageBackdrop.current,
             show = confirming,
             title = "删除 ${selected.size} 条浏览记录？",
             summary = "只删除本机的浏览记录与封面缓存，不影响画廊本身。",

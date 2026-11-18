@@ -31,8 +31,11 @@ import top.yukonga.miuix.kmp.blur.layerBackdrop
  * `UI_LAYERS.md`；本文件只负责 L1 的记录与 L2/L3 的自采样守卫。
  */
 
+/** 记录层登记项：名字只用于报错，方便定位是哪一层被自采样。 */
+internal data class GlassRecordLayer(val name: String, val backdrop: LayerBackdrop)
+
 /** 当前组合所在的记录层集合（玻璃栏放错位置时用来报错）。 */
-internal val LocalGlassRecordLayers = staticCompositionLocalOf<List<LayerBackdrop>> { emptyList() }
+internal val LocalGlassRecordLayers = staticCompositionLocalOf<List<GlassRecordLayer>> { emptyList() }
 
 /**
  * 把页面内容记录成一层 backdrop，供玻璃栏 / 玻璃工具栏采样。
@@ -40,18 +43,21 @@ internal val LocalGlassRecordLayers = staticCompositionLocalOf<List<LayerBackdro
  * 采样者（[ErosGlassBar]）必须放在这个调用**之外**，否则会采到自己。
  *
  * @param backdrop 记录层；null 时只做普通 Box（模糊不可用 / 页面不需要玻璃）。
+ * @param layerName 层名（`UI_LAYERS.md` 里的 L1 名称），只用于自采样报错定位。
  */
 @Composable
 internal fun ErosGlassRecordLayer(
     backdrop: LayerBackdrop?,
     modifier: Modifier = Modifier,
+    layerName: String = "record layer",
     content: @Composable () -> Unit,
 ) {
     Box(
         modifier.then(if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier),
     ) {
         val enclosing = LocalGlassRecordLayers.current
-        val layers = if (backdrop != null) enclosing + backdrop else enclosing
+        val layers =
+            if (backdrop != null) enclosing + GlassRecordLayer(layerName, backdrop) else enclosing
         CompositionLocalProvider(LocalGlassRecordLayers provides layers) {
             content()
         }
@@ -71,12 +77,17 @@ internal fun ErosGlassBar(
     backdrop: LayerBackdrop?,
     content: @Composable () -> Unit,
 ) {
-    if (backdrop != null && LocalGlassRecordLayers.current.any { it === backdrop }) {
-        AppLog.e(
-            "ErosGlassBar",
-            "玻璃栏 \"$name\" 采样了包含自己的记录层：hwui prepare 会递归栈溢出（见 e843247）。" +
-                "请把它移到该 ErosGlassRecordLayer 之外的兄弟节点。",
-        )
+    if (backdrop != null) {
+        val enclosing = LocalGlassRecordLayers.current.filter { it.backdrop === backdrop }
+        if (enclosing.isNotEmpty()) {
+            AppLog.e(
+                "ErosGlassBar",
+                "玻璃栏 \"$name\" 采样了包含自己的记录层 " +
+                    enclosing.joinToString { "\"${it.name}\"" } +
+                    "：hwui prepare 会递归栈溢出（见 e843247）。" +
+                    "请把它移到该 ErosGlassRecordLayer 之外的兄弟节点。",
+            )
+        }
     }
     content()
 }

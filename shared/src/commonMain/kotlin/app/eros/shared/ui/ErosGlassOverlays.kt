@@ -25,7 +25,8 @@ import app.eros.shared.ui.effect.isShaderSupported
  * `OverlayBottomSheet` / `OverlayDialog`，外观与行为跟以前一致。
  *
  * 分层契约见仓库根 `UI_LAYERS.md`：本文件是 L3 浮层的唯一入口（页面不要直接调 miuix
- * `Overlay*`）。H3 起 `backdrop` 改为显式必填，页面浮层传页面内容层、窗口浮层传窗口层。
+ * `Overlay*`）。`backdrop` 必填：页面浮层传 `LocalPageBackdrop.current`（页面内容层），
+ * 窗口级浮层传 `LocalChromeBackdrop.current`（整页层）；不要图省事传 null，否则玻璃降级。
  */
 private fun glassOverlayAvailable(backdrop: Any?): Boolean =
     backdrop != null && AppSettings.barBlurEnabled && isShaderSupported()
@@ -37,7 +38,7 @@ fun ErosBottomSheet(
     title: String? = null,
     insideMargin: DpSize? = null,
     onDismissFinished: (() -> Unit)? = null,
-    backdrop: LayerBackdrop? = LocalPageBackdrop.current,
+    backdrop: LayerBackdrop?,
     content: @Composable () -> Unit,
 ) {
     if (glassOverlayAvailable(backdrop)) {
@@ -91,7 +92,7 @@ fun ErosDialog(
     summary: String? = null,
     modifier: Modifier = Modifier,
     onDismissFinished: (() -> Unit)? = null,
-    backdrop: LayerBackdrop? = LocalPageBackdrop.current,
+    backdrop: LayerBackdrop?,
     content: @Composable () -> Unit,
 ) {
     if (glassOverlayAvailable(backdrop)) {

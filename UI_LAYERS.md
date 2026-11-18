@@ -37,11 +37,12 @@ L0  窗口 chrome     侧栏（原生 / 玻璃）、底栏宿主、FPS 浮层
 - 唯一入口：`ErosGlassRecordLayer(backdrop) { ... }`（`ui/chrome/ErosGlassRecordLayer.kt`）。
 - 页面骨架 `ErosPageScaffold` 内部已经包好；页面内容不要自己 `Modifier.layerBackdrop(...)`。
 - 实际上有两块记录面（与官方 `GlassPage` 一致）：
-  1. **整页记录面**：由 `ErosAppChrome` 的 `ErosGlassRecordLayer(pageBackdrop)` 记录
-     「页面 + 页面栏」，供 L0 chrome（侧栏/底栏）采样；
-  2. **内容记录面**：由 `ErosPageScaffold` 的 `ErosGlassRecordLayer(backdrop)` 记录页面内容，
-     供 L2 页面栏与 L3 页面浮层采样（`LocalPageBackdrop` 从这里下发）。
-- 两块记录面互相独立、都不得嵌套在对方内部。
+  1. **整页记录面**：由 `ErosAppChrome` 的 `ErosGlassRecordLayer(pageBackdrop, layerName = "page (whole window)")`
+     记录「页面 + 页面栏」，供 L0 chrome（侧栏/底栏）采样；
+  2. **内容记录面**：由 `ErosPageScaffold` 的 `ErosGlassRecordLayer(backdrop, layerName = "page content")`
+     记录页面内容，供 L2 页面栏与 L3 页面浮层采样（`LocalPageBackdrop` 从这里下发）。
+- 两块记录面互相独立、都不得嵌套在对方内部；`layerName` 只用于自采样报警定位。
+- 窗口级浮层的采样源用 `LocalChromeBackdrop`（由 `ErosAppChrome` 下发，等于整页记录面）。
 
 ### L2 页面栏
 
@@ -63,7 +64,9 @@ L0  窗口 chrome     侧栏（原生 / 玻璃）、底栏宿主、FPS 浮层
   `ErosConfirmDialog`（`ui/ConfirmDialog.kt`）、miuix popup（由 App 层的
   `MiuixPopupUtils.MiuixPopupHost()` 承载）。
 - 规则：
-  - `backdrop` 必填（H3 起）：页面浮层传页面层 `pageBackdrop`，窗口级浮层传窗口层；
+  - `backdrop` 必填（H3 起）：页面浮层传 `LocalPageBackdrop.current`（L1 内容层），
+    窗口级浮层传 `LocalChromeBackdrop.current`（L1 整页层）；不要传 null 图省事，
+    否则玻璃降级成普通 `Overlay*`；
   - 浮层渲染宿主必须在 chrome 之后，保证盖住侧栏与底栏（H2 的 `ErosOverlayHost` / 根 Scaffold）；
   - 页面不要直接调用 miuix `OverlayDialog` / `OverlayBottomSheet` / `Popup`，一律走上面的封装。
 

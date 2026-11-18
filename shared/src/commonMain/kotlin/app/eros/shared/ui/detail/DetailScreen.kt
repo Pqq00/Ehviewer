@@ -110,6 +110,7 @@ import app.eros.shared.ui.DetailSkeleton
 import app.eros.shared.ui.rememberPreviewColumns
 import app.eros.shared.ui.TrackOverlay
 import app.eros.shared.ui.ErosBottomSheet
+import app.eros.shared.ui.LocalPageBackdrop
 
 @Composable
 fun DetailScreen(
@@ -282,6 +283,7 @@ fun DetailScreen(
         if (state.detail != null) {
             TrackOverlay(state.favSheet)
             ErosBottomSheet(
+                backdrop = LocalPageBackdrop.current,
                 show = state.favSheet,
                 title = if (state.favorited) "收藏夹" else "收藏到",
                 insideMargin = DpSize(16.dp, 4.dp),

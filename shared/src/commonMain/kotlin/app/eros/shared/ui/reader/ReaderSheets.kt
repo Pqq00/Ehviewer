@@ -30,6 +30,7 @@ import top.yukonga.miuix.kmp.basic.Slider
 import top.yukonga.miuix.kmp.basic.Switch
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import app.eros.shared.ui.LocalPageBackdrop
 
 /**
  * 阅读器的两个弹层：跳页（点顶栏页码）/ 阅读设置（底栏按钮）。
@@ -44,6 +45,7 @@ internal fun ReaderSheets(
     val sheet = session.sheet
 
     ErosBottomSheet(
+        backdrop = LocalPageBackdrop.current,
         show = sheet == ReaderSheet.Jump,
         title = "跳转到页面",
         insideMargin = DpSize(16.dp, 4.dp),
@@ -77,6 +79,7 @@ internal fun ReaderSheets(
     }
 
     ErosBottomSheet(
+        backdrop = LocalPageBackdrop.current,
         show = sheet == ReaderSheet.Settings,
         title = "阅读设置",
         insideMargin = DpSize(16.dp, 4.dp),

@@ -635,6 +635,7 @@ fun SettingsScreen(
     // TrackOverlay 让弹窗显示期间隐藏底部导航栏（下载页「删除下载」同样处理），否则底栏会盖住按钮。
     TrackOverlay(confirmClearCache)
     ErosDialog(
+        backdrop = LocalPageBackdrop.current,
         show = confirmClearCache,
         title = "清理图片缓存",
         summary = "删除后需重新下载",

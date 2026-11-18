@@ -468,6 +468,7 @@ internal fun GalleryCardDownloadStyle(
 
     TrackOverlay(showSheet)
     ErosBottomSheet(
+        backdrop = LocalPageBackdrop.current,
         show = showSheet,
         title = GalleryTitles.primary(gallery.title, gallery.titleJpn),
         onDismissRequest = { showSheet = false },

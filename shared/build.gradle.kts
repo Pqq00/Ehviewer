@@ -150,5 +150,28 @@ tasks.register("checkLayering") {
         check(offenders.isEmpty()) {
             "ui layering violations (see UI_LAYERS.md):\n" + offenders.joinToString("\n")
         }
+
+        // H3：L3 浮层必须显式传 backdrop，不能吃默认值。
+        val missingBackdrop = mutableListOf<String>()
+        root.walkTopDown()
+            .filter { it.isFile && it.extension == "kt" }
+            .filter { it.name != "ErosGlassOverlays.kt" }
+            .forEach { file ->
+                val lines = file.readLines()
+                lines.forEachIndexed { index, line ->
+                    val trimmed = line.trimStart()
+                    if (trimmed.startsWith("ErosBottomSheet(") || trimmed.startsWith("ErosDialog(")) {
+                        val window = lines.drop(index + 1).take(12)
+                        if (window.none { it.contains("backdrop =") }) {
+                            missingBackdrop +=
+                                "${file.relativeTo(root).invariantSeparatorsPath}:${index + 1}"
+                        }
+                    }
+                }
+            }
+        check(missingBackdrop.isEmpty()) {
+            "overlay calls missing an explicit backdrop= (see UI_LAYERS.md): " +
+                missingBackdrop.joinToString()
+        }
     }
 }

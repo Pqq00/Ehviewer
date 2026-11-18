@@ -103,6 +103,7 @@ private fun ErosAppChromeContent(
                 // 记录层：页面内容记录成一层，侧栏/底栏采样它（规则见 ErosGlassRecordLayer）。
                 ErosGlassRecordLayer(
                     backdrop = pageBackdrop,
+                    layerName = "page (whole window)",
                     modifier = Modifier
                         .fillMaxSize()
                         // 整窗底色：玻璃侧栏展开时页面右移，左条不再被页面绘制，靠它兜住背景
@@ -131,10 +132,12 @@ private fun ErosAppChromeContent(
                     Box(Modifier.fillMaxSize()) {
                         // 官方 `LocalTopAppBarTitleAlpha provides { sidebarState.progress }`：
                         // 宽屏玻璃侧栏展开时标题淡入，收起时淡出（draw 阶段读 progress，不重组）。
+                        // LocalChromeBackdrop：窗口级浮层（要盖住侧栏/底栏）的采样源 = 整页层。
                         CompositionLocalProvider(
                             LocalTopAppBarTitleAlpha provides {
                                 if (rail == ErosChromeRail.Glass) glassRailState.progress else 1f
                             },
+                            LocalChromeBackdrop provides pageBackdrop,
                         ) {
                             content()
                         }

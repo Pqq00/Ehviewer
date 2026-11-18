@@ -104,6 +104,7 @@ import java.util.Locale
 import app.eros.shared.ui.chrome.LocalAppBottomBarInset
 import app.eros.shared.ui.TrackOverlay
 import app.eros.shared.ui.ErosBottomSheet
+import app.eros.shared.ui.LocalPageBackdrop
 
 @Composable
 internal fun TagsSection(
@@ -145,6 +146,7 @@ internal fun TagsSection(
     val raw = tagSelection?.let { "${it.first}:${it.second}" } ?: ""
     TrackOverlay(tagSelection != null)
     ErosBottomSheet(
+        backdrop = LocalPageBackdrop.current,
         show = tagSelection != null,
         title = raw,
         onDismissRequest = { selected = null },

@@ -127,6 +127,7 @@ fun FilterScreen(onBack: () -> Unit) {
 
             TrackOverlay(showAdd)
             ErosBottomSheet(
+                backdrop = LocalPageBackdrop.current,
                 show = showAdd,
                 title = "添加过滤规则",
                 onDismissRequest = { showAdd = false },

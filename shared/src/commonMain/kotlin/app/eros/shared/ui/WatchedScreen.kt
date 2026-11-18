@@ -276,6 +276,7 @@ fun WatchedScreen(
             // 底部滑出面板（必须在 Scaffold content 内才有 popup 宿主）
             TrackOverlay(showAdd)
             ErosBottomSheet(
+                backdrop = LocalPageBackdrop.current,
                 show = showAdd,
                 title = "添加关注标签",
                 onDismissRequest = { showAdd = false },

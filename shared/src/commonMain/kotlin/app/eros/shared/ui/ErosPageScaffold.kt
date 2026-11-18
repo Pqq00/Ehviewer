@@ -121,6 +121,7 @@ fun ErosPageScaffold(
         ErosGlassRecordLayer(
             backdrop = backdrop,
             modifier = Modifier.fillMaxSize().erosPageHorizontalInsets(),
+            layerName = "page content",
         ) {
             // 页面内容层对页面内的玻璃弹层可见（玻璃 sheet / 对话框从这里取采样源）。
             CompositionLocalProvider(LocalPageBackdrop provides backdrop) {
