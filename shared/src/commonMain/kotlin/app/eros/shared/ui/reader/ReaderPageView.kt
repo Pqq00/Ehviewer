@@ -36,7 +36,7 @@ import app.eros.shared.settings.AppSettings
 import kotlinx.coroutines.flow.drop
 
 /**
- * 翻页模式：单页 / 双页 / 右→左 / 自动横屏双页。
+ * 翻页模式：单页 / 双页 / 右→左。双页只看模式选择，横竖屏都一样并排两页。
  *
  * 只负责渲染与 Pager 同步，手势由页面自身的 [ZoomableSlot] 接管：
  * 未缩放时 Pager 正常翻页，缩放态下 Pager 关闭滚动。
@@ -44,17 +44,19 @@ import kotlinx.coroutines.flow.drop
 @Composable
 internal fun ReaderPager(
     session: ReaderSession,
-    landscape: Boolean,
     zoom: PageZoomState,
     taps: ZoomableTaps,
     /** 当前页面底色对应的前景色（占位环/提示文字跟随浅深色）。 */
     foreground: Color,
     modifier: Modifier = Modifier,
 ) {
-    val mode = session.pagedMode(landscape)
-    val dual = session.pagedDual(landscape)
+    val mode = session.mode
+    val dual = session.pagedDual()
     val step = ReaderEngine.step(dual)
     val count = ReaderEngine.slotCount(session.totalPages, dual)
+    // 单页模式要把整页放进屏幕：横屏时按宽度铺满会把上下裁掉，而单页又没有可以拖动的地方，
+    // 裁掉的部分就看不到。双页模式左右各占一半，仍按设置里的适应方式铺开。
+    val pageScale = if (dual) fitScale() else ContentScale.Fit
     // 单页 ↔ 双页切换时槽数会变（889 ↔ 445）。PagerState 是 remember 出来的，同一个
     // ReaderPager 组合位置会复用旧实例，而此时 initialPage 不再生效：旧的 currentPage
     // 会被夹到新槽数的末页（476 → 444），首帧直接跳到最后一页，快照又把 444*2=888
@@ -95,7 +97,7 @@ internal fun ReaderPager(
         // 只有当前槽位接收缩放手势，相邻预组合页只画不缩放。
         val zoomForSlot = if (slot == pagerState.currentPage) zoom else null
         if (pages.size <= 1) {
-            PageSlot(session, pages.firstOrNull() ?: 0, zoomForSlot, taps, foreground, Modifier.fillMaxSize())
+            PageSlot(session, pages.firstOrNull() ?: 0, zoomForSlot, taps, foreground, pageScale, Modifier.fillMaxSize())
         } else {
             val content: @Composable () -> Unit = {
                 Row(
@@ -110,6 +112,7 @@ internal fun ReaderPager(
                             zoom = null,
                             taps = taps,
                             foreground = foreground,
+                            fit = pageScale,
                             modifier = Modifier.weight(1f).fillMaxSize(),
                         )
                     }
@@ -220,11 +223,12 @@ private fun PageSlot(
     zoom: PageZoomState?,
     taps: ZoomableTaps,
     foreground: Color,
+    fit: ContentScale,
     modifier: Modifier,
 ) {
     LaunchedEffect(index) { session.loader.requestPage(index) }
     val img = session.loader.pageImages[index] ?: PageImage.Pending
-    val contentScale = fitScale()
+    val contentScale = fit
     Box(modifier = modifier, contentAlignment = Alignment.Center) {
         if (img is PageImage.Ready) {
             val page: @Composable () -> Unit = {

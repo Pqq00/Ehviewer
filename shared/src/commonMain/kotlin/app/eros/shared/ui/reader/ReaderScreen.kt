@@ -31,7 +31,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.dp
 import app.eros.shared.reader.ReaderEngine
@@ -120,11 +119,10 @@ fun ReaderScreen(session: ReaderSession, onBack: () -> Unit) {
     LaunchedEffect(session.currentPage) { zoom.reset() }
 
     Box(Modifier.fillMaxSize().background(pageBackground)) {
-        val landscape = isLandscape()
-        val tapStep = ReaderEngine.step(session.pagedDual(landscape))
+        val tapStep = ReaderEngine.step(session.pagedDual())
         // 点按/双击/长按挂在每一页上（见 ZoomableSlot 的 taps 参数）：
         // 连续模式下每页各有自己的缩放状态，屏幕层拿不到，双击就放大不了当前页。
-        val taps = remember(session, landscape, tapStep) {
+        val taps = remember(session, tapStep) {
             ZoomableTaps(
                 onTap = { zoomState, fraction, position ->
                     if (zoomState != null && zoomState.isZoomed) {
@@ -169,12 +167,12 @@ fun ReaderScreen(session: ReaderSession, onBack: () -> Unit) {
                     .onSizeChanged { if (it.width > 0) session.loader.screenWidthPx = it.width }
                     .readerVolumeKeys(
                         enabled = AppSettings.readerVolumeKeys,
-                        onPrevious = { session.pageBy(-1, landscape) },
-                        onNext = { session.pageBy(1, landscape) },
+                        onPrevious = { session.pageBy(-1) },
+                        onNext = { session.pageBy(1) },
                     ),
                 contentAlignment = Alignment.Center,
             ) {
-                val mode = session.pagedMode(landscape)
+                val mode = session.mode
                 when {
                     session.loader.urlsByIndex.isEmpty() && session.loader.error != null -> Text(
                         "加载失败：${session.loader.error}",
@@ -193,7 +191,6 @@ fun ReaderScreen(session: ReaderSession, onBack: () -> Unit) {
 
                     else -> ReaderPager(
                         session = session,
-                        landscape = landscape,
                         zoom = zoom,
                         taps = taps,
                         foreground = pageTextColor,
@@ -233,12 +230,4 @@ fun ReaderScreen(session: ReaderSession, onBack: () -> Unit) {
 
         ReaderSheets(session = session, backdrop = backdrop)
     }
-}
-
-/** 当前是否横屏（跨平台，不依赖 Android Configuration）。 */
-@Composable
-private fun isLandscape(): Boolean {
-    val density = LocalDensity.current
-    val size = LocalWindowInfo.current.containerSize
-    return with(density) { size.width.toDp() > size.height.toDp() }
 }

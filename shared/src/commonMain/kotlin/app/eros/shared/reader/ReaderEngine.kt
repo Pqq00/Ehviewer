@@ -136,9 +136,8 @@ object ReaderEngine {
         }
     }
 
-    /** 双页判定：显式双页模式，或左右模式下的横屏。 */
-    fun dualActive(modeDual: Boolean, horizontalMode: Boolean, landscape: Boolean): Boolean =
-        modeDual || (horizontalMode && landscape)
+    /** 双页判定：只有显式双页模式才并排两页；横屏不再自动切双页。 */
+    fun dualActive(mode: ReaderMode): Boolean = mode == ReaderMode.DUAL
 }
 
 enum class ReaderTap { Previous, Next, ToggleChrome }

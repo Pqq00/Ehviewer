@@ -160,14 +160,14 @@ class ReaderSession(
     }
 
     /** 按当前模式的步长翻页（点按左右 1/3 或音量键）。 */
-    fun pageBy(delta: Int, landscape: Boolean) {
-        val step = ReaderEngine.step(pagedDual(landscape))
+    fun pageBy(delta: Int) {
+        val step = ReaderEngine.step(pagedDual())
         goTo(currentPage + delta * step)
     }
 
-    fun next(landscape: Boolean) = pageBy(1, landscape)
+    fun next() = pageBy(1)
 
-    fun previous(landscape: Boolean) = pageBy(-1, landscape)
+    fun previous() = pageBy(-1)
 
     /** 手势翻页后由 Pager 回报（不做 clamp 写回，避免和 Pager 打架）。 */
     fun onSweepedTo(index: Int) {
@@ -186,20 +186,8 @@ class ReaderSession(
 
     // ------------------------------------------------------------------ 模式
 
-    /** 按 AUTO 与横竖屏解析出真正的分页模式。 */
-    fun pagedMode(landscape: Boolean): ReaderMode =
-        if (mode == ReaderMode.AUTO) {
-            if (landscape) ReaderMode.DUAL else ReaderMode.LTR
-        } else {
-            mode
-        }
-
-    fun pagedDual(landscape: Boolean): Boolean =
-        ReaderEngine.dualActive(
-            modeDual = pagedMode(landscape) == ReaderMode.DUAL,
-            horizontalMode = pagedMode(landscape) != ReaderMode.VERTICAL,
-            landscape = landscape,
-        )
+    /** 当前是否并排两页：只看模式，不再看屏幕方向。 */
+    fun pagedDual(): Boolean = ReaderEngine.dualActive(mode)
 
     fun cycleMode() {
         mode = mode.next()

@@ -46,9 +46,7 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.shadow.Shadow
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.safeDrawing
@@ -197,7 +195,7 @@ private fun ReaderProgressBar(
     modifier: Modifier = Modifier,
 ) {
     val total = session.totalPages.coerceAtLeast(1)
-    val step = ReaderEngine.step(session.pagedDual(isReaderLandscape()))
+    val step = ReaderEngine.step(session.pagedDual())
     var dragTarget by remember(total) { mutableFloatStateOf(session.currentPage.toFloat()) }
     LaunchedEffect(session.currentPage) {
         dragTarget = session.currentPage.toFloat()
@@ -388,14 +386,6 @@ private fun ReaderProgressBar(
             }
         }
     }
-}
-
-/** 阅读器窗口是否为横屏；进度栏用它决定双页下的翻页步长。 */
-@Composable
-private fun isReaderLandscape(): Boolean {
-    val density = LocalDensity.current
-    val size = LocalWindowInfo.current.containerSize
-    return with(density) { size.width.toDp() > size.height.toDp() }
 }
 
 /**

@@ -121,10 +121,11 @@ class ReaderEngineTest {
     }
 
     @Test
-    fun `双页判定 显式双页或横屏左右模式`() {
-        assertTrue(ReaderEngine.dualActive(modeDual = true, horizontalMode = false, landscape = false))
-        assertTrue(ReaderEngine.dualActive(modeDual = false, horizontalMode = true, landscape = true))
-        assertTrue(!ReaderEngine.dualActive(modeDual = false, horizontalMode = false, landscape = true))
+    fun `双页判定 只有显式双页模式`() {
+        assertTrue(ReaderEngine.dualActive(ReaderMode.DUAL))
+        assertTrue(!ReaderEngine.dualActive(ReaderMode.LTR))
+        assertTrue(!ReaderEngine.dualActive(ReaderMode.RTL))
+        assertTrue(!ReaderEngine.dualActive(ReaderMode.VERTICAL))
     }
 
     @Test
