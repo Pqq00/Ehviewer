@@ -104,6 +104,7 @@ import top.yukonga.miuix.kmp.icon.extended.Ok
 import top.yukonga.miuix.kmp.icon.extended.ScreenCapture
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import app.eros.shared.ui.chrome.LocalAppBottomBarInset
 
 /**
  * 账号页（从设置里独立出来）。
@@ -114,8 +115,8 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 @Composable
 fun AccountScreen(
     onBack: () -> Unit,
-    bottomInset: androidx.compose.ui.unit.Dp = 0.dp,
 ) {
+    val barInset = LocalAppBottomBarInset.current
     val bgBackdrop = rememberBarBackdrop()
     val barBackdrop = rememberBarBackdrop()
     val pageScrollBehavior = MiuixScrollBehavior()
@@ -240,7 +241,7 @@ fun AccountScreen(
                         .nestedScroll(pageScrollBehavior.nestedScrollConnection),
                     contentPadding = PaddingValues(
                         top = innerPadding.calculateTopPadding() + 8.dp,
-                        bottom = bottomInset + innerPadding.calculateBottomPadding() + 24.dp,
+                        bottom = barInset + innerPadding.calculateBottomPadding() + 24.dp,
                     ),
                 ) {
                     // logo + 名称 + 状态（About 页头部）

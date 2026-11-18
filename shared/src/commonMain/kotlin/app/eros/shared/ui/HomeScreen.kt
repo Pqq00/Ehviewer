@@ -63,7 +63,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.Dp
 import app.eros.shared.data.GalleryFeed
 import app.eros.shared.data.GalleryMetaEnricher
 import app.eros.shared.data.GalleryMetaEnricher.enrichRetryLoop
@@ -86,6 +85,7 @@ import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import top.yukonga.miuix.kmp.basic.PullToRefresh
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import app.eros.shared.ui.chrome.LocalAppBottomBarInset
 
 /**
  * 首页分页状态。
@@ -505,8 +505,8 @@ fun HomeScreen(
     onOpenHistory: () -> Unit,
     onOpenAccount: () -> Unit,
     onEditHomeEntry: (String?) -> Unit = {},
-    bottomInset: Dp = 0.dp,
 ) {
+    val barInset = LocalAppBottomBarInset.current
     LaunchedEffect(Unit) { state.ensureLoaded() }
     // 站点 Profile 切换后缓存已被清空，这里把屏上已渲染的列表也换掉。
     val profileRevision = AppSettings.profileRevision
@@ -570,7 +570,7 @@ fun HomeScreen(
             start = 12.dp,
             end = 12.dp,
             top = innerPadding.calculateTopPadding() + 12.dp,
-            bottom = bottomInset + 12.dp,
+            bottom = barInset + 12.dp,
         ),
         topAppBarScrollBehavior = pageScrollBehavior,
     ) {
@@ -594,7 +594,7 @@ fun HomeScreen(
                 start = 12.dp,
                 end = 12.dp,
                 top = innerPadding.calculateTopPadding() + 12.dp,
-                bottom = bottomInset + 12.dp,
+                bottom = barInset + 12.dp,
             ),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -692,7 +692,7 @@ fun HomeScreen(
                     start = 12.dp,
                     end = 12.dp,
                     top = innerPadding.calculateTopPadding() + 12.dp,
-                    bottom = bottomInset + 12.dp,
+                    bottom = barInset + 12.dp,
                 ),
                 header = { HomeCatRow(state, state.catRowScroll, homeEntries, onEditEntry) },
             )

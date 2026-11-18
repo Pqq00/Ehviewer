@@ -1,15 +1,9 @@
 package app.eros.shared.ui.chrome
 
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
@@ -24,7 +18,6 @@ import app.eros.shared.ui.ErosNavigationRail
 import app.eros.shared.ui.LocalTopAppBarTitleAlpha
 import app.eros.shared.ui.design.GlassRailChrome
 import app.eros.shared.ui.design.GlassRailStartInset
-import app.eros.shared.ui.design.erosGlassRailStartInset
 import app.eros.shared.ui.rememberBarBackdrop
 import app.eros.shared.ui.rememberGlassNavigationRailStartsExpanded
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
@@ -54,7 +47,24 @@ internal fun ErosAppChrome(
     selectedTab: Int,
     onSelectTab: (Int) -> Unit,
     detailActions: DetailActions,
-    showBottomBar: Boolean,
+    destination: BarDestination?,
+    content: @Composable () -> Unit,
+    bottomBar: @Composable (LayerBackdrop?) -> Unit,
+) {
+    // 底栏留白要提供给「页面内容」与「底栏」的共同上层：页面在自己的 LazyColumn
+    // contentPadding 里读 LocalAppBottomBarInset，如果只包 bottomBar 就读不到。
+    val barInset = rememberAppBottomBarInset(destination, rail != ErosChromeRail.None)
+    CompositionLocalProvider(LocalAppBottomBarInset provides barInset) {
+        ErosAppChromeContent(rail, selectedTab, onSelectTab, detailActions, content, bottomBar)
+    }
+}
+
+@Composable
+private fun ErosAppChromeContent(
+    rail: ErosChromeRail,
+    selectedTab: Int,
+    onSelectTab: (Int) -> Unit,
+    detailActions: DetailActions,
     content: @Composable () -> Unit,
     bottomBar: @Composable (LayerBackdrop?) -> Unit,
 ) {
@@ -130,19 +140,12 @@ internal fun ErosAppChrome(
 
                 // 统一底栏（记录层之外）：Tabs 与 Detail 共用同一实例，只切换内容。
                 // 放在侧栏所在 Row 的内容列里，底栏自然以内容区居中；玻璃侧栏展开时，
-                // 再按 erosGlassRailStartInset 把底栏整体右移，跟页面内容保持同一让位量。
+                // 底栏宿主内部再按 erosGlassRailStartInset 把整体右移，跟页面内容同一让位量。
                 // 千万别放回 layerBackdrop 记录层内部：玻璃底栏会采样到包含自己的那一层，
                 // 长按/展开时 hwui prepare 递归，直接 SIGSEGV（e843247 那个闪退）。
-                // 顶层的 AnimatedVisibility（非 RowScope 版本）：这里在 Box 里，隐式接收者是 BoxScope。
-                androidx.compose.animation.AnimatedVisibility(
-                    visible = showBottomBar,
-                    modifier = Modifier.align(Alignment.BottomCenter),
-                    enter = fadeIn(tween(180)) + slideInVertically(tween(180)) { it / 2 },
-                    exit = fadeOut(tween(140)) + slideOutVertically(tween(140)) { it / 2 },
-                ) {
-                    Box(Modifier.fillMaxWidth().erosGlassRailStartInset()) {
-                        bottomBar(pageBackdrop)
-                    }
+                // 可见性、内容形态与底部留白都在 ErosBottomBarHost 里决定。
+                Box(Modifier.align(Alignment.BottomCenter)) {
+                    bottomBar(pageBackdrop)
                 }
             }
         }

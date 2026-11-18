@@ -102,6 +102,7 @@ import top.yukonga.miuix.kmp.basic.rememberScrollBarAdapter
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.squircle.squircleSurface
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import app.eros.shared.ui.chrome.LocalAppBottomBarInset
 
 /**
  * 设置页。结构照 npx 官方 example 的 SettingsPage：
@@ -116,8 +117,8 @@ fun SettingsScreen(
     onOpenWatched: () -> Unit,
     onOpenNetLog: () -> Unit,
     onOpenFilter: () -> Unit,
-    bottomInset: androidx.compose.ui.unit.Dp = 0.dp,
 ) {
+    val barInset = LocalAppBottomBarInset.current
     val scope = rememberCoroutineScope()
 
     // 通用操作提示（代理 / 标签库更新等）
@@ -219,7 +220,7 @@ fun SettingsScreen(
     ) {
     val contentPadding = PaddingValues(
         top = innerPadding.calculateTopPadding() + ErosDimens.topContentGap,
-        bottom = bottomInset + innerPadding.calculateBottomPadding() + ErosDimens.pagePadding,
+        bottom = barInset + innerPadding.calculateBottomPadding() + ErosDimens.pagePadding,
     )
     LazyColumn(
         state = listState,

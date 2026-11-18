@@ -7,11 +7,12 @@ package app.eros.shared
 import app.eros.shared.navigation.Route
 import app.eros.shared.navigation.rememberErosNavigator
 import app.eros.shared.ui.chrome.ErosAppChrome
+import app.eros.shared.ui.chrome.BarDestination
+import app.eros.shared.ui.chrome.ErosBottomBarHost
 import app.eros.shared.ui.chrome.ErosChromeRail
 import app.eros.shared.ui.chrome.rememberDetailActions
 
 
-import app.eros.shared.ui.ErosAppBottomBar
 import app.eros.shared.ui.OverlayState
 import app.eros.shared.ui.rememberUseNavigationRail
 
@@ -32,7 +33,6 @@ import androidx.compose.runtime.movableContentOf
 
 
 
-import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.statusBarsPadding
 
 import app.eros.shared.ui.FPSMonitor
@@ -128,7 +128,6 @@ import top.yukonga.miuix.kmp.blur.progressiveTextureBlur
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.Box
@@ -257,7 +256,6 @@ private data class TabPageParams(
     val onSearch: () -> Unit,
     val onOpenGallery: (Long, String) -> Unit,
     val onOpenReader: (Long, String, Int) -> Unit,
-    val bottom: androidx.compose.ui.unit.Dp,
     val onOpenWatched: () -> Unit,
     val onOpenNetLog: () -> Unit,
     val onOpenFilter: () -> Unit,
@@ -407,17 +405,15 @@ fun App() {
             nav.popToTabs()
         }
 
-        // 底栏可见性：rail 下 Tabs 页不放底栏（导航在侧栏），但详情页保留动作栏
-        // —— 对齐官方 GlassPage.kt:265-328：rail 是导航，页面自带自己的底栏。
-        val showBottomBar = showAppBar && (railMode == ErosChromeRail.None || detailRoute != null)
-        // 详情页内容底部要为底栏留位：玻璃底栏按官方留白公式，其余样式沿用 96dp。
-        val detailBottomInset = if (AppSettings.navBarStyle == 3) {
-            maxOf(
-                24.dp,
-                WindowInsets.safeDrawing.asPaddingValues().calculateBottomPadding() + 8.dp,
-            ) + 54.dp + 8.dp
-        } else {
-            96.dp
+        // 底栏目的地：null 表示当前不显示。
+        // rail 下的 Tabs 页由 rail 负责导航，不需要底栏；详情页仍保留动作栏
+        // （对齐官方 GlassPage：rail 只负责导航，页面自带底栏）。
+        val railVisible = railMode != ErosChromeRail.None
+        val barDestination: BarDestination? = when {
+            !showAppBar -> null
+            detailRoute != null -> BarDestination.Detail(detailActions)
+            !railVisible -> BarDestination.Tabs(tabIndex)
+            else -> null
         }
 
         Box(Modifier.fillMaxSize()) {
@@ -426,7 +422,7 @@ fun App() {
                 selectedTab = tabIndex,
                 onSelectTab = onSelectTab,
                 detailActions = detailActions,
-                showBottomBar = showBottomBar,
+                destination = barDestination,
                 content = {
                     NavDisplay(
                         modifier = Modifier.fillMaxSize(),
@@ -481,8 +477,6 @@ fun App() {
                     onSearchTag = openTag,
                     onSearchUploader = openUploader,
                     onOpenGallery = { ref -> push(Route.Detail(ref.gid, ref.token)) },
-                    // 详情页底部要为自己的动作栏留位（rail 打开时动作栏仍在）。
-                    bottomInset = detailBottomInset,
                 )
             }
             entry<Route.Watched>(swipeDismiss = swipeDismiss) {
@@ -563,20 +557,9 @@ fun App() {
             }
         },
                 bottomBar = { backdrop ->
-                    ErosAppBottomBar(
-                        isDetail = detailRoute != null,
-                        selectedTab = tabIndex,
+                    ErosBottomBarHost(
+                        destination = barDestination,
                         onSelectTab = onSelectTab,
-                        detailEnabled = detailActions.enabled,
-                        detailFavorited = detailActions.favorited,
-                        detailFavoriteCount = detailActions.favoriteCount,
-                        detailReadPage = detailActions.readPage,
-                        detailReadStarted = detailActions.readStarted,
-                        detailDownloadLabel = detailActions.downloadLabel,
-                        detailDownloadActive = detailActions.downloadActive,
-                        onDetailFavorite = detailActions.onFavorite,
-                        onDetailDownload = detailActions.onDownload,
-                        onDetailRead = detailActions.onRead,
                         backdrop = backdrop,
                     )
                 },
@@ -621,18 +604,6 @@ private fun Tabs(
     onEditHomeEntry: (String?) -> Unit,
 ) {
     val current = selected
-    // 1 悬浮、2 iOS、3 玻璃都是悬浮底栏，内容需额外让出底部空间
-    val floatingBar = AppSettings.navBarStyle != 0
-    // 宽屏下导航在左侧 rail 里，页面底部不再需要给底栏留位置
-    // 玻璃底栏自己按安全区留白（GlassNavigationBar.Height = 54dp + 最少 24dp 间隙），
-    // 这里按同样的算法算出让位高度，避免底栏盖住最后一行。
-    val glassBar = AppSettings.navBarStyle == 3
-    val safeBottomInset = WindowInsets.safeDrawing.asPaddingValues().calculateBottomPadding()
-    val barBottomInset = when {
-        rememberUseNavigationRail() -> 0.dp
-        glassBar -> maxOf(24.dp, safeBottomInset + 8.dp) + 54.dp + 8.dp
-        else -> 96.dp
-    }
     // 底栏模糊用的 backdrop（捕获 pager 区域），与各页顶栏的 backdrop 互不影响
     val barBackdrop = rememberBarBackdrop()
     // 只有「下载」这个占位页还用 Tabs 层提供的顶栏资源
@@ -685,7 +656,6 @@ private fun Tabs(
                             onOpenSearch = p.onSearch,
                             onOpenAccount = p.onOpenAccount,
                             onOpenHistory = p.onOpenHistory,
-                            bottomInset = p.bottom,
                             onEditHomeEntry = p.onEditHomeEntry,
                         )
 
@@ -696,7 +666,6 @@ private fun Tabs(
                             onOpenSearch = p.onSearch,
                             onOpenHistory = p.onOpenHistory,
                             onOpenAccount = p.onOpenAccount,
-                            bottomInset = p.bottom,
                         )
 
                         2 -> FavouritesScreen(
@@ -706,7 +675,6 @@ private fun Tabs(
                             onOpenSearch = p.onSearch,
                             onOpenHistory = p.onOpenHistory,
                             onOpenAccount = p.onOpenAccount,
-                            bottomInset = p.bottom,
                         )
 
                         3 -> DownloadScreen(
@@ -715,7 +683,6 @@ private fun Tabs(
                             onOpenSearch = p.onSearch,
                             onOpenHistory = p.onOpenHistory,
                             onOpenAccount = p.onOpenAccount,
-                            bottomInset = p.bottom,
                         )
 
                         else -> SettingsScreen(
@@ -725,7 +692,6 @@ private fun Tabs(
                             onOpenWatched = p.onOpenWatched,
                             onOpenNetLog = p.onOpenNetLog,
                             onOpenFilter = p.onOpenFilter,
-                            bottomInset = p.bottom,
                         )
                     }
                 }
@@ -745,7 +711,6 @@ private fun Tabs(
                         onSearch = onOpenSearch,
                         onOpenGallery = onOpenDetail,
                         onOpenReader = onOpenReader,
-                        bottom = barBottomInset,
                         onOpenWatched = onOpenWatched,
                         onOpenNetLog = onOpenNetLog,
                         onOpenFilter = onOpenFilter,

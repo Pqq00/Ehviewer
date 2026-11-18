@@ -44,7 +44,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.eros.shared.data.GalleryTitles
@@ -79,6 +78,7 @@ import top.yukonga.miuix.kmp.icon.extended.Refresh
 import top.yukonga.miuix.kmp.icon.extended.SelectAll
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.PressFeedbackType
+import app.eros.shared.ui.chrome.LocalAppBottomBarInset
 
 /** 下载页：队列 + 进度 + 操作。 */
 @Composable
@@ -88,8 +88,8 @@ fun DownloadScreen(
     onOpenSearch: () -> Unit,
     onOpenHistory: () -> Unit,
     onOpenAccount: () -> Unit,
-    bottomInset: Dp = 0.dp,
 ) {
+    val barInset = LocalAppBottomBarInset.current
     LaunchedEffect(Unit) { DownloadManager.ensureInitialized() }
     val tasks by DownloadManager.tasks.collectAsState()
     val ready by DownloadManager.ready.collectAsState()
@@ -202,7 +202,7 @@ fun DownloadScreen(
                         start = 12.dp,
                         end = 12.dp,
                         top = innerPadding.calculateTopPadding() + 12.dp,
-                        bottom = bottomInset + 12.dp + toolbarInset,
+                        bottom = barInset + 12.dp + toolbarInset,
                     ),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {

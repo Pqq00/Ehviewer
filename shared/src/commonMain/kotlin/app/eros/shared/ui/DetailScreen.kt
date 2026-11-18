@@ -102,6 +102,7 @@ import top.yukonga.miuix.kmp.squircle.squircleClip
 import top.yukonga.miuix.kmp.squircle.squircleSurface
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import java.util.Locale
+import app.eros.shared.ui.chrome.LocalAppBottomBarInset
 
 /**
  * 详情页状态：详情、预览分页、收藏状态。
@@ -373,9 +374,9 @@ fun DetailScreen(
     onOpenComments: () -> Unit,
     onSearchTag: (String) -> Unit,
     onSearchUploader: (String) -> Unit,
-    bottomInset: androidx.compose.ui.unit.Dp = 96.dp,
     onOpenGallery: ((GalleryRef) -> Unit)? = null,
 ) {
+    val barInset = LocalAppBottomBarInset.current
     val gridState = rememberLazyGridState()
     LaunchedEffect(state) {
         state.ensureLoaded()
@@ -481,7 +482,7 @@ fun DetailScreen(
                             start = 12.dp,
                             end = 12.dp,
                             top = innerPadding.calculateTopPadding() + 12.dp,
-                            bottom = bottomInset + 16.dp,
+                            bottom = barInset + 16.dp,
                         ),
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
