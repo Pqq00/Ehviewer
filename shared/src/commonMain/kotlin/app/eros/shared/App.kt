@@ -379,8 +379,9 @@ fun App() {
         val showAppBar = (currentRoute is Route.Tabs || detailRoute != null) &&
             !OverlayState.anyOpen
 
-        // 宽屏（≥600dp）把导航搬到左侧 rail：Tabs 与详情页共用
-        val railAllowed = currentRoute is Route.Tabs || detailRoute != null
+        // 宽屏（≥600dp）把导航搬到左侧 rail：除沉浸式阅读器外，所有路由都保留侧栏，
+        // 这样进搜索/评论/账号/设置类页面时也能直接切 tab。
+        val railAllowed = currentRoute !is Route.Reader
         val useNavigationRail = railAllowed && rememberUseNavigationRail()
         // 导航栏样式 = 玻璃时，宽屏侧栏也换成玻璃版：面板浮在页面上，页面按展开进度让位
         val useGlassRail = useNavigationRail && AppSettings.navBarStyle == 3
