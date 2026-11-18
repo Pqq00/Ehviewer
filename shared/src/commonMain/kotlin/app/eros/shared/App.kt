@@ -66,7 +66,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 
 import androidx.compose.runtime.mutableIntStateOf
 
-import top.yukonga.miuix.kmp.utils.MiuixPopupUtils
 import androidx.compose.foundation.gestures.Orientation
 
 import top.yukonga.miuix.kmp.utils.springAnimateToPage
@@ -414,7 +413,15 @@ fun App() {
             else -> null
         }
 
-        Box(Modifier.fillMaxSize()) {
+        // H2 根浮层宿主：最外层一个透明 Scaffold，只为 OverlayDialog / OverlayBottomSheet /
+        // popup 提供「根 Scaffold 状态」。页面 Scaffold 会复用它的 LocalRoot* 状态
+        // （miuix Scaffold.kt:104-107），renderInRootScaffold=true 的浮层因此渲染在这一层，
+        // 盖在侧栏与底栏之上（官方 AppContent.kt:308 同做法）。契约见 UI_LAYERS.md。
+        Scaffold(
+            modifier = Modifier.fillMaxSize(),
+            containerColor = Color.Transparent,
+            contentWindowInsets = WindowInsets(0),
+        ) { _ ->
             ErosAppChrome(
                 rail = railMode,
                 selectedTab = tabIndex,
@@ -573,10 +580,7 @@ fun App() {
                 )
             }
 
-            // 给 NavDisplay push 出来的路由（历史 / 详情等）补一个 popup 宿主：
-            // 这些页面的 miuix Scaffold 宿主会被 NavDisplay 的内容盖住，
-            // 导致 OverlayDialog / OverlayListPopup「点了没反应」。放在整页最上层即可。
-            MiuixPopupUtils.MiuixPopupHost()
+            // popup / dialog 宿主由上面这个根 Scaffold 的 popupHost 槽位提供（默认 MiuixPopupHost）。
         }
     }
 }

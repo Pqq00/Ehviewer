@@ -24,7 +24,9 @@ L0  窗口 chrome     侧栏（原生 / 玻璃）、底栏宿主、FPS 浮层
 
 ### L0 窗口 chrome
 
-- 宿主：`ErosAppChrome`（`ui/chrome/ErosAppChrome.kt`），在 `App.kt` 的 `Box` 里。
+- 宿主：`ErosAppChrome`（`ui/chrome/ErosAppChrome.kt`），挂在 `App.kt` 的**根 `Scaffold`**
+  （透明、`contentWindowInsets = WindowInsets(0)`）内容区里；这个根 Scaffold 同时提供 L3 的
+  根浮层状态与 popup 宿主。
 - 内容：原生侧栏 `ErosNavigationRail`、玻璃侧栏 `ErosGlassNavigationRail`、底部栏宿主
   `ErosBottomBarHost`、`FPSMonitor`。
 - 规则：
@@ -61,13 +63,15 @@ L0  窗口 chrome     侧栏（原生 / 玻璃）、底栏宿主、FPS 浮层
 ### L3 浮层
 
 - 统一入口：`ErosBottomSheet` / `ErosDialog`（`ui/ErosGlassOverlays.kt`）、
-  `ErosConfirmDialog`（`ui/ConfirmDialog.kt`）、miuix popup（由 App 层的
-  `MiuixPopupUtils.MiuixPopupHost()` 承载）。
+  `ErosConfirmDialog`（`ui/ConfirmDialog.kt`）、miuix popup（由根 Scaffold 的 popupHost
+  槽位承载，默认 `MiuixPopupUtils.MiuixPopupHost`）。
 - 规则：
   - `backdrop` 必填（H3 起）：页面浮层传 `LocalPageBackdrop.current`（L1 内容层），
     窗口级浮层传 `LocalChromeBackdrop.current`（L1 整页层）；不要传 null 图省事，
     否则玻璃降级成普通 `Overlay*`；
-  - 浮层渲染宿主必须在 chrome 之后，保证盖住侧栏与底栏（H2 的 `ErosOverlayHost` / 根 Scaffold）；
+  - 渲染宿主由根 Scaffold 提供（H2 起）：miuix `Overlay*` 默认 `renderInRootScaffold = true`
+    走 `LocalRootDialogStates` / `LocalRootPopupStates`，页面 Scaffold 复用根状态，所以浮层
+    天然画在 chrome（侧栏/底栏）之上；
   - 页面不要直接调用 miuix `OverlayDialog` / `OverlayBottomSheet` / `Popup`，一律走上面的封装。
 
 ### L4 全屏路由
@@ -111,7 +115,7 @@ L0  窗口 chrome     侧栏（原生 / 玻璃）、底栏宿主、FPS 浮层
 - `:shared:checkLayering`（H5 起）：禁止 `ui/` 下直接 `Popup(` / `Dialog(` / `Overlay*` /
   `MiuixPopupUtils.`，禁止 `layerBackdrop(` 直达（允许 `chrome/ErosGlassRecordLayer.kt`、
   `ErosPageScaffold.kt`、`AccountScreen.kt` 的页面背景层、`liquid/`、`reader/`）。
-  「`ErosBottomSheet(` / `ErosDialog(` 缺少 `backdrop =`」这条在 H3 改完签名后追加。
+  H3 起还要求 `ErosBottomSheet(` / `ErosDialog(` 调用必须显式传 `backdrop =`。
 
 两项都挂在 `shared/build.gradle.kts`，CI 未接入时用 `.\gradlew.bat :shared:checkUiStructure
 :shared:checkLayering` 本地跑。
