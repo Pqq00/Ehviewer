@@ -3,31 +3,17 @@
 
 package app.eros.shared
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.runtime.collectAsState
 
-import app.eros.shared.data.GalleryTitles
-import app.eros.shared.download.DownloadStatus
+import app.eros.shared.navigation.Route
+import app.eros.shared.navigation.rememberErosNavigator
+import app.eros.shared.ui.chrome.ErosAppChrome
+import app.eros.shared.ui.chrome.ErosChromeRail
+import app.eros.shared.ui.chrome.rememberDetailActions
 
-import app.eros.shared.download.DownloadManager
 
 import app.eros.shared.ui.ErosAppBottomBar
-import app.eros.shared.ui.ErosGlassNavigationRail
-import app.eros.shared.ui.ErosNavigationRail
-import app.eros.shared.ui.design.GlassRailChrome
-import app.eros.shared.ui.design.GlassRailStartInset
-import app.eros.shared.ui.design.erosGlassRailStartInset
-import app.eros.shared.ui.rememberGlassNavigationRailStartsExpanded
-import top.yukonga.miuix.kmp.glass.GlassNavigationRailDefaults
-import top.yukonga.miuix.kmp.glass.rememberGlassNavigationRailState
 import app.eros.shared.ui.OverlayState
 import app.eros.shared.ui.rememberUseNavigationRail
-import app.eros.shared.ui.ReadStore
 
 import app.eros.shared.ui.TopListState
 import com.hippo.ehviewer.util.AppLog
@@ -116,10 +102,8 @@ import top.yukonga.miuix.kmp.basic.TopAppBar
 
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 
-import androidx.compose.ui.zIndex
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.shape.RoundedCornerShape
 import top.yukonga.miuix.kmp.blur.textureBlur
 import top.yukonga.miuix.kmp.basic.FloatingToolbarDefaults
@@ -131,10 +115,7 @@ import top.yukonga.miuix.kmp.basic.FloatingNavigationBarItem
 
 import top.yukonga.miuix.kmp.basic.FloatingNavigationBar
 
-import kotlinx.serialization.Serializable
 import top.yukonga.miuix.kmp.nav.core.NavDisplay
-import top.yukonga.miuix.kmp.nav.core.NavKey
-import top.yukonga.miuix.kmp.nav.core.rememberNavBackStack
 
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
 
@@ -144,16 +125,13 @@ import androidx.compose.ui.graphics.Color
 import top.yukonga.miuix.kmp.blur.ProgressiveBlur
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.progressiveTextureBlur
-import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -172,7 +150,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableStateListOf
@@ -182,7 +159,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import app.eros.shared.auth.applyExHentai
@@ -276,47 +252,6 @@ private fun rememberTabPagerState(
     scope: CoroutineScope = rememberCoroutineScope(),
 ): TabPagerState = remember(pagerState, scope) { TabPagerState(pagerState, scope) }
 
-@Serializable
-private sealed interface Route : NavKey {
-    @Serializable
-    data object Tabs : Route
-
-    @Serializable
-    data class Detail(val gid: Long, val token: String) : Route
-
-    @Serializable
-    data class Reader(
-        val gid: Long,
-        val token: String,
-        val total: Int,
-        val startPage: Int = -1,
-    ) : Route
-
-    @Serializable
-    data class Comments(val gid: Long, val token: String) : Route
-
-    @Serializable
-    data object Search : Route
-
-    @Serializable
-    data object Account : Route
-
-    @Serializable
-    data object Watched : Route
-
-    @Serializable
-    data object NetLog : Route
-
-    @Serializable
-    data object Filter : Route
-
-    /** 首页分类行条目的新建/编辑页；[key] 为空表示新建分组。 */
-    data class HomeChipEdit(val key: String? = null) : Route
-
-    @Serializable
-    data object History : Route
-}
-
 /** pager 页面需要的回调与尺寸（movableContentOf 最多 4 个参数，这里打包成一个）。 */
 private data class TabPageParams(
     val onSearch: () -> Unit,
@@ -381,20 +316,11 @@ fun App() {
                 showSystemToast("上次启动崩溃过，可在设置 → 关于 导出日志")
             }
         }
-        // 栈式导航：返回一定是回到上一层
-        val backStack = rememberNavBackStack<Route>(Route.Tabs)
-        // 同值路由已经在栈里时不压新的一层，而是回退到已有的那一层：
-        // NavDisplay 要求栈上每层的 contentKey 唯一，否则会直接抛
-        // 「Duplicate contentKey on the back stack」（例如 搜索 → 详情 → 点上传者再开搜索）。
-        val push: (Route) -> Unit = { route ->
-            val existing = backStack.indexOfLast { it == route }
-            if (existing < 0) {
-                backStack.add(route)
-            } else {
-                while (backStack.size - 1 > existing) backStack.removeLastOrNull()
-            }
-        }
-        val pop: () -> Unit = { backStack.removeLastOrNull() }
+        // 栈式导航：返回一定是回到上一层（同值路由回退而不是再压一层，见 ErosNavigator）
+        val nav = rememberErosNavigator(Route.Tabs)
+        val backStack = nav.backStack
+        val push: (Route) -> Unit = nav::push
+        val pop: () -> Unit = nav::pop
         // tab 下标放进程级：Activity 重建（回桌面再回来）也停在同一页
         val tabIndex = AppStateHolder.selectedTab
 
@@ -445,12 +371,10 @@ fun App() {
             backdropColor = MiuixTheme.colorScheme.background,
         )
 
-        // 统一底栏：放在 NavDisplay 之外，Tabs↔Detail 共用同一个实例，
-        // 只做内容淡变 + 宽度平滑过渡，位置/高度/模糊保持不变。
-        // 记录「页面内容」的层：侧栏/顶栏/底栏都采样它（官方把同一角色叫 sidebarBackdrop）。
-        val pageBackdrop = rememberBarBackdrop()
-        val currentRoute = backStack.lastOrNull()
-        val detailRoute = currentRoute as? Route.Detail
+        // 统一底栏、记录层与两种 rail 的宿主都在 ErosAppChrome（Phase 1 纯搬迁）；
+        // 这里只保留导航状态与页面入口。
+        val currentRoute = nav.current
+        val detailRoute = nav.detail
         val activeDetail: DetailState? = detailRoute?.let { r ->
             remember(r.gid, r.token) {
                 store.get("detail:${r.gid}:${r.token}") { DetailState(r.gid, r.token) }
@@ -460,50 +384,32 @@ fun App() {
         val showAppBar = (currentRoute is Route.Tabs || detailRoute != null) &&
             !OverlayState.anyOpen
 
-        // 宽屏（≥600dp）把导航搬到左侧 rail：Tabs 与详情页共用，详情动作也进 rail
+        // 宽屏（≥600dp）把导航搬到左侧 rail：Tabs 与详情页共用
         val railAllowed = currentRoute is Route.Tabs || detailRoute != null
         val useNavigationRail = railAllowed && rememberUseNavigationRail()
         // 导航栏样式 = 玻璃时，宽屏侧栏也换成玻璃版：面板浮在页面上，页面按展开进度让位
         val useGlassRail = useNavigationRail && AppSettings.navBarStyle == 3
-        val glassRailState = rememberGlassNavigationRailState(
-            initialExpanded = rememberGlassNavigationRailStartsExpanded(),
-        )
+        val railMode = when {
+            useGlassRail -> ErosChromeRail.Glass
+            useNavigationRail -> ErosChromeRail.Native
+            else -> ErosChromeRail.None
+        }
 
-        // 详情动作由底栏与 rail 共用，状态与回调只算一次
-        val downloadTasks by DownloadManager.tasks.collectAsState()
-        val detailTask = activeDetail?.let { st -> downloadTasks.firstOrNull { it.gid == st.gid } }
-        val readProgress = activeDetail?.let { st -> ReadStore.progressOf(st.gid) }
-        val detailDownloadLabel = when {
-            detailTask == null -> "下载"
-            detailTask.status == DownloadStatus.DONE -> "已下载"
-            else -> "${(detailTask.progress * 100).toInt()}%"
+        // 详情动作由底栏与两种 rail 共用（状态与回调只算一次，见 rememberDetailActions）
+        val detailActions = rememberDetailActions(activeDetail) { st ->
+            push(Route.Reader(st.gid, st.token, st.detail?.pages ?: 0))
         }
-        val onDetailDownloadAction: () -> Unit = {
-            val st = activeDetail
-            val d = st?.detail
-            if (st != null && d != null && detailTask == null) {
-                DownloadManager.enqueue(
-                    gid = d.gid,
-                    token = st.token,
-                    title = GalleryTitles.primary(d.title, d.titleJpn),
-                    titleJpn = d.titleJpn,
-                    totalPages = d.pages,
-                    thumb = d.thumb,
-                    uploader = d.uploader,
-                    artist = d.tags.firstOrNull { it.namespace == "artist" }?.tags?.firstOrNull(),
-                    category = d.category,
-                )
-                showSystemToast("已加入下载队列")
-            }
-        }
-        val onDetailReadAction: () -> Unit = {
-            val st = activeDetail
-            if (st != null) push(Route.Reader(st.gid, st.token, st.detail?.pages ?: 0))
+        // 从侧栏/底栏切根 tab：抑制 NavDisplay 转场并一路退回 Tabs 页
+        // （官方 AppContent.kt 的 onBeforeNavigate = { suppressNavTransition = true }）。
+        val onSelectTab: (Int) -> Unit = { index ->
+            suppressNavTransition = true
+            AppStateHolder.selectedTab = index
+            nav.popToTabs()
         }
 
         // 底栏可见性：rail 下 Tabs 页不放底栏（导航在侧栏），但详情页保留动作栏
         // —— 对齐官方 GlassPage.kt:265-328：rail 是导航，页面自带自己的底栏。
-        val showBottomBar = showAppBar && (!useNavigationRail || detailRoute != null)
+        val showBottomBar = showAppBar && (railMode == ErosChromeRail.None || detailRoute != null)
         // 详情页内容底部要为底栏留位：玻璃底栏按官方留白公式，其余样式沿用 96dp。
         val detailBottomInset = if (AppSettings.navBarStyle == 3) {
             maxOf(
@@ -515,79 +421,20 @@ fun App() {
         }
 
         Box(Modifier.fillMaxSize()) {
-
-        // 宽屏：左侧 rail + 右侧内容区；底栏只对齐右 pane 底部
-        Row(Modifier.fillMaxSize()) {
-
-        if (useNavigationRail && !useGlassRail) {
-            ErosNavigationRail(
-                // rail 只做导航：详情动作交给底部动作栏（官方 Glass 页同一分工）。
-                isDetail = false,
+            ErosAppChrome(
+                rail = railMode,
                 selectedTab = tabIndex,
-                detailEnabled = activeDetail?.detail != null,
-                detailFavoriteCount = activeDetail?.favoriteCount ?: 0,
-                detailReadPage = readProgress?.first?.plus(1),
-                detailDownloadLabel = detailDownloadLabel,
-                detailDownloadActive = detailTask != null,
-                onSelectTab = { index ->
-                    suppressNavTransition = true
-                    AppStateHolder.selectedTab = index
-                    while (backStack.size > 1) backStack.removeLastOrNull()
-                },
-                onDetailFavorite = { activeDetail?.openFavSheet() },
-                onDetailDownload = onDetailDownloadAction,
-                onDetailRead = onDetailReadAction,
-                // 场景切换时 NavDisplay 会画上一页的底图，rail 必须画在它之上
-                modifier = Modifier.zIndex(1f),
-            )
-        }
-
-        Box(Modifier.weight(1f)) {
-            // 对齐官方 AppContent.kt:335-376：整窗先铺底色并裁剪（clipToBounds），
-            // 记录层（layerBackdrop）尺寸始终等于窗口；页面让位只作用于内层容器。
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    // 整窗底色：玻璃侧栏展开时页面右移，左条不再被页面绘制，靠它兜住背景
-                    .background(MiuixTheme.colorScheme.surface)
-                    .clipToBounds()
-                    .then(if (pageBackdrop != null) Modifier.layerBackdrop(pageBackdrop) else Modifier),
-            ) {
-        // 玻璃侧栏让位：页面内容自己内缩（各页 ErosPageScaffold / 顶栏前景），
-        // 记录层保持整窗、内容坐标 = 窗口坐标 —— 侧栏采样到的就是真实页面。
-        GlassRailChrome.railMode = useNavigationRail
-        GlassRailChrome.expanded = glassRailState.expanded
-        // 对齐官方 example：让位量就是 (Margin + ExpandedWidth) * progress。
-        // 左侧安全区不叠加在这里 —— ErosPageScaffold 的 erosPageHorizontalInsets() 已经把
-        // safeDrawing 的 start 消费掉了，侧栏自己的 windowInsetsPadding 也是同一份，
-        // 两边一致时内容起点正好落在面板右缘（官方同样是「安全区内缩 + overlayStart」）。
-        // provider 用 remember 固定实例：只有在「是否玻璃侧栏」或 state 对象本身变化时才换新实例，
-        // 换实例会让已测量过的页面重新测量（见 GlassRailStartInset 的注释）。
-        val railInsetProvider = remember(useGlassRail, glassRailState) {
-            {
-                if (useGlassRail) {
-                    (GlassNavigationRailDefaults.Margin + GlassNavigationRailDefaults.ExpandedWidth) *
-                        glassRailState.progress
-                } else {
-                    0.dp
-                }
-            }
-        }
-        SideEffect { GlassRailStartInset.update(railInsetProvider) }
-        Box(Modifier.fillMaxSize()) {
-
-        // 官方 `LocalTopAppBarTitleAlpha provides { sidebarState.progress }`：
-        // 宽屏玻璃侧栏展开时标题淡入，收起时淡出（在 draw 阶段读 progress，不触发重组）。
-        CompositionLocalProvider(
-            LocalTopAppBarTitleAlpha provides { if (useGlassRail) glassRailState.progress else 1f },
-        ) {
-        NavDisplay(
-            modifier = Modifier.fillMaxSize(),
-            backStack = backStack,
-            onBack = { pop() },
-            transition = navTransition,
-            effects = navEffects,
-        ) {
+                onSelectTab = onSelectTab,
+                detailActions = detailActions,
+                showBottomBar = showBottomBar,
+                content = {
+                    NavDisplay(
+                        modifier = Modifier.fillMaxSize(),
+                        backStack = backStack,
+                        onBack = pop,
+                        transition = navTransition,
+                        effects = navEffects,
+                    ) {
             entry<Route.Tabs> {
                 Tabs(
                     selected = tabIndex,
@@ -713,88 +560,42 @@ fun App() {
                     onBack = { pop() },
                 )
             }
-        }
-        }
             }
-        }
-
-            // 统一底栏（NavDisplay 之外、记录层之外）：Tabs 与 Detail 共用同一实例，只切换内容。
-            // 放在侧栏所在 Row 的内容列里，底栏自然以内容区居中；玻璃侧栏展开时，
-            // 再按 erosGlassRailStartInset 把底栏整体右移，跟页面内容保持同一让位量。
-            // 千万别放回 layerBackdrop 记录层内部：玻璃底栏会采样到包含自己的那一层，
-            // 长按/展开时 hwui prepare 递归，直接 SIGSEGV（e843247 那个闪退）。
-            // 顶层的 AnimatedVisibility（非 RowScope 版本）：这里在 Box 里，隐式接收者是 BoxScope。
-            androidx.compose.animation.AnimatedVisibility(
-                visible = showBottomBar,
-                modifier = Modifier.align(Alignment.BottomCenter),
-                enter = fadeIn(tween(180)) + slideInVertically(tween(180)) { it / 2 },
-                exit = fadeOut(tween(140)) + slideOutVertically(tween(140)) { it / 2 },
-            ) {
-                Box(Modifier.fillMaxWidth().erosGlassRailStartInset()) {
+        },
+                bottomBar = { backdrop ->
                     ErosAppBottomBar(
                         isDetail = detailRoute != null,
                         selectedTab = tabIndex,
-                        onSelectTab = { index ->
-                            AppStateHolder.selectedTab = index
-                            while (backStack.size > 1) backStack.removeLastOrNull()
-                        },
-                        detailEnabled = activeDetail?.detail != null,
-                        detailFavorited = activeDetail?.favorited ?: false,
-                        detailFavoriteCount = activeDetail?.favoriteCount ?: 0,
-                        detailReadPage = readProgress?.first?.plus(1),
-                        detailReadStarted = readProgress != null,
-                        detailDownloadLabel = detailDownloadLabel,
-                        detailDownloadActive = detailTask != null,
-                        onDetailFavorite = { activeDetail?.openFavSheet() },
-                        onDetailDownload = onDetailDownloadAction,
-                        onDetailRead = onDetailReadAction,
-                        backdrop = pageBackdrop,
+                        onSelectTab = onSelectTab,
+                        detailEnabled = detailActions.enabled,
+                        detailFavorited = detailActions.favorited,
+                        detailFavoriteCount = detailActions.favoriteCount,
+                        detailReadPage = detailActions.readPage,
+                        detailReadStarted = detailActions.readStarted,
+                        detailDownloadLabel = detailActions.downloadLabel,
+                        detailDownloadActive = detailActions.downloadActive,
+                        onDetailFavorite = detailActions.onFavorite,
+                        onDetailDownload = detailActions.onDownload,
+                        onDetailRead = detailActions.onRead,
+                        backdrop = backdrop,
                     )
-                }
+                },
+            )
+
+            // 帧率浮层：official example 的 FPSMonitor
+            if (AppSettings.showFps) {
+                FPSMonitor(
+                    Modifier
+                        .fillMaxSize()
+                        .statusBarsPadding()
+                        .padding(top = 4.dp),
+                )
             }
 
-        }
-        }
-
-        // 玻璃侧栏：浮在页面之上，不占 Row 的一列（页面已按 state.progress 让位）
-        if (useGlassRail) {
-            ErosGlassNavigationRail(
-                // rail 只做导航：详情动作交给底部动作栏（官方 Glass 页同一分工）。
-                isDetail = false,
-                selectedTab = tabIndex,
-                detailEnabled = activeDetail?.detail != null,
-                detailFavoriteCount = activeDetail?.favoriteCount ?: 0,
-                detailReadPage = readProgress?.first?.plus(1),
-                detailDownloadLabel = detailDownloadLabel,
-                detailDownloadActive = detailTask != null,
-                onSelectTab = { index ->
-                    AppStateHolder.selectedTab = index
-                    while (backStack.size > 1) backStack.removeLastOrNull()
-                },
-                onDetailFavorite = { activeDetail?.openFavSheet() },
-                onDetailDownload = onDetailDownloadAction,
-                onDetailRead = onDetailReadAction,
-                state = glassRailState,
-                // 采样页面内容层；侧栏自己在记录层之外，不会采到自己（见 Glass.kt:44-45）。
-                backdrop = pageBackdrop,
-                modifier = Modifier.zIndex(2f),
-            )
-        }
-
-        // 帧率浮层：official example 的 FPSMonitor
-        if (AppSettings.showFps) {
-            FPSMonitor(
-                Modifier
-                    .fillMaxSize()
-                    .statusBarsPadding()
-                    .padding(top = 4.dp),
-            )
-        }
-
-        // 给 NavDisplay push 出来的路由（历史 / 详情等）补一个 popup 宿主：
-        // 这些页面的 miuix Scaffold 宿主会被 NavDisplay 的内容盖住，
-        // 导致 OverlayDialog / OverlayListPopup「点了没反应」。放在整页最上层即可。
-        MiuixPopupUtils.MiuixPopupHost()
+            // 给 NavDisplay push 出来的路由（历史 / 详情等）补一个 popup 宿主：
+            // 这些页面的 miuix Scaffold 宿主会被 NavDisplay 的内容盖住，
+            // 导致 OverlayDialog / OverlayListPopup「点了没反应」。放在整页最上层即可。
+            MiuixPopupUtils.MiuixPopupHost()
         }
     }
 }
