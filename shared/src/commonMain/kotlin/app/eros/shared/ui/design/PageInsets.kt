@@ -44,11 +44,18 @@ fun Modifier.erosPageHorizontalInsets(): Modifier =
  * 对应官方 example 的 `AppPageInsets.contentInsets`：`overlayStart = (Margin + ExpandedWidth) * progress`。
  */
 object GlassRailStartInset {
-    private var provider: () -> Dp = { 0.dp }
+    /**
+     * provider 本身用**可变状态**持有：换 provider（例如在设置页里切换导航栏样式）时，
+     * 所有读过它的布局节点会立刻失效并重新测量。
+     *
+     * 只用普通字段时，切换样式仅仅是替换了引用 —— 已经测量过的页面不会重测，
+     * 表现为「页面内容仍按旧宽度排布、被侧栏盖住」，直到下一次导航才恢复。
+     */
+    private var provider by mutableStateOf<() -> Dp>({ 0.dp })
 
-    /** 由 `App.kt` 在组合期更新；只是替换引用，不读状态。 */
+    /** 由 `App.kt` 在组合期（`SideEffect`）更新；只是替换引用，不读状态。 */
     fun update(p: () -> Dp) {
-        provider = p
+        if (provider !== p) provider = p
     }
 
     /** **只在 layout 阶段调用**：这时读到的是最新的 provider，而不是某一帧组合时捕获的旧 lambda。 */

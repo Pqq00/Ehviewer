@@ -171,6 +171,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableStateListOf
@@ -545,13 +546,19 @@ fun App() {
         // 左侧安全区不叠加在这里 —— ErosPageScaffold 的 erosPageHorizontalInsets() 已经把
         // safeDrawing 的 start 消费掉了，侧栏自己的 windowInsetsPadding 也是同一份，
         // 两边一致时内容起点正好落在面板右缘（官方同样是「安全区内缩 + overlayStart」）。
-        GlassRailStartInset.update {
-            if (useGlassRail) {
-                (GlassNavigationRailDefaults.Margin + GlassNavigationRailDefaults.ExpandedWidth) * glassRailState.progress
-            } else {
-                0.dp
+        // provider 用 remember 固定实例：只有在「是否玻璃侧栏」或 state 对象本身变化时才换新实例，
+        // 换实例会让已测量过的页面重新测量（见 GlassRailStartInset 的注释）。
+        val railInsetProvider = remember(useGlassRail, glassRailState) {
+            {
+                if (useGlassRail) {
+                    (GlassNavigationRailDefaults.Margin + GlassNavigationRailDefaults.ExpandedWidth) *
+                        glassRailState.progress
+                } else {
+                    0.dp
+                }
             }
         }
+        SideEffect { GlassRailStartInset.update(railInsetProvider) }
         Box(Modifier.fillMaxSize()) {
 
         // 官方 `LocalTopAppBarTitleAlpha provides { sidebarState.progress }`：
