@@ -38,6 +38,7 @@ import com.hippo.ehviewer.net.EhSiteException
 import com.hippo.ehviewer.net.HttpCacheBridgeHolder
 import com.hippo.ehviewer.net.HttpCacheKeys
 import com.hippo.ehviewer.net.NetLog
+import com.hippo.ehviewer.net.RetryAfter
 import com.hippo.ehviewer.net.cachePolicyFor
 import okhttp3.FormBody
 import okhttp3.MediaType.Companion.toMediaType
@@ -1026,9 +1027,18 @@ object EhEngine {
         }
     }
 
-    /** 带状态码与 Retry-After 的 HTTP 错误，交给上层映射成 EhError。 */
+    /**
+     * 带状态码与 `Retry-After` 的 HTTP 错误，交给上层映射成 EhError。
+     *
+     * `Retry-After` 可能是数字秒，也可能是 HTTP-date（Cloudflare 常发），
+     * 统一由 [RetryAfter] 换算；日期形式在转成秒时向下取整。
+     */
     private fun httpFailure(response: Response, url: String): HttpStatusException =
-        HttpStatusException(response.code, response.header("Retry-After")?.trim()?.toLongOrNull(), url)
+        HttpStatusException(
+            code = response.code,
+            retryAfterSeconds = RetryAfter.parseMillis(response.header("Retry-After"))?.div(1000),
+            url = url,
+        )
 
     // ============================================================ URL 工具
 

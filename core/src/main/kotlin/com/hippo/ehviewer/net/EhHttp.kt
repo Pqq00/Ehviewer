@@ -16,6 +16,7 @@ import java.net.Proxy
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
+import kotlin.random.Random
 
 /**
  * 代理配置。
@@ -185,10 +186,17 @@ internal object RefererInterceptor : Interceptor {
 }
 
 /**
- * 重试 + 指数退避。
+ * 重试 + 指数退避，**网络层唯一的重试归属点**。
  *
- * 只对 GET 和表单 POST 生效（都可安全重放）。5xx / 429 / IO 异常都会重试。
- * 每次重试都写进 [NetLog]，方便排查"到底重试了几次"。
+ * - 只对 GET 生效：POST（收藏/评论/投票）重放会产生副作用；表单 POST 虽然
+ *   通常幂等，但服务端并没有承诺，所以一样不重试。
+ * - 只有 5xx / 429 / IO 异常重试；其它状态码原样交给上层分类。
+ * - 429 优先用 `Retry-After`（数字与 HTTP-date 都认，见 [RetryAfter]），
+ *   钳到 10 秒；没给或用 5xx 时用带抖动的本地退避。
+ * - 调用方（例如 `PageBatchHarvester`）不得再叠一层重试：一次 503 会被
+ *   放大成 3 × 3 次请求，正是之前「同一地址 GET 11–15 次」的来源之一。
+ *
+ * 每次重试都写进 [NetLog]，方便排查「到底重试了几次」。
  */
 internal class RetryInterceptor(private val maxRetries: Int = 2) : Interceptor {
 
@@ -204,8 +212,8 @@ internal class RetryInterceptor(private val maxRetries: Int = 2) : Interceptor {
                 val retryable = idempotent && (response.code in 500..599 || response.code == 429)
                 if (retryable && attempt < maxRetries) {
                     val wait = if (response.code == 429) {
-                        response.header("Retry-After")?.trim()?.toLongOrNull()
-                            ?.times(1000)?.coerceIn(0L, 10_000L)
+                        RetryAfter.parseMillis(response.header("Retry-After"))
+                            ?.coerceIn(0L, MAX_RETRY_AFTER_MS)
                     } else {
                         null
                     }
@@ -247,10 +255,24 @@ internal class RetryInterceptor(private val maxRetries: Int = 2) : Interceptor {
         }
     }
 
-    private fun backoffMillis(attempt: Int): Long = when (attempt) {
-        1 -> 600L
-        2 -> 1500L
-        else -> 3000L
+    /**
+     * 本地指数退避：600 / 1500 / 3000 ms，各加 ±20% 抖动。
+     *
+     * 没有抖动时，同时失败的几个请求（首页列表 + 详情预取 + 下载）会在同一刻
+     * 一起重试，把站点限速窗口又打满一次。
+     */
+    private fun backoffMillis(attempt: Int): Long {
+        val base = when (attempt) {
+            1 -> 600L
+            2 -> 1500L
+            else -> 3000L
+        }
+        return base + Random.nextLong(-base / 5, base / 5 + 1)
+    }
+
+    private companion object {
+        /** `Retry-After` 最长等 10 秒：再长就该让用户看到错误，而不是挂住。 */
+        const val MAX_RETRY_AFTER_MS = 10_000L
     }
 }
 

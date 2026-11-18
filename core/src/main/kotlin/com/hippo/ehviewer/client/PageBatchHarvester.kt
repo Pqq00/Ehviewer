@@ -4,9 +4,7 @@
 package com.hippo.ehviewer.client
 
 import com.hippo.ehviewer.net.EhCalls
-import com.hippo.ehviewer.net.EhSiteException
 import com.hippo.ehviewer.util.AppLog
-import java.io.IOException
 import java.io.InterruptedIOException
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CountDownLatch
@@ -22,7 +20,9 @@ import java.util.concurrent.locks.ReentrantLock
  *  1. **批大小自适应**：默认按 20 张一批换算；出现错位时用 `?p=0` 与 `?p=1`
  *     首项页号差反推真实批大小。
  *  2. **索引错位自愈**：目标页不在抓回的批次里 → 重新探测批大小并重抓一次。
- *  3. **重试**：IO 类异常 / 超时 / HTTP 5xx / 429 重试 3 次，线性退避。
+ *  3. **不自己重试**：重试（5xx / 429 / IO、退避与取消）由 HTTP 层的
+ *     `RetryInterceptor` 统一负责。本类再叠一层会把一次 503 放大成 9 次请求，
+ *     日志里「同一地址 GET 11–15 次」就有它一份。
  *  4. **串行限流**：同一画廊的请求用一把锁串起来（间隔 150ms），
  *     避免并发被站点限速时互相拖慢（实测 3 个并发请求各要 7 秒）。
  *  5. **会话缓存**：最近 8 个画廊的页地址留在内存里，按访问序淘汰。
@@ -133,14 +133,11 @@ class PageBatchHarvester(private val storage: Storage) {
                 return@withGidLock
             }
             val step = runCatching {
-                val meta = retryIo(cancelKey) {
-                    metaFetcher(session.gid, session.token, cancelKey)
-                }
+                val meta = metaFetcher(session.gid, session.token, cancelKey)
                 val firstOf0 = meta.firstLinks.firstOrNull()?.let { pageIndex(it) }
                     ?: return@runCatching DEFAULT_PAGES_PER_BATCH
-                val firstOf1 = retryIo(cancelKey) {
-                    batchFetcher(session.gid, session.token, 1, cancelKey)
-                }.firstOrNull()?.let { pageIndex(it) }
+                val firstOf1 = batchFetcher(session.gid, session.token, 1, cancelKey)
+                    .firstOrNull()?.let { pageIndex(it) }
                     ?: return@runCatching DEFAULT_PAGES_PER_BATCH
                 (firstOf1 - firstOf0).takeIf { it in 1..200 } ?: DEFAULT_PAGES_PER_BATCH
             }.getOrDefault(DEFAULT_PAGES_PER_BATCH)
@@ -213,9 +210,7 @@ class PageBatchHarvester(private val storage: Storage) {
             val raw = withGidLock(session.gid, cancelKey) {
                 // 同一画廊串行：一个抓完再抓下一个，避免被限速拖成慢查询。
                 sleepCancellable(REQUEST_GAP_MS, cancelKey)
-                retryIo(cancelKey) {
-                    batchFetcher(session.gid, session.token, batch, cancelKey)
-                }
+                batchFetcher(session.gid, session.token, batch, cancelKey)
             }
             val elapsedMs = (System.nanoTime() - startedAt) / 1_000_000
             val batchMap = indexPages(normalize(raw))
@@ -260,32 +255,6 @@ class PageBatchHarvester(private val storage: Storage) {
         } finally {
             lock.unlock()
         }
-    }
-
-    /**
-     * 网络重试：只重试 IO 类异常，第 n 次失败后退避 500ms × n。
-     *
-     * 业务错误（[EhSiteException]：登录失效、被 ban、画廊被删）与取消不重试 ——
-     * 它们都继承/包装成 IOException，不显式排除就会被当成网络抖动重放三次。
-     */
-    private fun <T> retryIo(cancelKey: EhCalls.Handle? = null, block: () -> T): T {
-        var last: Throwable? = null
-        for (attempt in 0 until RETRY_TIMES) {
-            throwIfCancelled(cancelKey)
-            try {
-                return block()
-            } catch (t: Throwable) {
-                last = t
-                if (t is EhSiteException || t is InterruptedIOException) throw t
-                val retryable = t is IOException ||
-                    t.message?.contains("timeout", ignoreCase = true) == true ||
-                    t.message?.let { m -> m.contains("HTTP") && (m.contains("50") || m.contains("429")) } == true
-                if (!retryable || attempt == RETRY_TIMES - 1) throw t
-                AppLog.w(TAG, "第 ${attempt + 1}/$RETRY_TIMES 次失败，重试：${t.message}")
-                sleepCancellable(500L * (attempt + 1), cancelKey)
-            }
-        }
-        throw last ?: IllegalStateException("重试失败")
     }
 
     /** 取消即抛：把协程取消（[EhCalls.cancel]）翻译成调用方熟悉的 IO 异常。 */
@@ -335,8 +304,6 @@ class PageBatchHarvester(private val storage: Storage) {
         private const val TAG = "Harvest"
 
         private const val DEFAULT_PAGES_PER_BATCH = 20
-
-        private const val RETRY_TIMES = 3
 
         private const val REQUEST_GAP_MS = 150L
 

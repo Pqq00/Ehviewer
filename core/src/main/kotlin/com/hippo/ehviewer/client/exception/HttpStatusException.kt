@@ -14,7 +14,12 @@ import java.io.IOException
  */
 class HttpStatusException(
     val code: Int,
-    /** 服务端的 `Retry-After`（秒）。只解析数字形式，HTTP-date 形式忽略。 */
+    /**
+     * 服务端的 `Retry-After`（秒）。
+     *
+     * 数字与 HTTP-date 两种形式都由 `com.hippo.ehviewer.net.RetryAfter` 解析后传入；
+     * 日期形式换算成「距现在还有几秒」，已过期按 0。
+     */
     val retryAfterSeconds: Long? = null,
     url: String? = null,
 ) : IOException(describe(code, url))
