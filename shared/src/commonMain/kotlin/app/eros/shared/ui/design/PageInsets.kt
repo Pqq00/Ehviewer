@@ -102,10 +102,19 @@ val ErosBottomBarMaxWidth = 344.dp
  * 只改自身宽度，不做定位 —— 调用方用 `Box(contentAlignment = BottomCenter)` 或
  * `Column(horizontalAlignment = CenterHorizontally)` 负责居中（与 [app.eros.shared.ui.ErosAppBottomBar]
  * 在 `App.kt` 里的挂法一致）。
+ *
+ * 断点比较的是 **窗口宽度**，不是测量时的可用宽度：宽屏侧栏展开后内容列会被挤到
+ * 600dp 以下（横屏手机 817dp − 250dp 面板 − 12dp 边距 ≈ 555dp），若按内容列宽判断，
+ * 底栏会突然从 344dp 弹回 ~507dp，和竖屏观感不一致。调用方从 `LocalWindowInfo` 取
+ * 窗口宽度传进来即可；不传时退回旧行为（按约束宽度判断）。
  */
-fun Modifier.erosBottomBarWidthLimit(): Modifier = layout { measurable, constraints ->
+fun Modifier.erosBottomBarWidthLimit(windowWidth: Dp? = null): Modifier = layout { measurable, constraints ->
     val bounded = constraints.hasBoundedWidth
-    val wide = bounded && constraints.maxWidth > ErosBottomBarWideBreakpoint.roundToPx()
+    val wide = bounded && if (windowWidth != null) {
+        windowWidth > ErosBottomBarWideBreakpoint
+    } else {
+        constraints.maxWidth > ErosBottomBarWideBreakpoint.roundToPx()
+    }
     // 不能 coerceIn(constraints.minWidth, …)：调用方常用 fillMaxWidth()，此时 min == max == 全宽，
     // 收窄值会被 min 顶回去（实测会打印 max=2500 min=2500 -> 2500）。这里直接改写约束。
     val width = if (wide) ErosBottomBarMaxWidth.roundToPx() else constraints.maxWidth

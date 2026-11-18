@@ -39,6 +39,8 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.SubcomposeLayout
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
@@ -237,6 +239,11 @@ fun ErosAppBottomBar(
         // 底部留白照官方 GlassPage.kt:244-257：安全区 + 8dp，最少 24dp。
         val safeBottom = WindowInsets.safeDrawing.asPaddingValues().calculateBottomPadding()
         val capsuleBottomGap = maxOf(24.dp, safeBottom + 8.dp)
+        // 宽屏收窄的断点按窗口宽度判断：侧栏展开时内容列会窄于 600dp，
+        // 用内容列宽判断会让胶囊突然变宽（见 design/PageInsets.kt 的说明）。
+        val windowWidth = with(LocalDensity.current) {
+            LocalWindowInfo.current.containerSize.width.toDp()
+        }
         val glassItems: List<GlassNavigationItem>
         val glassSelected: Int
         if (isDetail) {
@@ -323,7 +330,7 @@ fun ErosAppBottomBar(
                         .erosPageHorizontalInsets()
                         .padding(horizontal = 24.dp)
                         // 宽屏（>600dp）收窄到 344dp，规则见 design/PageInsets.kt。
-                        .erosBottomBarWidthLimit(),
+                        .erosBottomBarWidthLimit(windowWidth),
                 )
             }
         }
