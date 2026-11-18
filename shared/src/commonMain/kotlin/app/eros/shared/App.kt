@@ -21,6 +21,7 @@ import app.eros.shared.ui.ErosGlassNavigationRail
 import app.eros.shared.ui.ErosNavigationRail
 import app.eros.shared.ui.design.GlassRailChrome
 import app.eros.shared.ui.design.GlassRailStartInset
+import app.eros.shared.ui.design.erosGlassRailStartInset
 import app.eros.shared.ui.rememberGlassNavigationRailStartsExpanded
 import top.yukonga.miuix.kmp.glass.GlassNavigationRailDefaults
 import top.yukonga.miuix.kmp.glass.rememberGlassNavigationRailState
@@ -500,6 +501,19 @@ fun App() {
             if (st != null) push(Route.Reader(st.gid, st.token, st.detail?.pages ?: 0))
         }
 
+        // 底栏可见性：rail 下 Tabs 页不放底栏（导航在侧栏），但详情页保留动作栏
+        // —— 对齐官方 GlassPage.kt:265-328：rail 是导航，页面自带自己的底栏。
+        val showBottomBar = showAppBar && (!useNavigationRail || detailRoute != null)
+        // 详情页内容底部要为底栏留位：玻璃底栏按官方留白公式，其余样式沿用 96dp。
+        val detailBottomInset = if (AppSettings.navBarStyle == 3) {
+            maxOf(
+                24.dp,
+                WindowInsets.safeDrawing.asPaddingValues().calculateBottomPadding() + 8.dp,
+            ) + 54.dp + 8.dp
+        } else {
+            96.dp
+        }
+
         Box(Modifier.fillMaxSize()) {
 
         // 宽屏：左侧 rail + 右侧内容区；底栏只对齐右 pane 底部
@@ -507,7 +521,8 @@ fun App() {
 
         if (useNavigationRail && !useGlassRail) {
             ErosNavigationRail(
-                isDetail = detailRoute != null,
+                // rail 只做导航：详情动作交给底部动作栏（官方 Glass 页同一分工）。
+                isDetail = false,
                 selectedTab = tabIndex,
                 detailEnabled = activeDetail?.detail != null,
                 detailFavoriteCount = activeDetail?.favoriteCount ?: 0,
@@ -619,6 +634,8 @@ fun App() {
                     onSearchTag = openTag,
                     onSearchUploader = openUploader,
                     onOpenGallery = { ref -> push(Route.Detail(ref.gid, ref.token)) },
+                    // 详情页底部要为自己的动作栏留位（rail 打开时动作栏仍在）。
+                    bottomInset = detailBottomInset,
                 )
             }
             entry<Route.Watched>(swipeDismiss = swipeDismiss) {
@@ -701,13 +718,49 @@ fun App() {
             }
         }
 
+            // 统一底栏（NavDisplay 之外、记录层之外）：Tabs 与 Detail 共用同一实例，只切换内容。
+            // 放在侧栏所在 Row 的内容列里，底栏自然以内容区居中；玻璃侧栏展开时，
+            // 再按 erosGlassRailStartInset 把底栏整体右移，跟页面内容保持同一让位量。
+            // 千万别放回 layerBackdrop 记录层内部：玻璃底栏会采样到包含自己的那一层，
+            // 长按/展开时 hwui prepare 递归，直接 SIGSEGV（e843247 那个闪退）。
+            // 顶层的 AnimatedVisibility（非 RowScope 版本）：这里在 Box 里，隐式接收者是 BoxScope。
+            androidx.compose.animation.AnimatedVisibility(
+                visible = showBottomBar,
+                modifier = Modifier.align(Alignment.BottomCenter),
+                enter = fadeIn(tween(180)) + slideInVertically(tween(180)) { it / 2 },
+                exit = fadeOut(tween(140)) + slideOutVertically(tween(140)) { it / 2 },
+            ) {
+                Box(Modifier.fillMaxWidth().erosGlassRailStartInset()) {
+                    ErosAppBottomBar(
+                        isDetail = detailRoute != null,
+                        selectedTab = tabIndex,
+                        onSelectTab = { index ->
+                            AppStateHolder.selectedTab = index
+                            while (backStack.size > 1) backStack.removeLastOrNull()
+                        },
+                        detailEnabled = activeDetail?.detail != null,
+                        detailFavorited = activeDetail?.favorited ?: false,
+                        detailFavoriteCount = activeDetail?.favoriteCount ?: 0,
+                        detailReadPage = readProgress?.first?.plus(1),
+                        detailReadStarted = readProgress != null,
+                        detailDownloadLabel = detailDownloadLabel,
+                        detailDownloadActive = detailTask != null,
+                        onDetailFavorite = { activeDetail?.openFavSheet() },
+                        onDetailDownload = onDetailDownloadAction,
+                        onDetailRead = onDetailReadAction,
+                        backdrop = pageBackdrop,
+                    )
+                }
+            }
+
         }
         }
 
         // 玻璃侧栏：浮在页面之上，不占 Row 的一列（页面已按 state.progress 让位）
         if (useGlassRail) {
             ErosGlassNavigationRail(
-                isDetail = detailRoute != null,
+                // rail 只做导航：详情动作交给底部动作栏（官方 Glass 页同一分工）。
+                isDetail = false,
                 selectedTab = tabIndex,
                 detailEnabled = activeDetail?.detail != null,
                 detailFavoriteCount = activeDetail?.favoriteCount ?: 0,
@@ -726,34 +779,6 @@ fun App() {
                 backdrop = pageBackdrop,
                 modifier = Modifier.zIndex(2f),
             )
-        }
-
-        // 统一底栏（NavDisplay 之外）：Tabs 与 Detail 共用同一实例，只切换内容
-        AnimatedVisibility(
-            visible = showAppBar && !useNavigationRail,
-            modifier = Modifier.align(Alignment.BottomCenter),
-            enter = fadeIn(tween(180)) + slideInVertically(tween(180)) { it / 2 },
-            exit = fadeOut(tween(140)) + slideOutVertically(tween(140)) { it / 2 },
-        ) {
-            ErosAppBottomBar(
-                    isDetail = detailRoute != null,
-                    selectedTab = tabIndex,
-                    onSelectTab = { index ->
-                        AppStateHolder.selectedTab = index
-                        while (backStack.size > 1) backStack.removeLastOrNull()
-                    },
-                    detailEnabled = activeDetail?.detail != null,
-                    detailFavorited = activeDetail?.favorited ?: false,
-                    detailFavoriteCount = activeDetail?.favoriteCount ?: 0,
-                    detailReadPage = readProgress?.first?.plus(1),
-                    detailReadStarted = readProgress != null,
-                    detailDownloadLabel = detailDownloadLabel,
-                    detailDownloadActive = detailTask != null,
-                    onDetailFavorite = { activeDetail?.openFavSheet() },
-                    onDetailDownload = onDetailDownloadAction,
-                    onDetailRead = onDetailReadAction,
-                    backdrop = pageBackdrop,
-                )
         }
 
         // 帧率浮层：official example 的 FPSMonitor
