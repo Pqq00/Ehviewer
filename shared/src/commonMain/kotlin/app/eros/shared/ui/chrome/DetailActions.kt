@@ -9,7 +9,7 @@ import app.eros.shared.data.GalleryTitles
 import app.eros.shared.download.DownloadManager
 import app.eros.shared.download.DownloadStatus
 import app.eros.shared.system.showSystemToast
-import app.eros.shared.ui.DetailState
+import app.eros.shared.ui.detail.DetailState
 import app.eros.shared.ui.ReadStore
 
 /**

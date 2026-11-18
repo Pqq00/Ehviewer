@@ -166,10 +166,10 @@ import app.eros.shared.diag.setNetLogEnabled
 import app.eros.shared.proxy.applyProxy
 import com.hippo.ehviewer.net.EhHttp
 import app.eros.shared.settings.AppSettings
-import app.eros.shared.ui.DetailScreen
+import app.eros.shared.ui.detail.DetailScreen
 import app.eros.shared.ui.FavouritesScreen
 import app.eros.shared.ui.FavouritesState
-import app.eros.shared.ui.DetailState
+import app.eros.shared.ui.detail.DetailState
 import app.eros.shared.ui.HomeScreen
 import app.eros.shared.ui.HomeChipEditScreen
 import app.eros.shared.ui.HomeState
