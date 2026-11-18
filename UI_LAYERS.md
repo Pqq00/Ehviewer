@@ -77,8 +77,8 @@ L0  窗口 chrome     侧栏（原生 / 玻璃）、底栏宿主、FPS 浮层
 ### L4 全屏路由
 
 - `Route.Search`（`ui/SearchScreen.kt`）、`Route.Reader`（`ui/reader/ReaderScreen.kt`）。
-- 规则：自己负责背景与系统栏避让；Reader 是沉浸式特例（无 chrome），不套 `ErosPageScaffold`；
-  搜索页套 `ErosPageScaffold` 但不显示全局底栏。
+- 规则：自己负责背景与系统栏避让；Reader 是沉浸式特例（无 chrome），套
+  `ErosImmersiveScaffold`；搜索页套 `ErosPageScaffold` 但不显示全局底栏。
 
 ---
 
@@ -99,8 +99,13 @@ L0  窗口 chrome     侧栏（原生 / 玻璃）、底栏宿主、FPS 浮层
 
 ## 3. 加东西时的选择
 
-- 新增页面：套 `ErosPageScaffold`（Tabs 页 / 详情页模板），不要直接 `Scaffold`。
-  沉浸式页面（阅读器类）另立模板，见 H4。
+- 新增页面只有三种模板，按类型选：
+  1. **Tabs 页**（首页/排行榜/收藏/下载/设置…）：套 `ErosPageScaffold`，底栏由 chrome 的
+     `ErosBottomBarHost` 托管，页面用 `LocalAppBottomBarInset` 留白；
+  2. **详情页**：同样套 `ErosPageScaffold`，chrome 按 `BarDestination.Detail` 换底部动作栏；
+  3. **沉浸页**（阅读器类全屏看图/播放）：套 `ErosImmersiveScaffold`（`ui/chrome/ErosImmersiveScaffold.kt`），
+     它不接 chrome、顶底栏由页面自己用 `AnimatedVisibility` 浮在内容上。
+  三种模板之外的页面，先说明为什么不能套，再加进本文件。
 - 新增页面栏（顶部工具栏、选择栏）：放在 `ErosPageScaffold` 的 `topBar` / `floatingToolbar`
   槽位，或用 `ErosGlassBar` 包裹后放在内容层之外。
 - 新增浮层：`ErosBottomSheet` / `ErosDialog` / `ErosConfirmDialog`，并显式传 `backdrop`。
@@ -111,7 +116,7 @@ L0  窗口 chrome     侧栏（原生 / 玻璃）、底栏宿主、FPS 浮层
 ## 4. 守卫
 
 - `:shared:checkUiStructure`：禁止 `ui/` 下直接 `Scaffold(`、禁止残留
-  `import top.yukonga.miuix.kmp.basic.Scaffold`（`ErosPageScaffold.kt` 与 `reader/` 例外）。
+  `import top.yukonga.miuix.kmp.basic.Scaffold`（`ErosPageScaffold.kt`、`chrome/ErosImmersiveScaffold.kt` 与 `reader/` 例外）。
 - `:shared:checkLayering`（H5 起）：禁止 `ui/` 下直接 `Popup(` / `Dialog(` / `Overlay*` /
   `MiuixPopupUtils.`，禁止 `layerBackdrop(` 直达（允许 `chrome/ErosGlassRecordLayer.kt`、
   `ErosPageScaffold.kt`、`AccountScreen.kt` 的页面背景层、`liquid/`、`reader/`）。

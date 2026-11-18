@@ -39,6 +39,14 @@ import top.yukonga.miuix.kmp.icon.extended.Back
  * 分层契约（L0–L4）见仓库根 `UI_LAYERS.md`：本骨架对应 L1 内容记录面 + L2 顶栏，
  * 不负责 L0 窗口 chrome（侧栏/底栏）与 L3 浮层的渲染宿主。
  *
+ * 页面模板只有三种，新页面按类型选：
+ * - **Tabs 页**（首页/排行榜/收藏/下载/设置等）：用本骨架，底栏由 app chrome 的
+ *   `ErosBottomBarHost` 统一托管，页面靠 `LocalAppBottomBarInset` 给底部留白；
+ * - **详情页**：同样用本骨架，`app chrome` 依据 `BarDestination.Detail` 把底部动作栏换成
+ *   收藏/下载/阅读，页面不需要额外处理；
+ * - **沉浸页**（阅读器这种全屏看图/播放）：不要用本骨架，用
+ *   [app.eros.shared.ui.chrome.ErosImmersiveScaffold]，它不接 chrome、顶底栏由页面自己浮在内容上。
+ *
  * 用法：
  * ```
  * ErosPageScaffold(

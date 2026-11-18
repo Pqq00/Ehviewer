@@ -13,7 +13,6 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
@@ -40,12 +39,11 @@ import app.eros.shared.reader.ReaderTap
 import app.eros.shared.reader.readerVolumeKeys
 import app.eros.shared.settings.AppSettings
 import app.eros.shared.system.setStatusBarHidden
+import app.eros.shared.ui.chrome.ErosImmersiveScaffold
 import app.eros.shared.ui.rememberBarBackdrop
 import kotlinx.coroutines.delay
 import kotlin.math.min
-import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
@@ -154,24 +152,38 @@ fun ReaderScreen(session: ReaderSession, onBack: () -> Unit) {
             )
         }
 
-        Scaffold(
-            // 容器透出外层页面底色；顶底栏不占槽位（方案 B：浮层）。
-            containerColor = Color.Transparent,
-            contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        ) { _ ->
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(pageBackground)
-                    .then(if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier)
-                    .onSizeChanged { if (it.width > 0) session.loader.screenWidthPx = it.width }
-                    .readerVolumeKeys(
-                        enabled = AppSettings.readerVolumeKeys,
-                        onPrevious = { session.pageBy(-1) },
-                        onNext = { session.pageBy(1) },
-                    ),
-                contentAlignment = Alignment.Center,
-            ) {
+        ErosImmersiveScaffold(
+            backdrop = backdrop,
+            background = pageBackground,
+            recordModifier = Modifier
+                .background(pageBackground)
+                .onSizeChanged { if (it.width > 0) session.loader.screenWidthPx = it.width }
+                .readerVolumeKeys(
+                    enabled = AppSettings.readerVolumeKeys,
+                    onPrevious = { session.pageBy(-1) },
+                    onNext = { session.pageBy(1) },
+                ),
+            // 顶底栏浮在内容之上（方案 B）；显隐用淡入淡出 + 轻微位移，内容空间不变所以不会跳。
+            topBar = {
+                AnimatedVisibility(
+                    visible = session.chromeVisible,
+                    enter = fadeIn(tween(200)) + slideInVertically(tween(200)) { -it / 4 },
+                    exit = fadeOut(tween(160)) + slideOutVertically(tween(160)) { -it / 4 },
+                ) {
+                    ReaderTopBar(session = session, onBack = onBack, backdrop = backdrop)
+                }
+            },
+            bottomBar = {
+                AnimatedVisibility(
+                    visible = session.chromeVisible,
+                    enter = fadeIn(tween(200)) + slideInVertically(tween(200)) { it / 4 },
+                    exit = fadeOut(tween(160)) + slideOutVertically(tween(160)) { it / 4 },
+                ) {
+                    ReaderBottomBar(session = session, backdrop = backdrop)
+                }
+            },
+        ) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 val mode = session.mode
                 when {
                     session.loader.urlsByIndex.isEmpty() && session.loader.error != null -> Text(
@@ -197,24 +209,6 @@ fun ReaderScreen(session: ReaderSession, onBack: () -> Unit) {
                     )
                 }
             }
-        }
-
-        // 顶底栏浮在内容之上（方案 B）；显隐用淡入淡出 + 轻微位移，内容空间不变所以不会跳。
-        AnimatedVisibility(
-            visible = session.chromeVisible,
-            modifier = Modifier.align(Alignment.TopCenter),
-            enter = fadeIn(tween(200)) + slideInVertically(tween(200)) { -it / 4 },
-            exit = fadeOut(tween(160)) + slideOutVertically(tween(160)) { -it / 4 },
-        ) {
-            ReaderTopBar(session = session, onBack = onBack, backdrop = backdrop)
-        }
-        AnimatedVisibility(
-            visible = session.chromeVisible,
-            modifier = Modifier.align(Alignment.BottomCenter),
-            enter = fadeIn(tween(200)) + slideInVertically(tween(200)) { it / 4 },
-            exit = fadeOut(tween(160)) + slideOutVertically(tween(160)) { it / 4 },
-        ) {
-            ReaderBottomBar(session = session, backdrop = backdrop)
         }
 
         // 轻提示胶囊：不随 chrome 显隐，始终浮在底栏上方。
