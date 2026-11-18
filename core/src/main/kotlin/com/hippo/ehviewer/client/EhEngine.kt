@@ -36,6 +36,7 @@ import com.hippo.ehviewer.net.EhHttp
 import com.hippo.ehviewer.net.EhSiteErrorKind
 import com.hippo.ehviewer.net.EhSiteException
 import com.hippo.ehviewer.net.HttpCacheBridgeHolder
+import com.hippo.ehviewer.net.HttpCacheKeys
 import com.hippo.ehviewer.net.NetLog
 import com.hippo.ehviewer.net.cachePolicyFor
 import okhttp3.FormBody
@@ -937,7 +938,7 @@ object EhEngine {
     ): String {
         if (forceRefresh) {
             // 下拉刷新：先失效这个 URL（或该画廊的分页前缀）的原始响应缓存。
-            HttpCacheBridgeHolder.removePrefix(refreshPrefix(url))
+            HttpCacheBridgeHolder.removePrefix(HttpCacheKeys.scoped(refreshPrefix(url)))
         }
 
         val policy = cachePolicyFor(url, forceRefresh)
@@ -971,7 +972,7 @@ object EhEngine {
                     if (code == 404 && isGonePage(text)) {
                         failure = "GALLERY_DELETED"
                         // 旧版本可能把负页写进缓存，顺手清掉，免得一次残留钉住几小时。
-                        HttpCacheBridgeHolder.removePrefix(url)
+                        HttpCacheBridgeHolder.removePrefix(HttpCacheKeys.scoped(url))
                         throw EhSiteException(EhSiteErrorKind.GALLERY_DELETED, "画廊已下架", url)
                     }
                     if (code !in 200..299) {
@@ -983,7 +984,7 @@ object EhEngine {
                     }
                     classifySiteError(text, url)?.let {
                         failure = it.message
-                        HttpCacheBridgeHolder.removePrefix(url)
+                        HttpCacheBridgeHolder.removePrefix(HttpCacheKeys.scoped(url))
                         throw it
                     }
                     return text
