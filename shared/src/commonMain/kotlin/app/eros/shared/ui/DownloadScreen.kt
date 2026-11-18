@@ -58,7 +58,6 @@ import app.eros.shared.settings.AppSettings
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.delay
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
@@ -152,222 +151,226 @@ fun DownloadScreen(
         if (allSelected) selected.clear() else visibleTasks.forEach { selected[it.gid] = true }
     }
 
-    ErosPageScaffold(
-        title = if (selecting) "已选 ${selected.size} 项" else "下载",
-        navigationIcon = if (selecting) {
-            {
-                ErosBarIcon(onClick = { exitSelection() }) {
-                    Icon(MiuixIcons.Close, contentDescription = "退出多选")
-                }
-            }
-        } else {
-            { AccountEntry(onOpenAccount) }
-        },
-        actions = {
-            if (selecting) {
-                ErosBarIcon(onClick = { toggleAll() }) {
-                    Icon(
-                        MiuixIcons.SelectAll,
-                        contentDescription = if (allSelected) "取消全选" else "全选",
-                        tint = MiuixTheme.colorScheme.onSurface,
-                    )
+    Box(modifier = Modifier.fillMaxSize()) {
+        ErosPageScaffold(
+            title = if (selecting) "已选 ${selected.size} 项" else "下载",
+            navigationIcon = if (selecting) {
+                {
+                    ErosBarIcon(onClick = { exitSelection() }) {
+                        Icon(MiuixIcons.Close, contentDescription = "退出多选")
+                    }
                 }
             } else {
-                HistoryAndSearchEntries(onOpenHistory, onOpenSearch)
-            }
-        },
-        floatingToolbar = {},
-        tabs = listOf(
-            "全部 ${tasks.size}",
-            "下载中 ${active.size}",
-            "已完成 ${done.size}",
-        ),
-        selectedTab = tab,
-        onTabSelected = { tab = it },
-    ) { innerPadding, pageScrollBehavior, pageBackdrop ->
-        Box(Modifier.fillMaxSize()) {
-            // 内容层：整页记进 pageBackdrop，顶栏（含它底部的玻璃 Tab）从这一层采样。
-            // Tab 在顶栏里、不在这一层，所以不会采到自己（否则 hwui 递归 → 栈溢出）。
-            Box(
-                Modifier
-                    .fillMaxSize()
-            ) {
-            LazyColumn(
-                state = listState,
-                // 和首页/排行榜一致：把滚动喂给顶栏的 scrollBehavior，大标题才会随滚动收起。
-                modifier = Modifier
-                    .fillMaxSize()
-                    .nestedScroll(pageScrollBehavior.nestedScrollConnection),
-                contentPadding = PaddingValues(
-                    start = 12.dp,
-                    end = 12.dp,
-                    top = innerPadding.calculateTopPadding() + 12.dp,
-                    bottom = bottomInset + 12.dp + toolbarInset,
-                ),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                if (showActive.isNotEmpty()) {
-                    item(key = "activeTitle") { SmallTitle(text = "下载中") }
-                    items(showActive.size, key = { "active-${showActive[it].gid}" }) { index ->
-                        val task = showActive[index]
-                        DownloadTaskCard(
-                            task = task,
-                            speed = speeds[task.gid] ?: 0L,
-                            index = index,
-                            scrolling = listState.isScrollInProgress,
-                            selecting = selecting,
-                            selected = selected.containsKey(task.gid),
-                            onClick = { if (selecting) toggle(task.gid) },
-                            onOpenReader = { onOpenReader(task.gid, task.token, task.totalPages) },
-                            onAction = {
-                                when (task.status) {
-                                    DownloadStatus.PAUSED -> DownloadManager.resume(task.gid)
-                                    DownloadStatus.FAILED -> DownloadManager.retry(task.gid)
-                                    else -> DownloadManager.pause(task.gid)
-                                }
-                            },
-                            onLongClick = {
-                                if (!selecting) {
-                                    selecting = true
-                                    selected[task.gid] = true
-                                }
-                            },
+                { AccountEntry(onOpenAccount) }
+            },
+            actions = {
+                if (selecting) {
+                    ErosBarIcon(onClick = { toggleAll() }) {
+                        Icon(
+                            MiuixIcons.SelectAll,
+                            contentDescription = if (allSelected) "取消全选" else "全选",
+                            tint = MiuixTheme.colorScheme.onSurface,
                         )
                     }
+                } else {
+                    HistoryAndSearchEntries(onOpenHistory, onOpenSearch)
                 }
-
-                if (showDone.isNotEmpty()) {
-                    item(key = "doneTitle") { SmallTitle(text = "已下载") }
-                    items(showDone.size, key = { "done-${showDone[it].gid}" }) { index ->
-                        val task = showDone[index]
-                        DownloadTaskCard(
-                            task = task,
-                            speed = 0L,
-                            index = index,
-                            scrolling = listState.isScrollInProgress,
-                            selecting = selecting,
-                            selected = selected.containsKey(task.gid),
-                            onClick = {
-                                if (selecting) {
-                                    toggle(task.gid)
-                                } else {
-                                    onOpenDetail(task.gid, task.token, task.totalPages)
-                                }
-                            },
-                            onOpenReader = { onOpenReader(task.gid, task.token, task.totalPages) },
-                            onAction = { onOpenReader(task.gid, task.token, task.totalPages) },
-                            onLongClick = {
-                                if (!selecting) {
-                                    selecting = true
-                                    selected[task.gid] = true
-                                }
-                            },
-                        )
-                    }
-                }
-
-                if (!ready) {
-                    item(key = "loading") {
-                        Box(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 48.dp),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text(
-                                text = "正在读取下载列表…",
-                                color = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            },
+            floatingToolbar = {},
+            tabs = listOf(
+                "全部 ${tasks.size}",
+                "下载中 ${active.size}",
+                "已完成 ${done.size}",
+            ),
+            selectedTab = tab,
+            onTabSelected = { tab = it },
+        ) { innerPadding, pageScrollBehavior, pageBackdrop ->
+            Box(Modifier.fillMaxSize()) {
+                // 内容层：整页记进 pageBackdrop，顶栏（含它底部的玻璃 Tab）从这一层采样。
+                // Tab 在顶栏里、不在这一层，所以不会采到自己（否则 hwui 递归 → 栈溢出）。
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                ) {
+                LazyColumn(
+                    state = listState,
+                    // 和首页/排行榜一致：把滚动喂给顶栏的 scrollBehavior，大标题才会随滚动收起。
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .nestedScroll(pageScrollBehavior.nestedScrollConnection),
+                    contentPadding = PaddingValues(
+                        start = 12.dp,
+                        end = 12.dp,
+                        top = innerPadding.calculateTopPadding() + 12.dp,
+                        bottom = bottomInset + 12.dp + toolbarInset,
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    if (showActive.isNotEmpty()) {
+                        item(key = "activeTitle") { SmallTitle(text = "下载中") }
+                        items(showActive.size, key = { "active-${showActive[it].gid}" }) { index ->
+                            val task = showActive[index]
+                            DownloadTaskCard(
+                                task = task,
+                                speed = speeds[task.gid] ?: 0L,
+                                index = index,
+                                scrolling = listState.isScrollInProgress,
+                                selecting = selecting,
+                                selected = selected.containsKey(task.gid),
+                                onClick = { if (selecting) toggle(task.gid) },
+                                onOpenReader = { onOpenReader(task.gid, task.token, task.totalPages) },
+                                onAction = {
+                                    when (task.status) {
+                                        DownloadStatus.PAUSED -> DownloadManager.resume(task.gid)
+                                        DownloadStatus.FAILED -> DownloadManager.retry(task.gid)
+                                        else -> DownloadManager.pause(task.gid)
+                                    }
+                                },
+                                onLongClick = {
+                                    if (!selecting) {
+                                        selecting = true
+                                        selected[task.gid] = true
+                                    }
+                                },
                             )
                         }
                     }
-                } else if (showActive.isEmpty() && showDone.isEmpty()) {
-                    item(key = "empty") {
-                        DownloadEmptyState(
-                            title = when (tab) {
-                                1 -> "没有下载中的任务"
-                                2 -> "还没有已完成的任务"
-                                else -> "还没有下载"
-                            },
-                        )
-                    }
-                }
-            }
-            }
 
-            if (selecting) {
-                val enabled = selected.isNotEmpty()
-                // 多选态隐藏底部导航栏，工具栏与历史页一样贴屏幕底 24dp
-                TrackOverlay()
-                ErosFloatingToolbar(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(bottom = 24.dp),
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(2.dp),
-                        modifier = Modifier
-                            .clip(CircleShape)
-                            .clickable(enabled = enabled) { confirming = true }
-                            .padding(horizontal = 20.dp, vertical = 8.dp),
-                    ) {
-                        Icon(
-                            MiuixIcons.Delete,
-                            contentDescription = "删除",
-                            tint = if (enabled) {
-                                MiuixTheme.colorScheme.error
-                            } else {
-                                MiuixTheme.colorScheme.onSurface.copy(alpha = 0.35f)
-                            },
-                            modifier = Modifier.size(22.dp),
-                        )
-                        if (AppSettings.navBarMode != 1) {
-                            Text(
-                                text = "删除",
-                                style = MiuixTheme.textStyles.footnote2,
-                                color = if (enabled) {
-                                    MiuixTheme.colorScheme.error
-                                } else {
-                                    MiuixTheme.colorScheme.onSurface.copy(alpha = 0.35f)
+                    if (showDone.isNotEmpty()) {
+                        item(key = "doneTitle") { SmallTitle(text = "已下载") }
+                        items(showDone.size, key = { "done-${showDone[it].gid}" }) { index ->
+                            val task = showDone[index]
+                            DownloadTaskCard(
+                                task = task,
+                                speed = 0L,
+                                index = index,
+                                scrolling = listState.isScrollInProgress,
+                                selecting = selecting,
+                                selected = selected.containsKey(task.gid),
+                                onClick = {
+                                    if (selecting) {
+                                        toggle(task.gid)
+                                    } else {
+                                        onOpenDetail(task.gid, task.token, task.totalPages)
+                                    }
+                                },
+                                onOpenReader = { onOpenReader(task.gid, task.token, task.totalPages) },
+                                onAction = { onOpenReader(task.gid, task.token, task.totalPages) },
+                                onLongClick = {
+                                    if (!selecting) {
+                                        selecting = true
+                                        selected[task.gid] = true
+                                    }
+                                },
+                            )
+                        }
+                    }
+
+                    if (!ready) {
+                        item(key = "loading") {
+                            Box(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 48.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    text = "正在读取下载列表…",
+                                    color = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                                )
+                            }
+                        }
+                    } else if (showActive.isEmpty() && showDone.isEmpty()) {
+                        item(key = "empty") {
+                            DownloadEmptyState(
+                                title = when (tab) {
+                                    1 -> "没有下载中的任务"
+                                    2 -> "还没有已完成的任务"
+                                    else -> "还没有下载"
                                 },
                             )
                         }
                     }
                 }
-            }
+                }
 
-            TrackOverlay(confirming)
-            val pending = visibleTasks.filter { selected.containsKey(it.gid) }
-            ErosDialog(
-                show = confirming,
-                title = "删除 ${pending.size} 项下载？",
-                summary = "将同时删除已下载的图片文件，不影响画廊本身。",
-                onDismissRequest = { confirming = false },
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                TrackOverlay(confirming)
+                val pending = visibleTasks.filter { selected.containsKey(it.gid) }
+                ErosDialog(
+                    show = confirming,
+                    title = "删除 ${pending.size} 项下载？",
+                    summary = "将同时删除已下载的图片文件，不影响画廊本身。",
+                    onDismissRequest = { confirming = false },
                 ) {
-                    Button(
-                        onClick = { confirming = false },
-                        modifier = Modifier.weight(1f),
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        Text("取消", style = MiuixTheme.textStyles.button)
+                        Button(
+                            onClick = { confirming = false },
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            Text("取消", style = MiuixTheme.textStyles.button)
+                        }
+                        Button(
+                            onClick = {
+                                confirming = false
+                                val gids = pending.map { it.gid }
+                                exitSelection()
+                                scope.launch {
+                                    gids.forEach { runCatching { DownloadManager.remove(it, deleteFiles = true) } }
+                                }
+                            },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(
+                                color = MiuixTheme.colorScheme.primary,
+                                contentColor = MiuixTheme.colorScheme.onPrimary,
+                            ),
+                        ) {
+                            Text("删除", style = MiuixTheme.textStyles.button)
+                        }
                     }
-                    Button(
-                        onClick = {
-                            confirming = false
-                            val gids = pending.map { it.gid }
-                            exitSelection()
-                            scope.launch {
-                                gids.forEach { runCatching { DownloadManager.remove(it, deleteFiles = true) } }
-                            }
+                }
+            }
+        }
+        // 多选工具栏必须挂在 ErosPageScaffold 之外（页面记录层之外）：
+        // 玻璃工具栏采样的是页面内容层，若它自己也在那层里，hwui prepare 会无限递归 → 长按闪退。
+        // 与 HistoryScreen 同一做法；miuix Scaffold 的 floatingToolbar 槽位命中测试会被卡片吃掉，也不能用。
+        if (selecting) {
+            val enabled = selected.isNotEmpty()
+            // 多选态隐藏底部导航栏，工具栏与历史页一样贴屏幕底 24dp
+            TrackOverlay()
+            ErosFloatingToolbar(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 24.dp),
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .clickable(enabled = enabled) { confirming = true }
+                        .padding(horizontal = 20.dp, vertical = 8.dp),
+                ) {
+                    Icon(
+                        MiuixIcons.Delete,
+                        contentDescription = "删除",
+                        tint = if (enabled) {
+                            MiuixTheme.colorScheme.error
+                        } else {
+                            MiuixTheme.colorScheme.onSurface.copy(alpha = 0.35f)
                         },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(
-                            color = MiuixTheme.colorScheme.primary,
-                            contentColor = MiuixTheme.colorScheme.onPrimary,
-                        ),
-                    ) {
-                        Text("删除", style = MiuixTheme.textStyles.button)
+                        modifier = Modifier.size(22.dp),
+                    )
+                    if (AppSettings.navBarMode != 1) {
+                        Text(
+                            text = "删除",
+                            style = MiuixTheme.textStyles.footnote2,
+                            color = if (enabled) {
+                                MiuixTheme.colorScheme.error
+                            } else {
+                                MiuixTheme.colorScheme.onSurface.copy(alpha = 0.35f)
+                            },
+                        )
                     }
                 }
             }
