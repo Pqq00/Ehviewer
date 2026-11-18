@@ -37,6 +37,9 @@ internal enum class ErosChromeRail { None, Native, Glass }
  * - **底栏**：用 [ErosGlassBar] 挂在记录层之外，以内容列居中，玻璃侧栏展开时
  *   按 [erosGlassRailStartInset] 右移。
  *
+ * 这是 `UI_LAYERS.md` 里的 L0 窗口 chrome：只允许采样 L1 页面记录层，不得放进页面记录层内；
+ * L3 浮层要盖住 rail / 底栏，渲染宿主由 `ErosOverlayHost`（H2）负责，不再依赖页面 Scaffold。
+ *
  * @param content 页面内容（`NavDisplay`）；chrome 已提供标题透明度 CompositionLocal。
  * @param bottomBar 底栏内容，传入记录层（供玻璃底栏模糊采样）。
  */

@@ -36,6 +36,9 @@ import top.yukonga.miuix.kmp.icon.extended.Back
  * 采样这层的玻璃控件（顶栏 Tab、浮动工具栏、弹层）必须放在记录层之外；摆错会自采样并
  * 让 hwui prepare 递归栈溢出，规则与守卫见 [ErosGlassRecordLayer]。
  *
+ * 分层契约（L0–L4）见仓库根 `UI_LAYERS.md`：本骨架对应 L1 内容记录面 + L2 顶栏，
+ * 不负责 L0 窗口 chrome（侧栏/底栏）与 L3 浮层的渲染宿主。
+ *
  * 用法：
  * ```
  * ErosPageScaffold(

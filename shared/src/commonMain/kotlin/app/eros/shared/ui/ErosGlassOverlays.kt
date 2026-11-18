@@ -23,6 +23,9 @@ import app.eros.shared.ui.effect.isShaderSupported
  *
  * 拿不到页面 backdrop（例如弹层不在 ErosPageScaffold 里）或模糊不可用时，退回原来的
  * `OverlayBottomSheet` / `OverlayDialog`，外观与行为跟以前一致。
+ *
+ * 分层契约见仓库根 `UI_LAYERS.md`：本文件是 L3 浮层的唯一入口（页面不要直接调 miuix
+ * `Overlay*`）。H3 起 `backdrop` 改为显式必填，页面浮层传页面内容层、窗口浮层传窗口层。
  */
 private fun glassOverlayAvailable(backdrop: Any?): Boolean =
     backdrop != null && AppSettings.barBlurEnabled && isShaderSupported()

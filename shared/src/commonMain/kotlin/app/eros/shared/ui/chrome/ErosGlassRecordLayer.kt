@@ -26,6 +26,9 @@ import top.yukonga.miuix.kmp.blur.layerBackdrop
  * 这两条以前只写在四处注释里，现在由 API 承载：[ErosGlassBar] 会检查「你要采样的
  * backdrop 是不是某个祖先 [ErosGlassRecordLayer] 正在记录的层」，是就用 error 日志点名。
  * 新增页面照抄这两个调用即可，不需要再记规则。
+ *
+ * 分层契约（L0 窗口 chrome / L1 页面记录层 / L2 页面栏 / L3 浮层 / L4 全屏路由）见仓库根
+ * `UI_LAYERS.md`；本文件只负责 L1 的记录与 L2/L3 的自采样守卫。
  */
 
 /** 当前组合所在的记录层集合（玻璃栏放错位置时用来报错）。 */
