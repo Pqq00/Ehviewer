@@ -3,6 +3,7 @@
 
 package com.hippo.ehviewer.net
 
+import com.hippo.ehviewer.client.EhUrl
 import okhttp3.Dns
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
@@ -175,7 +176,8 @@ internal object RefererInterceptor : Interceptor {
 
         val host = request.url.host.lowercase()
         val referer = when {
-            host.endsWith("e-hentai.org") || host.endsWith("exhentai.org") -> "https://$host/"
+            // 按 DNS 标签边界判断，避免把 not-e-hentai.org 当成主站。
+            EhUrl.isEhSite(host) -> "https://$host/"
             else -> siteReferer // 图床用当前站点做来源（里站图必须带 exhentai 的 Referer）
         }
         return chain.proceed(request.newBuilder().header("Referer", referer).build())

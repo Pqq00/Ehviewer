@@ -42,6 +42,31 @@ public final class EhUrl {
     private EhUrl() {
     }
 
+    /**
+     * 域名是否属于某个站点域（含子域），按 DNS 标签边界判断：
+     * `e-hentai.org` 与 `forums.e-hentai.org` 命中，`evile-hentai.org` 不命中。
+     *
+     * 不能用 {@code endsWith}：`.endsWith("e-hentai.org")` 会把 `not-e-hentai.org`
+     * 这类域名也算成自家站点，cookie 和 Referer 就会泄漏给第三方。
+     */
+    public static boolean isDomainOrSubdomainOf(String host, String domain) {
+        if (host == null || domain == null) {
+            return false;
+        }
+        String h = host.toLowerCase(java.util.Locale.ROOT);
+        String d = domain.toLowerCase(java.util.Locale.ROOT);
+        if (h.equals(d)) {
+            return true;
+        }
+        return h.length() > d.length()
+                && h.endsWith("." + d);
+    }
+
+    /** 主站或里站（含子域，如 forums.e-hentai.org）。 */
+    public static boolean isEhSite(String host) {
+        return isDomainOrSubdomainOf(host, DOMAIN_E) || isDomainOrSubdomainOf(host, DOMAIN_EX);
+    }
+
     public static String getApiUrl() {
         return com.hippo.ehviewer.Settings.isExHentai() ? API_EX : API_E;
     }
