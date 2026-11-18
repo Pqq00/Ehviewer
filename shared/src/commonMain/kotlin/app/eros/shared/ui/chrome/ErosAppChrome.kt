@@ -21,7 +21,6 @@ import app.eros.shared.ui.design.GlassRailStartInset
 import app.eros.shared.ui.rememberBarBackdrop
 import app.eros.shared.ui.rememberGlassNavigationRailStartsExpanded
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
-import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.glass.GlassNavigationRailDefaults
 import top.yukonga.miuix.kmp.glass.rememberGlassNavigationRailState
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -33,10 +32,10 @@ internal enum class ErosChromeRail { None, Native, Glass }
  * 窗口级 chrome：记录层、左侧 rail、底部动作栏的宿主（Phase 1 从 `App()` 抽出）。
  *
  * 三份职责在这里收口，`App()` 只保留导航、页面状态与 NavDisplay：
- * - **记录层**：`layerBackdrop` 尺寸始终等于窗口，页面让位由内层内容自己负责；
+ * - **记录层**：[ErosGlassRecordLayer] 记录整窗，页面让位由内层内容自己负责；
  * - **rail**：native 占 Row 一列，glass 浮在页面之上（采样 `pageBackdrop`）；
- * - **底栏**：放在记录层之外（玻璃底栏采样包含自己的层会导致 hwui prepare 递归，
- *   见 e843247），以内容列居中，玻璃侧栏展开时按 [erosGlassRailStartInset] 右移。
+ * - **底栏**：用 [ErosGlassBar] 挂在记录层之外，以内容列居中，玻璃侧栏展开时
+ *   按 [erosGlassRailStartInset] 右移。
  *
  * @param content 页面内容（`NavDisplay`）；chrome 已提供标题透明度 CompositionLocal。
  * @param bottomBar 底栏内容，传入记录层（供玻璃底栏模糊采样）。
@@ -98,13 +97,14 @@ private fun ErosAppChromeContent(
             Box(Modifier.weight(1f)) {
                 // 对齐官方 AppContent.kt:335-376：整窗先铺底色并裁剪（clipToBounds），
                 // 记录层（layerBackdrop）尺寸始终等于窗口；页面让位只作用于内层容器。
-                Box(
-                    Modifier
+                // 记录层：页面内容记录成一层，侧栏/底栏采样它（规则见 ErosGlassRecordLayer）。
+                ErosGlassRecordLayer(
+                    backdrop = pageBackdrop,
+                    modifier = Modifier
                         .fillMaxSize()
                         // 整窗底色：玻璃侧栏展开时页面右移，左条不再被页面绘制，靠它兜住背景
                         .background(MiuixTheme.colorScheme.surface)
-                        .clipToBounds()
-                        .then(if (pageBackdrop != null) Modifier.layerBackdrop(pageBackdrop) else Modifier),
+                        .clipToBounds(),
                 ) {
                     // 玻璃侧栏让位：页面内容自己内缩（各页 ErosPageScaffold / 顶栏前景），
                     // 记录层保持整窗、内容坐标 = 窗口坐标 —— 侧栏采样到的就是真实页面。
@@ -138,38 +138,40 @@ private fun ErosAppChromeContent(
                     }
                 }
 
-                // 统一底栏（记录层之外）：Tabs 与 Detail 共用同一实例，只切换内容。
-                // 放在侧栏所在 Row 的内容列里，底栏自然以内容区居中；玻璃侧栏展开时，
-                // 底栏宿主内部再按 erosGlassRailStartInset 把整体右移，跟页面内容同一让位量。
-                // 千万别放回 layerBackdrop 记录层内部：玻璃底栏会采样到包含自己的那一层，
-                // 长按/展开时 hwui prepare 递归，直接 SIGSEGV（e843247 那个闪退）。
+                // 统一底栏：Tabs 与 Detail 共用同一实例，只切换内容；用 ErosGlassBar 保证
+                // 挂在记录层之外（规则见 ErosGlassRecordLayer）。玻璃侧栏展开时，底栏宿主
+                // 内部再按 erosGlassRailStartInset 右移，与页面内容同一让位量。
                 // 可见性、内容形态与底部留白都在 ErosBottomBarHost 里决定。
                 Box(Modifier.align(Alignment.BottomCenter)) {
-                    bottomBar(pageBackdrop)
+                    ErosGlassBar(name = "app bottom bar", backdrop = pageBackdrop) {
+                        bottomBar(pageBackdrop)
+                    }
                 }
             }
         }
 
         // 玻璃侧栏：浮在页面之上，不占 Row 的一列（页面已按 state.progress 让位）
         if (rail == ErosChromeRail.Glass) {
-            ErosGlassNavigationRail(
-                // rail 只做导航：详情动作交给底部动作栏（官方 Glass 页同一分工）。
-                isDetail = false,
-                selectedTab = selectedTab,
-                detailEnabled = detailActions.enabled,
-                detailFavoriteCount = detailActions.favoriteCount,
-                detailReadPage = detailActions.readPage,
-                detailDownloadLabel = detailActions.downloadLabel,
-                detailDownloadActive = detailActions.downloadActive,
-                onSelectTab = onSelectTab,
-                onDetailFavorite = detailActions.onFavorite,
-                onDetailDownload = detailActions.onDownload,
-                onDetailRead = detailActions.onRead,
-                state = glassRailState,
-                // 采样页面内容层；侧栏自己在记录层之外，不会采到自己（见 Glass.kt:44-45）。
-                backdrop = pageBackdrop,
-                modifier = Modifier.zIndex(2f),
-            )
+            ErosGlassBar(name = "glass navigation rail", backdrop = pageBackdrop) {
+                ErosGlassNavigationRail(
+                    // rail 只做导航：详情动作交给底部动作栏（官方 Glass 页同一分工）。
+                    isDetail = false,
+                    selectedTab = selectedTab,
+                    detailEnabled = detailActions.enabled,
+                    detailFavoriteCount = detailActions.favoriteCount,
+                    detailReadPage = detailActions.readPage,
+                    detailDownloadLabel = detailActions.downloadLabel,
+                    detailDownloadActive = detailActions.downloadActive,
+                    onSelectTab = onSelectTab,
+                    onDetailFavorite = detailActions.onFavorite,
+                    onDetailDownload = detailActions.onDownload,
+                    onDetailRead = detailActions.onRead,
+                    state = glassRailState,
+                    // 采样页面内容层；侧栏自己在记录层之外，不会采到自己。
+                    backdrop = pageBackdrop,
+                    modifier = Modifier.zIndex(2f),
+                )
+            }
         }
     }
 }

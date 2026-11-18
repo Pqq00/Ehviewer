@@ -35,7 +35,6 @@ import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.ScrollBehavior
 
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import top.yukonga.miuix.kmp.blur.layerBackdrop
 
 import top.yukonga.miuix.kmp.basic.Scaffold
 

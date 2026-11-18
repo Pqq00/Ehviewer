@@ -66,7 +66,7 @@ import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.LinearProgressIndicator
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.blur.layerBackdrop
+import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.squircle.squircleClip
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Close
@@ -78,6 +78,7 @@ import top.yukonga.miuix.kmp.icon.extended.Refresh
 import top.yukonga.miuix.kmp.icon.extended.SelectAll
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.PressFeedbackType
+import app.eros.shared.ui.chrome.ErosGlassBar
 import app.eros.shared.ui.chrome.LocalAppBottomBarInset
 
 /** 下载页：队列 + 进度 + 操作。 */
@@ -137,6 +138,8 @@ fun DownloadScreen(
     val visibleTasks = showActive + showDone
     val allSelected = visibleTasks.isNotEmpty() && visibleTasks.all { selected.containsKey(it.gid) }
     val toolbarInset by animateDpAsState(if (selecting) 64.dp else 0.dp)
+    // 页面记录层的引用：多选工具栏在骨架之外，需要显式拿着这一层去采样（见 ErosGlassBar）。
+    var recordLayer by remember { mutableStateOf<LayerBackdrop?>(null) }
 
     fun exitSelection() {
         selecting = false
@@ -185,9 +188,10 @@ fun DownloadScreen(
             selectedTab = tab,
             onTabSelected = { tab = it },
         ) { innerPadding, pageScrollBehavior, pageBackdrop ->
+            recordLayer = pageBackdrop
             Box(Modifier.fillMaxSize()) {
-                // 内容层：整页记进 pageBackdrop，顶栏（含它底部的玻璃 Tab）从这一层采样。
-                // Tab 在顶栏里、不在这一层，所以不会采到自己（否则 hwui 递归 → 栈溢出）。
+                // 内容层：整页由骨架记录成一层，顶栏（含它底部的玻璃 Tab）从这一层采样。
+                // Tab 在顶栏里、不在这一层，所以不会采到自己（规则见 ErosGlassRecordLayer）。
                 Box(
                     Modifier
                         .fillMaxSize()
@@ -331,18 +335,18 @@ fun DownloadScreen(
                 }
             }
         }
-        // 多选工具栏必须挂在 ErosPageScaffold 之外（页面记录层之外）：
-        // 玻璃工具栏采样的是页面内容层，若它自己也在那层里，hwui prepare 会无限递归 → 长按闪退。
-        // 与 HistoryScreen 同一做法；miuix Scaffold 的 floatingToolbar 槽位命中测试会被卡片吃掉，也不能用。
+        // 工具栏是玻璃栏：必须挂在记录层之外（规则见 ErosGlassBar）。
         if (selecting) {
             val enabled = selected.isNotEmpty()
             // 多选态隐藏底部导航栏，工具栏与历史页一样贴屏幕底 24dp
             TrackOverlay()
-            ErosFloatingToolbar(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 24.dp),
-            ) {
+            ErosGlassBar(name = "download selection toolbar", backdrop = recordLayer) {
+                ErosFloatingToolbar(
+                    backdrop = recordLayer,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 24.dp),
+                ) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(2.dp),
@@ -373,6 +377,7 @@ fun DownloadScreen(
                         )
                     }
                 }
+            }
             }
         }
     }

@@ -43,11 +43,9 @@ enum class ErosTabVariant {
  *
  * [backdrop] 非空且模糊可用时走 miuix 的 `GlassSegmentedTabRow`（一条轨道 + 滑动指示器，玻璃底）。
  *
- * **注意**：`backdrop` 必须是「不包含这个 Tab 自身」的那一层的 backdrop。本项目页面骨架把整页内容
- * 记在一层里（`Modifier.layerBackdrop(pageBackdrop)`），如果 Tab 本身就在这一层里、又拿这一层去采样，
- * 就会采到自己 —— hwui 的 `RenderNode::prepareTreeImpl` 会无限递归、直接栈溢出崩进程。
- * 所以只有把 Tab 放在内容层**外面**（例如浮在列表上方的兄弟节点）时才能传 backdrop；
- * 列表里随内容滚动的 Tab 请传 `null`，走普通 `TabRow`。
+ * **注意**：`backdrop` 必须是「不包含这个 Tab 自身」的那一层的 backdrop，否则会自采样
+ * （hwui prepare 递归栈溢出）。判断方法与守卫见 `ErosGlassRecordLayer`：
+ * 只有把 Tab 放在记录层外面时才能传 backdrop；列表里随内容滚动的 Tab 请传 `null`。
  */
 @Composable
 fun ErosTabRow(
@@ -134,7 +132,7 @@ fun ErosDropdownPreference(
  * 多选态底部浮动工具栏：玻璃可用时走 `GlassFloatingToolbar`（采样页面内容层 backdrop），
  * 否则退回普通 `FloatingToolbar`。
  *
- * 工具栏是浮在页面之上的兄弟节点、不在内容层里，所以采样 `LocalPageBackdrop` 不会自引用。
+ * 工具栏是玻璃栏：调用点要用 `ErosGlassBar` 包起来并放在记录层之外（见 `ErosGlassRecordLayer`）。
  */
 @Composable
 fun ErosFloatingToolbar(

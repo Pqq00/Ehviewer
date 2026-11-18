@@ -39,7 +39,6 @@ import app.eros.shared.ui.FPSMonitor
 
 import app.eros.shared.ui.barBlurColors
 
-import app.eros.shared.ui.rememberBarBackdrop
 
 import app.eros.shared.ui.AccountScreen
 import app.eros.shared.ui.AppStateHolder
@@ -123,7 +122,6 @@ import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Color
 import top.yukonga.miuix.kmp.blur.ProgressiveBlur
-import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.progressiveTextureBlur
 
 import androidx.compose.foundation.background
@@ -604,11 +602,6 @@ private fun Tabs(
     onEditHomeEntry: (String?) -> Unit,
 ) {
     val current = selected
-    // 底栏模糊用的 backdrop（捕获 pager 区域），与各页顶栏的 backdrop 互不影响
-    val barBackdrop = rememberBarBackdrop()
-    // 只有「下载」这个占位页还用 Tabs 层提供的顶栏资源
-    val downloadBackdrop = rememberBarBackdrop()
-    val downloadScrollBehavior = MiuixScrollBehavior()
 
     Scaffold(
         contentWindowInsets = WindowInsets(0),
@@ -639,11 +632,7 @@ private fun Tabs(
                 Orientation.Horizontal,
             )
 
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .then(if (barBackdrop != null) Modifier.layerBackdrop(barBackdrop) else Modifier),
-            ) {
+            Box(Modifier.fillMaxSize()) {
             // 官方 AppPager 的做法：页面内容用 movableContentOf 固定身份，
             // pager 每帧重组时跳过页面内部重组，只做布局/绘制。
             val tabPageContent = remember {

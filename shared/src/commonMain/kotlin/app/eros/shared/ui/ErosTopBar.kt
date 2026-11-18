@@ -48,7 +48,9 @@ fun barBlurColors(surfaceAlpha: Float = 0.8f, useSurfaceContainer: Boolean = fal
 
 /**
  * 创建用于栏体模糊的 backdrop；不可用时返回 null（调用方自动退回纯色）。
- * 需要在内容容器上挂 `Modifier.layerBackdrop(backdrop)`。
+ *
+ * 页面内容由 `ErosPageScaffold` 里的 `ErosGlassRecordLayer` 负责记录，页面自己不要再挂
+ * `layerBackdrop`；采样这个 backdrop 的玻璃控件必须放在记录层之外（见 `ErosGlassRecordLayer`）。
  */
 @Composable
 fun rememberBarBackdrop(): LayerBackdrop? {

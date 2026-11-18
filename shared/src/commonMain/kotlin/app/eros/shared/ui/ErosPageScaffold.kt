@@ -8,12 +8,12 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import top.yukonga.miuix.kmp.blur.layerBackdrop
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import app.eros.shared.ui.chrome.ErosGlassRecordLayer
 import app.eros.shared.ui.design.erosGlassRailStartInset
 import app.eros.shared.ui.design.erosPageHorizontalInsets
 import top.yukonga.miuix.kmp.basic.Icon
@@ -31,10 +31,10 @@ import top.yukonga.miuix.kmp.icon.extended.Back
  * 各页面仍然自己组织内容容器（Box/Grid/Pager），骨架只负责：
  *  - 创建 `MiuixScrollBehavior` 与 `rememberBarBackdrop()`
  *  - 渲染 `ErosTopBar`（标题 / 左侧按钮 / 右侧操作）
- *  - 把 `innerPadding`、`scrollBehavior`、`backdrop` 交给内容
+ *  - 用 [ErosGlassRecordLayer] 把内容记录成一层，并把 `innerPadding`、`scrollBehavior`、`backdrop` 交给内容
  *
- * 内容层需要自己挂 `Modifier.layerBackdrop(backdrop)`（各页 Box 里那行不变），
- * 这样顶栏模糊才能采到页面内容。
+ * 采样这层的玻璃控件（顶栏 Tab、浮动工具栏、弹层）必须放在记录层之外；摆错会自采样并
+ * 让 hwui prepare 递归栈溢出，规则与守卫见 [ErosGlassRecordLayer]。
  *
  * 用法：
  * ```
@@ -43,8 +43,8 @@ import top.yukonga.miuix.kmp.icon.extended.Back
  *     navigationIcon = { IconButton(...) },
  *     actions = { IconButton(...) },
  * ) { innerPadding, pageScrollBehavior, pageBackdrop ->
- *     Box(Modifier.fillMaxSize().then(if (pageBackdrop != null) Modifier.layerBackdrop(pageBackdrop) else Modifier)) {
- *         ...
+ *     Box(Modifier.fillMaxSize()) {
+ *         // 内容不再自己挂 layerBackdrop：骨架已经记录好了
  *     }
  * }
  * ```
@@ -113,20 +113,18 @@ fun ErosPageScaffold(
             )
         },
     ) { innerPadding ->
-        // 页面内容层对页面内的玻璃弹层可见（玻璃 sheet / 对话框从这里取采样源）。
-        CompositionLocalProvider(LocalPageBackdrop provides backdrop) {
-            // 水平安全区只作用于内容：横屏刘海/折叠屏铰链旁边的空间不用来放东西。
-            // 垂直方向不动 —— 顶栏已经自己处理 top inset，底栏各自算底部留白。
-            // 玻璃侧栏的让位同样是「内容内缩」：暴露在侧栏下方的是满宽背景与真实内容。
-            // 记录层（backdrop）必须整宽：侧栏/顶栏的渐变带要在「任意 x」都有采样数据。
-            // 让位（erosGlassRailStartInset）挂在记录层内部的子 Box 上，只影响内容摆放，
-            // 不影响记录范围 —— 对应官方 example 的「内容内缩、pager 保持满宽」。
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .then(if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier)
-                    .erosPageHorizontalInsets(),
-            ) {
+        // 页面内容记录成一层；采样者（玻璃 Tab/工具栏/弹层）必须在层外。
+        // 规则与崩溃原因见 ErosGlassRecordLayer 的 KDoc。
+        ErosGlassRecordLayer(
+            backdrop = backdrop,
+            modifier = Modifier.fillMaxSize().erosPageHorizontalInsets(),
+        ) {
+            // 页面内容层对页面内的玻璃弹层可见（玻璃 sheet / 对话框从这里取采样源）。
+            CompositionLocalProvider(LocalPageBackdrop provides backdrop) {
+                // 玻璃侧栏的让位是「内容内缩」：暴露在侧栏下方的是满宽背景与真实内容。
+                // 记录层必须整宽：侧栏/顶栏的渐变带要在「任意 x」都有采样数据。
+                // 让位（erosGlassRailStartInset）挂在记录层内部的子 Box 上，只影响内容摆放，
+                // 不影响记录范围 —— 对应官方 example 的「内容内缩、pager 保持满宽」。
                 Box(Modifier.fillMaxSize().erosGlassRailStartInset()) {
                     content(innerPadding, scrollBehavior, backdrop)
                 }

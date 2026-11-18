@@ -46,6 +46,7 @@ import app.eros.shared.currentTimeMillis
 import app.eros.shared.data.cache.GalleryCache
 import app.eros.shared.data.cache.HistoryEntry
 import app.eros.shared.settings.AppSettings
+import app.eros.shared.ui.chrome.ErosGlassBar
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
@@ -54,7 +55,7 @@ import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.Checkbox
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.blur.layerBackdrop
+import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Clear
 import top.yukonga.miuix.kmp.icon.extended.Close
@@ -122,6 +123,8 @@ fun HistoryScreen(
 
     // 多选时给列表底部留出 FloatingToolbar 的高度，避免最后一条被盖住。
     val toolbarInset by animateDpAsState(if (selecting) 64.dp else 0.dp, label = "historyToolbarInset")
+    // 页面记录层的引用：多选工具栏在骨架之外，需要显式拿着这一层去采样（见 ErosGlassBar）。
+    var recordLayer by remember { mutableStateOf<LayerBackdrop?>(null) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         ErosPageScaffold(
@@ -151,6 +154,7 @@ fun HistoryScreen(
             },
             floatingToolbar = {},
         ) { innerPadding, pageScrollBehavior, backdrop ->
+            recordLayer = backdrop
             Box(
                 Modifier
                     .fillMaxSize()
@@ -212,7 +216,8 @@ fun HistoryScreen(
             }
         }
 
-        // 多选态底部浮动工具栏。放在页面最外层 Box 里，而不是 Scaffold 的 floatingToolbar 槽位：
+        // 工具栏是玻璃栏：必须挂在记录层之外（规则见 ErosGlassBar）。
+        // 放在页面最外层 Box 里，而不是 Scaffold 的 floatingToolbar 槽位：
         // miuix Scaffold 的工具栏虽然画在内容之上，但命中测试会输给列表卡片（真机实测点不动）。
         if (selecting) {
             val enabled = selected.isNotEmpty()
@@ -223,11 +228,13 @@ fun HistoryScreen(
             } else {
                 MiuixTheme.colorScheme.onSurface.copy(alpha = 0.35f)
             }
-            ErosFloatingToolbar(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 24.dp),
-            ) {
+            ErosGlassBar(name = "history selection toolbar", backdrop = recordLayer) {
+                ErosFloatingToolbar(
+                    backdrop = recordLayer,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 24.dp),
+                ) {
                 Column(
                     modifier = Modifier
                         // 让点击/涟漪区域与胶囊外观一致：先按胶囊形状裁剪，再覆盖整块内容 + 内边距。
@@ -251,6 +258,7 @@ fun HistoryScreen(
                         )
                     }
                 }
+            }
             }
         }
 

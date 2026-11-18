@@ -10,7 +10,6 @@ import androidx.compose.foundation.ScrollState
 
 import androidx.compose.foundation.horizontalScroll
 
-import top.yukonga.miuix.kmp.blur.layerBackdrop
 
 import top.yukonga.miuix.kmp.icon.extended.Contacts
 import top.yukonga.miuix.kmp.icon.extended.Recent
