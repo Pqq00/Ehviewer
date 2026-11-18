@@ -3,10 +3,14 @@
 
 package com.hippo.ehviewer.client
 
+import com.hippo.ehviewer.net.EhCalls
+import com.hippo.ehviewer.net.EhSiteException
 import com.hippo.ehviewer.util.AppLog
 import java.io.IOException
+import java.io.InterruptedIOException
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.locks.ReentrantLock
 
 /**
@@ -33,8 +37,13 @@ class PageBatchHarvester(private val storage: Storage) {
         /** 读缓存；没有或已过期返回 null。 */
         fun read(gid: Long): Stored?
 
-        /** 写缓存。 */
-        fun write(gid: Long, urls: List<String>)
+        /**
+         * 写缓存。
+         *
+         * [totalPages] 是详情页声明的总页数（不是本次抓到的条数）——
+         * 写错会让「是否抓齐」的判断永远为假。
+         */
+        fun write(gid: Long, totalPages: Int, urls: List<String>)
     }
 
     /** 缓存里的一批页地址。 */
@@ -57,11 +66,28 @@ class PageBatchHarvester(private val storage: Storage) {
         @Volatile var error: Throwable? = null
     }
 
+    /**
+     * 网络抓取的注入点：默认走 [EhEngine]，测试里替换成内存实现。
+     *
+     * 这样会话隔离/去重/取消这些**本类自己的语义**可以脱离真实网络来验证；
+     * 真实请求路径仍由 `EhEngine` 自己的测试覆盖。
+     */
+    internal var batchFetcher: (Long, String, Int, EhCalls.Handle?) -> List<String> =
+        { gid, token, p, key -> EhEngine.galleryPagingBatch(gid, token, p, key) }
+
+    internal var metaFetcher: (Long, String, EhCalls.Handle?) -> EhEngine.GalleryPaging =
+        { gid, token, key -> EhEngine.galleryPagingMeta(gid, token, key) }
+
     private val sessionsLock = Any()
 
-    /** 会话表：访问序 LRU，只留最近 [MAX_SESSIONS] 个画廊。 */
-    private val sessions = object : LinkedHashMap<Long, Session>(16, 0.75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Long, Session>): Boolean =
+    /**
+     * 会话表：访问序 LRU，只留最近 [MAX_SESSIONS] 个「画廊 + token」组合。
+     *
+     * 键里带 token 是必需的：同一 gid 换 token（上传者换版本、画廊被替换）时，
+     * 旧会话里的页地址全部作废。只按 gid 存会让新 token 复用旧地址而抓不到图。
+     */
+    private val sessions = object : LinkedHashMap<String, Session>(16, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Session>): Boolean =
             size > MAX_SESSIONS
     }
 
@@ -71,10 +97,13 @@ class PageBatchHarvester(private val storage: Storage) {
 
     // ------------------------------------------------------------------ 会话
 
+    private fun sessionKey(gid: Long, token: String): String = "$gid#$token"
+
     private fun session(gid: Long, token: String): Session = synchronized(sessionsLock) {
-        sessions[gid] ?: Session(gid, token).also {
+        val key = sessionKey(gid, token)
+        sessions[key] ?: Session(gid, token).also {
             loadCached(it)
-            sessions[gid] = it
+            sessions[key] = it
         }
     }
 
@@ -94,9 +123,9 @@ class PageBatchHarvester(private val storage: Storage) {
      * 默认直接按 20 走、不探测：站点长期稳定是 20 张，而探测要白抓 `?p=0` 与
      * `?p=1` 两个页面（弱网约 1 秒）。只有 [force] 时才真的去探测。
      */
-    private fun ensureStep(session: Session, force: Boolean = false) {
+    private fun ensureStep(session: Session, force: Boolean = false, cancelKey: EhCalls.Handle? = null) {
         if (session.stepProbed && !force) return
-        withGidLock(session.gid) {
+        withGidLock(session.gid, cancelKey) {
             if (session.stepProbed && !force) return@withGidLock
             if (!force) {
                 session.pagesPerBatch = DEFAULT_PAGES_PER_BATCH
@@ -104,11 +133,14 @@ class PageBatchHarvester(private val storage: Storage) {
                 return@withGidLock
             }
             val step = runCatching {
-                val meta = retryIo { EhEngine.galleryPagingMeta(session.gid, session.token) }
+                val meta = retryIo(cancelKey) {
+                    metaFetcher(session.gid, session.token, cancelKey)
+                }
                 val firstOf0 = meta.firstLinks.firstOrNull()?.let { pageIndex(it) }
                     ?: return@runCatching DEFAULT_PAGES_PER_BATCH
-                val firstOf1 = retryIo { EhEngine.galleryPagingBatch(session.gid, session.token, 1) }
-                    .firstOrNull()?.let { pageIndex(it) }
+                val firstOf1 = retryIo(cancelKey) {
+                    batchFetcher(session.gid, session.token, 1, cancelKey)
+                }.firstOrNull()?.let { pageIndex(it) }
                     ?: return@runCatching DEFAULT_PAGES_PER_BATCH
                 (firstOf1 - firstOf0).takeIf { it in 1..200 } ?: DEFAULT_PAGES_PER_BATCH
             }.getOrDefault(DEFAULT_PAGES_PER_BATCH)
@@ -125,7 +157,14 @@ class PageBatchHarvester(private val storage: Storage) {
      *
      * 已在缓存里的页不会发请求，直接按当前批大小切一段返回。
      */
-    fun fetchBatch(gid: Long, token: String, pageIndex: Int, totalPages: Int): Map<Int, String> {
+    fun fetchBatch(
+        gid: Long,
+        token: String,
+        pageIndex: Int,
+        totalPages: Int,
+        cancelKey: EhCalls.Handle? = null,
+    ): Map<Int, String> {
+        throwIfCancelled(cancelKey)
         val session = session(gid, token)
         val known = indexPages(session.urls)
         if (known.containsKey(pageIndex)) {
@@ -134,18 +173,18 @@ class PageBatchHarvester(private val storage: Storage) {
             AppLog.d(TAG, "${pageRangeText(from, step, session.totalPages)} 命中缓存（已知 ${known.size} 页）")
             return known.filterKeys { it in from until (from + step) }
         }
-        ensureStep(session)
+        ensureStep(session, cancelKey = cancelKey)
         var batch = pageIndex.coerceAtLeast(0) / session.pagesPerBatch
-        var batchMap = fetchBatchInternal(session, batch, totalPages)
+        var batchMap = fetchBatchInternal(session, batch, totalPages, cancelKey)
 
         if (!batchMap.containsKey(pageIndex)) {
             // 错位自愈：上传者增补了页，或站点换了缩略图质量，批大小变了。
             AppLog.w(TAG, "缺少第 ${pageIndex + 1} 页：batch=$batch 每批=${session.pagesPerBatch}，重新探测")
-            ensureStep(session, force = true)
+            ensureStep(session, force = true, cancelKey = cancelKey)
             val retryBatch = pageIndex.coerceAtLeast(0) / session.pagesPerBatch
             if (retryBatch != batch) {
                 batch = retryBatch
-                batchMap = fetchBatchInternal(session, batch, totalPages)
+                batchMap = fetchBatchInternal(session, batch, totalPages, cancelKey)
             }
             if (!batchMap.containsKey(pageIndex)) {
                 throw IllegalStateException("页地址缺失：第 ${pageIndex + 1} 页")
@@ -154,28 +193,36 @@ class PageBatchHarvester(private val storage: Storage) {
         return batchMap
     }
 
-    private fun fetchBatchInternal(session: Session, batch: Int, totalPages: Int): Map<Int, String> {
-        val key = "${session.gid}#$batch"
+    private fun fetchBatchInternal(
+        session: Session,
+        batch: Int,
+        totalPages: Int,
+        cancelKey: EhCalls.Handle?,
+    ): Map<Int, String> {
+        // 键里带 token：同一 gid 换了 token 时旧批次结果对新会话没有意义。
+        val key = "${session.gid}#${session.token}#$batch"
         val mine = Pending()
         val existing = inflight.putIfAbsent(key, mine)
         if (existing != null) {
-            existing.latch.await()
+            awaitPending(existing, cancelKey)
             existing.error?.let { throw it }
             return existing.result.orEmpty()
         }
         try {
             val startedAt = System.nanoTime()
-            val raw = withGidLock(session.gid) {
+            val raw = withGidLock(session.gid, cancelKey) {
                 // 同一画廊串行：一个抓完再抓下一个，避免被限速拖成慢查询。
-                runCatching { Thread.sleep(REQUEST_GAP_MS) }
-                retryIo { EhEngine.galleryPagingBatch(session.gid, session.token, batch) }
+                sleepCancellable(REQUEST_GAP_MS, cancelKey)
+                retryIo(cancelKey) {
+                    batchFetcher(session.gid, session.token, batch, cancelKey)
+                }
             }
             val elapsedMs = (System.nanoTime() - startedAt) / 1_000_000
             val batchMap = indexPages(normalize(raw))
             val merged = normalize(session.urls + raw)
             session.urls = merged
             session.totalPages = maxOf(session.totalPages, totalPages, merged.size)
-            runCatching { storage.write(session.gid, merged) }
+            runCatching { storage.write(session.gid, session.totalPages, merged) }
             AppLog.i(
                 TAG,
                 "${pageRangeText(batch * session.pagesPerBatch, session.pagesPerBatch, totalPages)}：" +
@@ -202,33 +249,80 @@ class PageBatchHarvester(private val storage: Storage) {
         return if (capped <= start) "第 $start 页" else "第 $start–$capped 页"
     }
 
-    private fun <T> withGidLock(gid: Long, block: () -> T): T {
+    private fun <T> withGidLock(gid: Long, cancelKey: EhCalls.Handle? = null, block: () -> T): T {
+        throwIfCancelled(cancelKey)
         val lock = gidLocks.computeIfAbsent(gid) { ReentrantLock() }
         lock.lock()
         try {
+            // 排队期间可能已被取消：拿到锁后先确认，避免白跑一次完整请求。
+            throwIfCancelled(cancelKey)
             return block()
         } finally {
             lock.unlock()
         }
     }
 
-    /** 网络重试：只重试 IO 类异常，第 n 次失败后退避 500ms × n。 */
-    private fun <T> retryIo(block: () -> T): T {
+    /**
+     * 网络重试：只重试 IO 类异常，第 n 次失败后退避 500ms × n。
+     *
+     * 业务错误（[EhSiteException]：登录失效、被 ban、画廊被删）与取消不重试 ——
+     * 它们都继承/包装成 IOException，不显式排除就会被当成网络抖动重放三次。
+     */
+    private fun <T> retryIo(cancelKey: EhCalls.Handle? = null, block: () -> T): T {
         var last: Throwable? = null
         for (attempt in 0 until RETRY_TIMES) {
+            throwIfCancelled(cancelKey)
             try {
                 return block()
             } catch (t: Throwable) {
                 last = t
+                if (t is EhSiteException || t is InterruptedIOException) throw t
                 val retryable = t is IOException ||
                     t.message?.contains("timeout", ignoreCase = true) == true ||
                     t.message?.let { m -> m.contains("HTTP") && (m.contains("50") || m.contains("429")) } == true
                 if (!retryable || attempt == RETRY_TIMES - 1) throw t
                 AppLog.w(TAG, "第 ${attempt + 1}/$RETRY_TIMES 次失败，重试：${t.message}")
-                runCatching { Thread.sleep(500L * (attempt + 1)) }
+                sleepCancellable(500L * (attempt + 1), cancelKey)
             }
         }
         throw last ?: IllegalStateException("重试失败")
+    }
+
+    /** 取消即抛：把协程取消（[EhCalls.cancel]）翻译成调用方熟悉的 IO 异常。 */
+    private fun throwIfCancelled(cancelKey: EhCalls.Handle?) {
+        if (cancelKey != null && cancelKey.cancelled) {
+            throw InterruptedIOException("Canceled")
+        }
+    }
+
+    /**
+     * 可取消的睡眠：分片轮询取消位，别一次 sleep 到底。
+     *
+     * 旧实现是 `Thread.sleep` + `runCatching` 吞 `InterruptedException` ——
+     * 既拿不到取消信号，中断标记也被吃掉，取消后照样把剩下的活干完。
+     */
+    private fun sleepCancellable(millis: Long, cancelKey: EhCalls.Handle?) {
+        if (millis <= 0) return
+        var remaining = millis
+        while (remaining > 0) {
+            throwIfCancelled(cancelKey)
+            val slice = minOf(remaining, CANCEL_POLL_MS)
+            try {
+                Thread.sleep(slice)
+            } catch (e: InterruptedException) {
+                Thread.currentThread().interrupt()
+                throw InterruptedIOException("Canceled")
+            }
+            remaining -= slice
+        }
+    }
+
+    /** 等同一个批次的别人抓完；自己这边可被取消，不会一直挂着。 */
+    private fun awaitPending(pending: Pending, cancelKey: EhCalls.Handle?) {
+        while (true) {
+            throwIfCancelled(cancelKey)
+            if (pending.latch.await(CANCEL_POLL_MS, TimeUnit.MILLISECONDS)) return
+        }
     }
 
     private fun normalize(list: List<String>): List<String> = list
@@ -245,6 +339,9 @@ class PageBatchHarvester(private val storage: Storage) {
         private const val RETRY_TIMES = 3
 
         private const val REQUEST_GAP_MS = 150L
+
+        /** 可取消等待的轮询粒度：取消最迟在一个粒度内生效。 */
+        private const val CANCEL_POLL_MS = 40L
 
         private const val MAX_SESSIONS = 8
 

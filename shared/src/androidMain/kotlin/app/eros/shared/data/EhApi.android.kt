@@ -53,11 +53,12 @@ private class EhApiImpl : EhApi {
         nextHref: String?,
         cats: Int?,
         forceRefresh: Boolean,
-    ): GalleryPage = withContext(Dispatchers.IO) {
+    ): GalleryPage = onIoBlocking { handle ->
         val page = EhEngine.getGalleryList(
             nextHref = nextHref,
             fCats = cats?.let { (com.hippo.ehviewer.client.EhConfig.ALL_CATEGORY and it.inv()) or 0 },
             forceRefresh = forceRefresh,
+            cancelKey = handle,
         )
         GalleryPage(
             items = page.items.map { gi ->
@@ -82,8 +83,12 @@ private class EhApiImpl : EhApi {
     override suspend fun popular(
         nextHref: String?,
         forceRefresh: Boolean,
-    ): GalleryPage = withContext(Dispatchers.IO) {
-        val page = EhEngine.getPopularList(nextHref = nextHref, forceRefresh = forceRefresh)
+    ): GalleryPage = onIoBlocking { handle ->
+        val page = EhEngine.getPopularList(
+            nextHref = nextHref,
+            forceRefresh = forceRefresh,
+            cancelKey = handle,
+        )
         GalleryPage(
             items = page.items.map { gi ->
                 GalleryUi(
@@ -110,8 +115,8 @@ private class EhApiImpl : EhApi {
         allComments: Boolean,
         forceRefresh: Boolean,
     ): GalleryDetailUi =
-        withContext(Dispatchers.IO) {
-            val d = EhEngine.getGalleryDetail(gid, token, allComments, forceRefresh)
+        onIoBlocking { handle ->
+            val d = EhEngine.getGalleryDetail(gid, token, allComments, forceRefresh, cancelKey = handle)
             d.toUi()
         }
 
@@ -138,8 +143,8 @@ private class EhApiImpl : EhApi {
     }
 
     override suspend fun previewPage(gid: Long, token: String, page: Int): PreviewPageUi =
-        withContext(Dispatchers.IO) {
-            val result = EhEngine.getPreviewPage(gid, token, page)
+        onIoBlocking { handle ->
+            val result = EhEngine.getPreviewPage(gid, token, page, cancelKey = handle)
             PreviewPageUi(
                 thumbs = result.previews.map { p ->
                     PreviewThumbUi(
@@ -163,8 +168,14 @@ private class EhApiImpl : EhApi {
         catsExclude: Int?,
         forceRefresh: Boolean,
     ): GalleryPage =
-        withContext(Dispatchers.IO) {
-            val page = EhEngine.searchGalleryList(query, catsExclude, nextHref, forceRefresh = forceRefresh)
+        onIoBlocking { handle ->
+            val page = EhEngine.searchGalleryList(
+                query = query,
+                catsExclude = catsExclude,
+                nextHref = nextHref,
+                forceRefresh = forceRefresh,
+                cancelKey = handle,
+            )
             GalleryPage(
                 items = page.items.map { gi ->
                     GalleryUi(
@@ -185,8 +196,8 @@ private class EhApiImpl : EhApi {
             )
         }
     override suspend fun searchByUploader(uploader: String, nextHref: String?): GalleryPage =
-        withContext(Dispatchers.IO) {
-            val page = EhEngine.searchUploaderList(uploader, nextHref)
+        onIoBlocking { handle ->
+            val page = EhEngine.searchUploaderList(uploader, nextHref, cancelKey = handle)
             GalleryPage(
                 items = page.items.map { gi ->
                     GalleryUi(
@@ -233,13 +244,13 @@ private class EhApiImpl : EhApi {
         }
 
     override suspend fun readerPage(pageUrl: String): ReaderPageUi =
-        withContext(Dispatchers.IO) {
-            val page = EhEngine.getReaderPage(pageUrl)
+        onIoBlocking { handle ->
+            val page = EhEngine.getReaderPage(pageUrl, handle)
             ReaderPageUi(page.imageUrl)
         }
 
     override suspend fun readerPageUrl(pageUrl: String): String =
-        withContext(Dispatchers.IO) { EhEngine.getReaderPage(pageUrl).imageUrl }
+        onIoBlocking { handle -> EhEngine.getReaderPage(pageUrl, handle).imageUrl }
 
     override suspend fun readerImage(pageUrl: String, onProgress: (Float) -> Unit): ReaderImageUi =
         withContext(Dispatchers.IO) {
@@ -248,8 +259,8 @@ private class EhApiImpl : EhApi {
         }
 
     override suspend fun favourites(favCat: Int, nextHref: String?): FavouritesUi =
-        withContext(Dispatchers.IO) {
-            val result = EhEngine.getFavourites(favCat, nextHref)
+        onIoBlocking { handle ->
+            val result = EhEngine.getFavourites(favCat, nextHref, handle)
             FavouritesUi(
                 items = result.galleryInfoList.orEmpty().map { gi ->
                     GalleryUi(
@@ -300,8 +311,8 @@ private class EhApiImpl : EhApi {
             EhEngine.deleteWatchedTag(userTagId, weight).toUi()
         }
 
-    override suspend fun topList(): List<TopPeriodUi> = withContext(Dispatchers.IO) {
-        val detail = EhEngine.getTopListPage()
+    override suspend fun topList(): List<TopPeriodUi> = onIoBlocking { handle ->
+        val detail = EhEngine.getTopListPage(handle)
         val info = detail.galleryTopListInfo
         // TopListInfo.get(i): 0=昨日 1=本月 2=今年 3=全部
         val labels = listOf("今日", "本月", "今年", "全部")
@@ -322,11 +333,12 @@ private class EhApiImpl : EhApi {
         }
     }
     override suspend fun topRated(nextHref: String?, minRating: Int): GalleryPage =
-        withContext(Dispatchers.IO) {
+        onIoBlocking { handle ->
             val page = EhEngine.searchGalleryList(
                 query = "",
                 nextHref = nextHref,
                 minRating = minRating,
+                cancelKey = handle,
             )
             GalleryPage(
                 items = page.items.map { gi ->
@@ -352,8 +364,8 @@ private class EhApiImpl : EhApi {
         page: Int,
         forceRefresh: Boolean,
         enrichTags: Boolean,
-    ): RankPageUi = withContext(Dispatchers.IO) {
-        val result = EhEngine.getRankList(tl, page, forceRefresh, enrichTags)
+    ): RankPageUi = onIoBlocking { handle ->
+        val result = EhEngine.getRankList(tl, page, forceRefresh, enrichTags, handle)
         RankPageUi(
             items = result.items.map { gi ->
                 GalleryUi(

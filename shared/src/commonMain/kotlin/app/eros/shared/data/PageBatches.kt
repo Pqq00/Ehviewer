@@ -7,10 +7,14 @@ import app.eros.shared.media.readPageList
 import app.eros.shared.media.writePageList
 import app.eros.shared.settings.AppSettings
 import com.hippo.ehviewer.client.PageBatchHarvester
+import com.hippo.ehviewer.net.EhCalls
 import com.hippo.ehviewer.util.AppLog
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.Semaphore
@@ -48,8 +52,10 @@ object PageBatches {
                 return PageBatchHarvester.Stored(cached.urls, cached.totalPages)
             }
 
-            override fun write(gid: Long, urls: List<String>) {
-                writePageList(gid, urls.size, urls)
+            override fun write(gid: Long, totalPages: Int, urls: List<String>) {
+                // totalPages 用详情页声明的总页数，而不是本次抓到的条数：
+                // 传 urls.size 会让「是否已抓齐」永远判假。
+                writePageList(gid, totalPages, urls)
             }
         },
     )
@@ -78,8 +84,34 @@ object PageBatches {
         token: String,
         pageIndex: Int,
         totalPages: Int,
-    ): Map<Int, String> = withContext(Dispatchers.IO) {
-        harvester.fetchBatch(gid, token, pageIndex, totalPages)
+    ): Map<Int, String> = onIoBlockingPaging { handle ->
+        harvester.fetchBatch(gid, token, pageIndex, totalPages, handle)
+    }
+
+    /**
+     * 把阻塞的抓取跑在 IO 线程上，并把「协程被取消」翻译成「OkHttp Call 被 cancel」。
+     *
+     * EhEngine 是同步 API（`Call.execute()`），只置位 Job 中断不了 socket 读；
+     * 必须靠 [EhCalls.cancel] 才能让 execute 立刻抛 `IOException("Canceled")`。
+     * 这里用看门狗协程而不是 `invokeOnCompletion`：取消后 Job 会卡在 cancelling 态，
+     * 完成回调迟迟不来，看门狗捕获 [CancellationException] 才是确定会发生的。
+     */
+    private suspend fun <T> onIoBlockingPaging(block: (EhCalls.Handle) -> T): T = withContext(Dispatchers.IO) {
+        val handle = EhCalls.newHandle()
+        val watchdog = launch(start = CoroutineStart.UNDISPATCHED) {
+            try {
+                awaitCancellation()
+            } catch (e: CancellationException) {
+                EhCalls.cancel(handle)
+                throw e
+            }
+        }
+        try {
+            block(handle)
+        } finally {
+            watchdog.cancel()
+            EhCalls.detach(handle)
+        }
     }
 
     /**

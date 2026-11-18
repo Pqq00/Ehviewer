@@ -47,6 +47,7 @@ import okhttp3.Response
 import org.jsoup.Jsoup
 import java.io.ByteArrayOutputStream
 import java.io.IOException
+import java.io.InterruptedIOException
 import java.net.URLEncoder
 import java.util.Collections
 import java.util.concurrent.CompletableFuture
@@ -111,10 +112,11 @@ object EhEngine {
         nextHref: String? = null,
         minRating: Int? = null,
         forceRefresh: Boolean = false,
+        cancelKey: EhCalls.Handle? = null,
     ): GalleryListPage {
         if (!nextHref.isNullOrBlank()) {
             val url = if (nextHref.startsWith("http")) nextHref else siteHost() + nextHref.trimStart('/')
-            return listWithFallback(url, forceRefresh)
+            return listWithFallback(url, forceRefresh, cancelKey)
         }
         val query0 = StringBuilder(siteHost())
         query0.append("?f_search=").append(URLEncoder.encode(query, "UTF-8"))
@@ -124,18 +126,22 @@ object EhEngine {
         if (minRating != null) {
             query0.append("&f_sr=on&f_srdd=").append(minRating)
         }
-        return listWithFallback(query0.toString(), forceRefresh)
+        return listWithFallback(query0.toString(), forceRefresh, cancelKey)
     }
 
     /** 按上传者查：站点走路径 `/uploader/<name>`，不是 f_search。 */
     @JvmStatic
-    fun searchUploaderList(uploader: String, nextHref: String? = null): GalleryListPage {
+    fun searchUploaderList(
+        uploader: String,
+        nextHref: String? = null,
+        cancelKey: EhCalls.Handle? = null,
+    ): GalleryListPage {
         val url = when {
             !nextHref.isNullOrBlank() && nextHref.startsWith("http") -> nextHref
             !nextHref.isNullOrBlank() -> siteHost() + nextHref.trimStart('/')
             else -> siteHost() + "uploader/" + URLEncoder.encode(uploader, "UTF-8")
         }
-        return toPage(GalleryListParser.parse(fetchText(url), 0))
+        return toPage(GalleryListParser.parse(fetchText(url, cancelKey = cancelKey), 0))
     }
 
     /**
@@ -143,13 +149,17 @@ object EhEngine {
      * 而是页面脚本的 `nexturl` 变量；两处都看一眼，优先用解析器给的。
      */
     @JvmStatic
-    fun getPopularList(nextHref: String? = null, forceRefresh: Boolean = false): GalleryListPage {
+    fun getPopularList(
+        nextHref: String? = null,
+        forceRefresh: Boolean = false,
+        cancelKey: EhCalls.Handle? = null,
+    ): GalleryListPage {
         val url = when {
             !nextHref.isNullOrBlank() && nextHref.startsWith("http") -> nextHref
             !nextHref.isNullOrBlank() -> siteHost() + nextHref.trimStart('/')
             else -> siteHost() + "popular"
         }
-        val body = fetchText(url, forceRefresh)
+        val body = fetchText(url, forceRefresh, cancelKey)
         val parsed = GalleryListParser.parse(body, 0)
         val fromNav = parsed.nextHref?.takeIf { it.isNotBlank() }
         val fromScript = Regex("nexturl=\"([^\"]*)\"")
@@ -197,15 +207,19 @@ object EhEngine {
 
     /** `?p=0`：总页数（站点上限）与第一页的 20 个页地址。 */
     @JvmStatic
-    fun galleryPagingMeta(gid: Long, token: String): GalleryPaging {
-        val body = fetchText("${siteHost()}g/$gid/$token/?p=0")
+    fun galleryPagingMeta(gid: Long, token: String, cancelKey: EhCalls.Handle? = null): GalleryPaging {
+        val body = fetchText("${siteHost()}g/$gid/$token/?p=0", cancelKey = cancelKey)
         return GalleryPaging(maxPagingIndex(body), pageLinks(body))
     }
 
     /** `?p=N`：该分页里的 20 个页地址。 */
     @JvmStatic
-    fun galleryPagingBatch(gid: Long, token: String, p: Int): List<String> =
-        pageLinks(fetchText("${siteHost()}g/$gid/$token/?p=$p"))
+    fun galleryPagingBatch(
+        gid: Long,
+        token: String,
+        p: Int,
+        cancelKey: EhCalls.Handle? = null,
+    ): List<String> = pageLinks(fetchText("${siteHost()}g/$gid/$token/?p=$p", cancelKey = cancelKey))
 
     private fun pageLinks(body: String): List<String> =
         Jsoup.parse(body).select("a[href*=/s/]").map { it.attr("href") }
@@ -269,7 +283,8 @@ object EhEngine {
 
     /** 阅读器单页（只解析，不下载）。 */
     @JvmStatic
-    fun getReaderPage(pageUrl: String): ReaderPageData = ReaderPageData(parseReaderPage(absoluteUrl(pageUrl)).imageUrl)
+    fun getReaderPage(pageUrl: String, cancelKey: EhCalls.Handle? = null): ReaderPageData =
+        ReaderPageData(parseReaderPage(absoluteUrl(pageUrl), cancelKey).imageUrl)
 
     /** 阅读器一页的完整结果：图片字节 + 实际取图地址（方便上层把地址写进缓存）。 */
     class ReaderImageData(
@@ -300,8 +315,8 @@ object EhEngine {
 
     private class ReaderPage(val imageUrl: String, val skipHathKey: String?)
 
-    private fun parseReaderPage(url: String): ReaderPage {
-        val parsed = GalleryPageParser.parse(fetchText(url))
+    private fun parseReaderPage(url: String, cancelKey: EhCalls.Handle? = null): ReaderPage {
+        val parsed = GalleryPageParser.parse(fetchText(url, cancelKey = cancelKey))
         return ReaderPage(parsed.imageUrl, parsed.skipHathKey)
     }
 
@@ -359,11 +374,12 @@ object EhEngine {
         token: String,
         allComments: Boolean = false,
         forceRefresh: Boolean = false,
+        cancelKey: EhCalls.Handle? = null,
     ): GalleryDetail {
         // 空 token 拼出来的 /g/gid// 一定 404，先换一个真 token。
         val usableToken = if (token.isBlank()) getGalleryToken(gid, token) ?: token else token
 
-        val first = runCatching { fetchDetail(gid, usableToken, allComments, forceRefresh) }
+        val first = runCatching { fetchDetail(gid, usableToken, allComments, forceRefresh, cancelKey) }
         val failure = first.exceptionOrNull()
         if (failure !is EhSiteException || failure.kind != EhSiteErrorKind.GALLERY_DELETED) {
             return first.getOrThrow()
@@ -372,7 +388,7 @@ object EhEngine {
         val probe = queryGdata(gid, usableToken)
         val renewed = retryTokenFor(probe, usableToken)
         if (renewed != null) {
-            return fetchDetail(gid, renewed, allComments, forceRefresh = true)
+            return fetchDetail(gid, renewed, allComments, forceRefresh = true, cancelKey = cancelKey)
         }
         // gdata 查不到 ≠ 已删除：只有它明确说没有，才把「已删除」透给用户，
         // 其余情况一律降级成「当前不可用」，避免误报。
@@ -413,13 +429,14 @@ object EhEngine {
         token: String,
         allComments: Boolean,
         forceRefresh: Boolean,
+        cancelKey: EhCalls.Handle? = null,
     ): GalleryDetail {
         val url = galleryUrl(gid, token) + if (allComments) "?hc=1" else ""
-        val body = fetchText(url, forceRefresh)
+        val body = fetchText(url, forceRefresh, cancelKey)
         if (looksUnavailable(body)) {
             val fresh = getGalleryToken(gid, token)
             if (!fresh.isNullOrBlank() && fresh != token) {
-                return GalleryDetailParser.parse(fetchText(galleryUrl(gid, fresh), true))
+                return GalleryDetailParser.parse(fetchText(galleryUrl(gid, fresh), true, cancelKey))
             }
         }
         return GalleryDetailParser.parse(body)
@@ -475,7 +492,8 @@ object EhEngine {
 
     /** 排行榜首页：7 类 × 4 个时段一次拿全。 */
     @JvmStatic
-    fun getTopListPage(): EhTopListDetail = TopListParser.parse(fetchText(siteHost() + "toplist.php"))
+    fun getTopListPage(cancelKey: EhCalls.Handle? = null): EhTopListDetail =
+        TopListParser.parse(fetchText(siteHost() + "toplist.php", cancelKey = cancelKey))
 
     /**
      * 排行榜分页列表 `toplist.php?tl=<tl>&p=<page>`。
@@ -489,14 +507,17 @@ object EhEngine {
         page: Int,
         forceRefresh: Boolean = false,
         enrichTags: Boolean = false,
+        cancelKey: EhCalls.Handle? = null,
     ): RankListParser.Result {
         val query = "toplist.php?tl=$tl&p=$page"
-        val result = runCatching { RankListParser.parse(fetchText(siteHost() + query, forceRefresh)) }
-            .getOrElse { error ->
-                if (!Settings.isExHentai) throw error
-                NetLog.log("RETRY", query, 0, 0, 0, "里站榜单失败，退回表站")
-                RankListParser.parse(fetchText(EhUrl.HOST_E + query, forceRefresh))
-            }
+        val result = runCatching {
+            RankListParser.parse(fetchText(siteHost() + query, forceRefresh, cancelKey))
+        }.getOrElse { error ->
+            if (error is InterruptedIOException) throw error
+            if (!Settings.isExHentai) throw error
+            NetLog.log("RETRY", query, 0, 0, 0, "里站榜单失败，退回表站")
+            RankListParser.parse(fetchText(EhUrl.HOST_E + query, forceRefresh, cancelKey))
+        }
             .let { parsed ->
                 if (parsed.items.isNotEmpty() || !Settings.isExHentai) parsed
                 else RankListParser.parse(fetchText(EhUrl.HOST_E + query, forceRefresh))
@@ -530,13 +551,17 @@ object EhEngine {
 
     /** 收藏夹；favCat 取 0..9，翻页用游标。 */
     @JvmStatic
-    fun getFavourites(favCat: Int, nextHref: String? = null): FavoritesParser.Result {
+    fun getFavourites(
+        favCat: Int,
+        nextHref: String? = null,
+        cancelKey: EhCalls.Handle? = null,
+    ): FavoritesParser.Result {
         val url = when {
             !nextHref.isNullOrBlank() && nextHref.startsWith("http") -> nextHref
             !nextHref.isNullOrBlank() -> siteHost() + nextHref.trimStart('/')
             else -> siteHost() + "favorites.php?favcat=" + favCat.coerceIn(0, 9)
         }
-        return FavoritesParser.parse(fetchText(url))
+        return FavoritesParser.parse(fetchText(url, cancelKey = cancelKey))
     }
 
     /** 批量收藏：站点没有批量接口，逐个提交，返回成功数。 */
@@ -617,8 +642,13 @@ object EhEngine {
 
     /** 某一页预览缩略图（每页 20 张）与总页数。 */
     @JvmStatic
-    fun getPreviewPage(gid: Long, token: String, page: Int): PreviewPage {
-        val body = fetchText(galleryUrl(gid, token) + "?p=$page")
+    fun getPreviewPage(
+        gid: Long,
+        token: String,
+        page: Int,
+        cancelKey: EhCalls.Handle? = null,
+    ): PreviewPage {
+        val body = fetchText(galleryUrl(gid, token) + "?p=$page", cancelKey = cancelKey)
         val previews = GalleryDetailParser.parsePreviewSet(body)
         val pages = GalleryDetailParser.parsePreviewPages(body)
         return PreviewPage((0 until previews.size()).map { previews.getGalleryPreview(gid, it) }, pages)
