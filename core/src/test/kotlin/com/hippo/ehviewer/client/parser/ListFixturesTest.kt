@@ -95,6 +95,32 @@ class ListFixturesTest {
     }
 
     @Test
+    fun emptySearchIsOkNotError() {
+        val result = GalleryListParser.parseResult(fixture("search_empty.html"), 0)
+        assertTrue("空搜索是成功而不是失败：$result", result is ParseResult.Ok)
+        assertEquals(0, (result as ParseResult.Ok).value.galleryInfoList.size)
+    }
+
+    @Test
+    fun unparseablePageIsExplicitError() {
+        val body = "<html><body><h1>Just a moment...</h1></body></html>"
+        val result = GalleryListParser.parseResult(body, 0)
+        assertTrue("验证码/登录墙页面必须显式失败：$result", result is ParseResult.Err)
+        val err = result as ParseResult.Err
+        assertTrue("失败要带原因", err.message.isNotBlank())
+        assertTrue("失败要保留原始页面便于排查", err.body == body)
+    }
+
+    @Test
+    fun parseThrowsOnUnparseablePage() {
+        val failed = runCatching {
+            GalleryListParser.parse("<html><body><p>blocked</p></body></html>", 0)
+        }
+        assertTrue("旧 API 也应在看不懂页面时抛 ParseException", failed.isFailure)
+        assertTrue(failed.exceptionOrNull() is com.hippo.ehviewer.client.exception.ParseException)
+    }
+
+    @Test
     fun imagePageParsesUrlShowkeyAndFullImage() {
         val result = GalleryPageParser.parse(fixture("image_page.html"))
         assertEquals("https://ehgt.org/h/fixture-page.jpg", result.imageUrl)

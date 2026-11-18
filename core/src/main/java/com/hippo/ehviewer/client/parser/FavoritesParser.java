@@ -20,7 +20,6 @@ package com.hippo.ehviewer.client.parser;
 import com.hippo.ehviewer.client.data.GalleryInfo;
 import com.hippo.ehviewer.client.exception.EhException;
 import com.hippo.ehviewer.client.exception.ParseException;
-import com.hippo.util.ExceptionUtils;
 import com.hippo.util.JsoupUtils;
 import com.hippo.lib.yorozuya.AssertUtils;
 import java.util.List;
@@ -79,10 +78,8 @@ public class FavoritesParser {
                     }
                 }
             }
-        } catch (Throwable e) {
-            ExceptionUtils.throwIfFatal(e);
-            e.printStackTrace();
-            throw new ParseException("Parse favorites error", body);
+        } catch (Exception e) {
+            throw new ParseException("Parse favorites error", body, e);
         }
 
         GalleryListParser.Result result = GalleryListParser.parse(d,body, com.hippo.ehviewer.client.EhConfig.MODE_NORMAL);

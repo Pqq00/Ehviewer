@@ -27,7 +27,6 @@ import com.hippo.ehviewer.client.data.GalleryInfo;
 import com.hippo.ehviewer.client.data.GalleryTagGroup;
 import com.hippo.ehviewer.client.exception.ParseException;
 import com.hippo.ehviewer.sync.GalleryListTagsSyncTask;
-import com.hippo.util.ExceptionUtils;
 import com.hippo.util.JsoupUtils;
 import com.hippo.lib.yorozuya.NumberUtils;
 
@@ -84,32 +83,45 @@ public class GalleryListParser {
         try {
             Elements es = d.getElementsByClass("ptt").first().child(0).child(0).children();
             return Integer.parseInt(es.get(es.size() - 2).text().trim());
-        } catch (Throwable e) {
-            ExceptionUtils.throwIfFatal(e);
-            throw new ParseException("Can't parse gallery list pages", body);
+        } catch (Exception e) {
+            throw new ParseException("Can't parse gallery list pages", body, e);
         }
     }
 
+    /** 只要结果：解析失败抛 [ParseException]，成功（哪怕列表为空）照常返回。 */
     public static Result parse(@NonNull String body, int mode) throws Exception {
+        return parseResult(body, mode).getOrThrow();
+    }
+
+    /**
+     * 显式结果：能把「页面确实是空列表」和「解析器看不懂这个页面」分开。
+     *
+     * 只吞 [Exception]，`Error`（OOM、栈溢出）照旧向上抛；旧实现的
+     * `catch (Throwable)` 会连 OOM 一起压成空列表。
+     */
+    public static ParseResult<Result> parseResult(@NonNull String body, int mode) {
         Document d;
         try {
             d = Jsoup.parse(body);
-            return parse(d, body, mode);
-        } catch (Throwable ignored) {
-            return new Result();
+            return new ParseResult.Ok<>(parse(d, body, mode));
+        } catch (ParseException e) {
+            return new ParseResult.Err(e.getMessage(), body, e);
+        } catch (Exception e) {
+            return new ParseResult.Err("Can't parse gallery list page", body, e);
         }
     }
 
-    public static Result parse(@NonNull Document d,@NonNull String body, int mode) throws Exception {
+    public static Result parse(@NonNull Document d, @NonNull String body, int mode) throws Exception {
         Result result = new Result();
         try {
             Element ptt = d.getElementsByClass("ptt").first();
             if (ptt == null) {
                 Element searchNav = d.getElementsByClass("searchnav").first();
+                if (searchNav == null) {
+                    throw new ParseException("Can't parse gallery list: no ptt or searchnav", body);
+                }
                 result.pages = -1;
                 result.nextPage = -1;
-
-                assert searchNav != null;
                 Element element = searchNav.getElementById("uFirst");
                 if (element != null) {
                     result.firstHref = element.attr("href");
@@ -184,8 +196,7 @@ public class GalleryListParser {
                     }
                 }
             }
-        } catch (Throwable e) {
-            ExceptionUtils.throwIfFatal(e);
+        } catch (Exception e) {
             result.noWatchedTags = body.contains("<p>You do not have any watched tags");
             if (body.contains("No hits found</p>")) {
                 result.pages = 0;
@@ -201,8 +212,18 @@ public class GalleryListParser {
 
         try {
             Element itg = d.getElementsByClass("itg").first();
+            if (itg == null) {
+                // 站点明确说「没有命中」：这是空结果，不是解析失败。
+                if (body.contains("No hits found</p>")) {
+                    result.pages = 0;
+                    result.galleryInfoList = Collections.emptyList();
+                    return result;
+                }
+                // 其余没有列表容器的情况：验证码页、登录墙或改版页面。显式失败，
+                // 不要压成一个「0 条结果」让界面以为搜索真的没命中。
+                throw new ParseException("Can't parse gallery list: no itg container", body);
+            }
             Elements es;
-            assert itg != null;
             if ("table".equalsIgnoreCase(itg.tagName())) {
                 es = itg.child(0).children();
             } else {
@@ -228,10 +249,12 @@ public class GalleryListParser {
 //                throw new ParseException("No gallery", body);
             }
             result.galleryInfoList = list;
-        } catch (Throwable e) {
-            ExceptionUtils.throwIfFatal(e);
-            e.printStackTrace();
-            throw new ParseException("Can't parse gallery list", body);
+        } catch (ParseException e) {
+            // 「No gallery」这类业务判断原样上抛，别被下面的兜底吞掉。
+            throw e;
+        } catch (Exception e) {
+            MiuixLog.w(TAG, "Can't parse gallery list", e);
+            throw new ParseException("Can't parse gallery list", body, e);
         }
 
         new GalleryListTagsSyncTask(result.galleryInfoList).execute();

@@ -36,7 +36,6 @@ import com.hippo.ehviewer.client.exception.GalleryUnavailableException;
 import com.hippo.ehviewer.client.exception.OffensiveException;
 import com.hippo.ehviewer.client.exception.ParseException;
 import com.hippo.ehviewer.client.exception.PiningException;
-import com.hippo.util.ExceptionUtils;
 import com.hippo.util.JsoupUtils;
 import com.hippo.util.MutableBoolean;
 import com.hippo.lib.yorozuya.NumberUtils;
@@ -180,8 +179,7 @@ public class GalleryDetailParser {
             Element gd1 = gm.getElementById("gd1");
             try {
                 gd.thumb = parseCoverStyle(StringUtils.trim(gd1.child(0).attr("style")));
-            } catch (Throwable e) {
-                ExceptionUtils.throwIfFatal(e);
+            } catch (Exception e) {
                 gd.thumb = "";
             }
 
@@ -209,8 +207,7 @@ public class GalleryDetailParser {
                     ce = JsoupUtils.getElementByClass(gdc, "cs");
                 }
                 gd.category = EhUtils.getCategory(ce.text());
-            } catch (Throwable e) {
-                ExceptionUtils.throwIfFatal(e);
+            } catch (Exception e) {
                 gd.category = EhUtils.UNKNOWN;
             }
 
@@ -234,8 +231,7 @@ public class GalleryDetailParser {
                 for (int i = 0, n = es.size(); i < n; i++) {
                     parseDetailInfo(gd, es.get(i), body);
                 }
-            } catch (Throwable e) {
-                ExceptionUtils.throwIfFatal(e);
+            } catch (Exception e) {
                 // Ignore
             }
 
@@ -277,8 +273,7 @@ public class GalleryDetailParser {
                     gd.favoriteName = StringUtils.trim(gdf.text());
                 }
             }
-        } catch (Throwable e) {
-            ExceptionUtils.throwIfFatal(e);
+        } catch (Exception e) {
             throw new ParseException("Can't parse gallery detail", body);
         }
         try {
@@ -307,7 +302,7 @@ public class GalleryDetailParser {
                 return;
             }
             gd.newVersions = versionList.toArray(new NewVersion[0]);
-        } catch (Throwable ignore) {
+        } catch (Exception ignore) {
             gd.newVersions = null;
         }
     }
@@ -392,8 +387,7 @@ public class GalleryDetailParser {
             }
 
             return group.size() > 0 ? group : null;
-        } catch (Throwable e) {
-            ExceptionUtils.throwIfFatal(e);
+        } catch (Exception e) {
             e.printStackTrace();
             return null;
         }
@@ -408,8 +402,7 @@ public class GalleryDetailParser {
             Element taglist = document.getElementById("taglist");
             Elements tagGroups = taglist.child(0).child(0).children();
             return parseTagGroups(tagGroups);
-        } catch (Throwable e) {
-            ExceptionUtils.throwIfFatal(e);
+        } catch (Exception e) {
             e.printStackTrace();
             return EMPTY_GALLERY_TAG_GROUP_ARRAY;
         }
@@ -432,8 +425,7 @@ public class GalleryDetailParser {
                 }
             }
             return list.toArray(new GalleryTagGroup[list.size()]);
-        } catch (Throwable e) {
-            ExceptionUtils.throwIfFatal(e);
+        } catch (Exception e) {
             e.printStackTrace();
             return EMPTY_GALLERY_TAG_GROUP_ARRAY;
         }
@@ -537,8 +529,7 @@ public class GalleryDetailParser {
                 }
             }
             return comment;
-        } catch (Throwable e) {
-            ExceptionUtils.throwIfFatal(e);
+        } catch (Exception e) {
             e.printStackTrace();
             return null;
         }
@@ -577,8 +568,7 @@ public class GalleryDetailParser {
             }, chd);
 
             return new GalleryCommentList(list.toArray(new GalleryComment[list.size()]), hasMore.value);
-        } catch (Throwable e) {
-            ExceptionUtils.throwIfFatal(e);
+        } catch (Exception e) {
             e.printStackTrace();
             return EMPTY_GALLERY_COMMENT_ARRAY;
         }
@@ -617,8 +607,7 @@ public class GalleryDetailParser {
         try {
             Elements elements = document.getElementsByClass("ptt").first().child(0).child(0).children();
             return Integer.parseInt(elements.get(elements.size() - 2).text());
-        } catch (Throwable e) {
-            ExceptionUtils.throwIfFatal(e);
+        } catch (Exception e) {
             e.printStackTrace();
             throw new ParseException("Can't parse preview pages", body);
         }
@@ -678,7 +667,6 @@ public class GalleryDetailParser {
             return previewSet;
 //            return parseLargePreviewSet(d, body);
         } catch (ParseException e) {
-            ExceptionUtils.throwIfFatal(e);
             return new NormalPreviewSet();
 //            return parseNormalPreviewSet(body);
         }

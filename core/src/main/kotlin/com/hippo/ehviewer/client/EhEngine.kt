@@ -25,6 +25,7 @@ import com.hippo.ehviewer.client.parser.GalleryListParser
 import com.hippo.ehviewer.client.parser.GalleryPageParser
 import com.hippo.ehviewer.client.parser.ListParseRetry
 import com.hippo.ehviewer.client.parser.MyTagLitParser
+import com.hippo.ehviewer.client.parser.ParseResult
 import com.hippo.ehviewer.client.parser.RankListParser
 import com.hippo.ehviewer.client.parser.TopListParser
 import com.hippo.ehviewer.client.parser.TorrentParser
@@ -171,8 +172,8 @@ object EhEngine {
     }
 
     /**
-     * 取列表；解析结果为空但响应确实是列表页时，带 `inline_set=dm_l` 强制扩展视图再要一次。
-     * 站点偶尔会返回「未加载完」的空壳页面，重试一次基本都能出内容。
+     * 取列表；解析失败或结果为空但响应确实是列表页时，带 `inline_set=dm_l` 强制扩展视图再要一次。
+     * 站点偶尔会返回「未加载完」的空壳页面，重试一次基本都能出内容；两次都解析不动才抛错。
      */
     private fun listWithFallback(
         url: String,
@@ -180,13 +181,15 @@ object EhEngine {
         cancelKey: EhCalls.Handle? = null,
     ): GalleryListPage {
         val body = fetchText(url, forceRefresh, cancelKey)
-        var parsed = GalleryListParser.parse(body, 0)
-        if (ListParseRetry.shouldRetry(body, parsed.galleryInfoList.size)) {
+        var parsed = GalleryListParser.parseResult(body, 0)
+        val count = parsed.getOrNull()?.galleryInfoList?.size ?: 0
+        if (parsed is ParseResult.Err || ListParseRetry.shouldRetry(body, count)) {
             val retryUrl = ListParseRetry.withInlineSet(url)
-            NetLog.log("RETRY", retryUrl, 0, 0, 0, "列表为空，改用扩展视图重试")
-            parsed = GalleryListParser.parse(fetchText(retryUrl, forceRefresh, cancelKey), 0)
+            val reason = (parsed as? ParseResult.Err)?.message ?: "列表为空，改用扩展视图重试"
+            NetLog.log("RETRY", retryUrl, 0, 0, 0, reason)
+            parsed = GalleryListParser.parseResult(fetchText(retryUrl, forceRefresh, cancelKey), 0)
         }
-        return toPage(parsed)
+        return toPage(parsed.getOrThrow())
     }
 
     private fun toPage(parsed: GalleryListParser.Result): GalleryListPage = GalleryListPage(
@@ -474,7 +477,11 @@ object EhEngine {
         list.chunked(API_BATCH_LIMIT).forEach { chunk ->
             val gidList = chunk.joinToString(",") { "[" + it.gid + ",\"" + it.token + "\"]" }
             val payload = "{\"method\":\"gdata\",\"gidlist\":[" + gidList + "],\"namespace\":1}"
-            GalleryApiParser.parse(submitJson(EhUrl.getApiUrl(), payload, cancelKey), chunk)
+            val stats = GalleryApiParser.parse(submitJson(EhUrl.getApiUrl(), payload, cancelKey), chunk)
+            // 站点对已删除/受限的画廊不报错，只默默少返回几条；对不上账时留一行日志。
+            if (stats.hasGaps()) {
+                NetLog.log("API", EhUrl.getApiUrl(), 0, 0, 0, "gdata 补全不全：${stats.summary()}")
+            }
         }
     }
 
