@@ -91,7 +91,6 @@ import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
-import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextField
@@ -196,26 +195,11 @@ fun AccountScreen(
     }
 
 
-    Scaffold(
-        topBar = {
-            ErosTopBar(
-                title = "账号",
-                scrollBehavior = pageScrollBehavior,
-                backdrop = barBackdrop,
-                navigationIcon = {
-                    ErosBarIcon(onClick = onBack) {
-                        Icon(imageVector = MiuixIcons.Back, contentDescription = "返回")
-                    }
-                },
-            )
-        },
-    ) { innerPadding ->
-        Box(
-            Modifier
-                .fillMaxSize()
-                .then(if (barBackdrop != null) Modifier.layerBackdrop(barBackdrop) else Modifier),
-        ) {
-            BgEffectBackground(
+    ErosPageScaffold(
+        title = "账号",
+        onBack = onBack,
+    ) { innerPadding, pageScrollBehavior, barBackdrop ->
+        BgEffectBackground(
                 dynamicBackground = true,
                 modifier = Modifier.fillMaxSize(),
                 bgModifier = if (bgBackdrop != null) Modifier.layerBackdrop(bgBackdrop) else Modifier,
@@ -451,7 +435,6 @@ fun AccountScreen(
                         }
                     }
                 }
-            }
         }
     }
 

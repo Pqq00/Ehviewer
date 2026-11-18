@@ -45,7 +45,6 @@ import app.eros.shared.data.EhApi
 import app.eros.shared.data.toEhError
 import app.eros.shared.data.withEhErrors
 import app.eros.shared.ui.design.AppErrorState
-import app.eros.shared.ui.design.AppScaffold
 import app.eros.shared.data.userMessage
 import app.eros.shared.data.createEhApi
 import app.eros.shared.settings.AppSettings
@@ -57,7 +56,6 @@ import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.PullToRefresh
-import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.squircle.squircleSurface
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -364,7 +362,7 @@ fun TopListScreen(
         if (nearBottom) state.loadMore()
     }
 
-    AppScaffold(
+    ErosPageScaffold(
         title = "排行榜",
         navigationIcon = { AccountEntry(onOpenAccount) },
         actions = { HistoryAndSearchEntries(onOpenHistory, onOpenSearch) },
@@ -373,8 +371,8 @@ fun TopListScreen(
         onTabSelected = { state.selectPeriod(it) },
     ) { innerPadding, pageScrollBehavior, pageBackdrop ->
         Box(Modifier.fillMaxSize()) {
-        // 内容层：整页记进 pageBackdrop，顶栏与浮在网格上方的玻璃时段 Tab 都从这一层采样。
-        // Tab 本身必须留在这一层外面，否则会采到自己（hwui 无限递归 → 栈溢出）。
+        // 内容由 ErosPageScaffold 记录成一层，顶栏与玻璃时段 Tab 都从这一层采样；
+        // Tab 本身留在这层外面（规则见 ErosGlassRecordLayer）。
         Box(
             Modifier
                 .fillMaxSize()

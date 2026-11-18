@@ -4,6 +4,7 @@
 package app.eros.shared.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -33,8 +34,6 @@ import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
-import top.yukonga.miuix.kmp.basic.Scaffold
-import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Switch
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextField
@@ -60,24 +59,15 @@ fun FilterScreen(onBack: () -> Unit) {
         AppSettings.filterRules = next
     }
 
-    Scaffold(
-        contentWindowInsets = WindowInsets(0),
-        topBar = {
-            SmallTopAppBar(
-                title = "过滤规则",
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(imageVector = MiuixIcons.Back, contentDescription = "返回")
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { showAdd = true }) {
-                        Icon(imageVector = MiuixIcons.Add, contentDescription = "添加规则")
-                    }
-                },
-            )
+    ErosPageScaffold(
+        title = "过滤规则",
+        onBack = onBack,
+        actions = {
+            IconButton(onClick = { showAdd = true }) {
+                Icon(imageVector = MiuixIcons.Add, contentDescription = "添加规则")
+            }
         },
-    ) { innerPadding ->
+    ) { innerPadding, scrollBehavior, _ ->
         Box(Modifier.fillMaxSize()) {
             if (rules.isEmpty()) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -85,6 +75,7 @@ fun FilterScreen(onBack: () -> Unit) {
                 }
             } else {
                 LazyColumn(
+                    modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
                     contentPadding = PaddingValues(
                         start = 12.dp,
                         end = 12.dp,

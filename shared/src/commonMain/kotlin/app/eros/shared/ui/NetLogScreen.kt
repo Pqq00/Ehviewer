@@ -23,6 +23,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import app.eros.shared.diag.clearNetLog
 import app.eros.shared.diag.exportNetLog
@@ -33,11 +34,8 @@ import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
-import top.yukonga.miuix.kmp.basic.Scaffold
-import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.icon.MiuixIcons
-import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
@@ -57,24 +55,15 @@ fun NetLogScreen(onBack: () -> Unit) {
         }
     }
 
-    Scaffold(
-        contentWindowInsets = WindowInsets(0),
-        topBar = {
-            SmallTopAppBar(
-                title = "网络日志",
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(imageVector = MiuixIcons.Back, contentDescription = "返回")
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { exportResult = exportNetLog() }) {
-                        Text("导出", style = MiuixTheme.textStyles.footnote2)
-                    }
-                },
-            )
+    ErosPageScaffold(
+        title = "网络日志",
+        onBack = onBack,
+        actions = {
+            IconButton(onClick = { exportResult = exportNetLog() }) {
+                Text("导出", style = MiuixTheme.textStyles.footnote2)
+            }
         },
-    ) { innerPadding ->
+    ) { innerPadding, scrollBehavior, _ ->
         Box(Modifier.fillMaxSize()) {
             if (logs.isEmpty()) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -83,6 +72,7 @@ fun NetLogScreen(onBack: () -> Unit) {
             } else {
                 LazyColumn(
                     state = listState,
+                    modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
                     contentPadding = PaddingValues(
                         start = 12.dp,
                         end = 12.dp,

@@ -78,7 +78,7 @@ import top.yukonga.miuix.kmp.icon.extended.Refresh
 import top.yukonga.miuix.kmp.icon.extended.SelectAll
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.PressFeedbackType
-import app.eros.shared.ui.chrome.ErosGlassBar
+import app.eros.shared.ui.chrome.ErosSelectionToolbar
 import app.eros.shared.ui.chrome.LocalAppBottomBarInset
 
 /** 下载页：队列 + 进度 + 操作。 */
@@ -138,7 +138,7 @@ fun DownloadScreen(
     val visibleTasks = showActive + showDone
     val allSelected = visibleTasks.isNotEmpty() && visibleTasks.all { selected.containsKey(it.gid) }
     val toolbarInset by animateDpAsState(if (selecting) 64.dp else 0.dp)
-    // 页面记录层的引用：多选工具栏在骨架之外，需要显式拿着这一层去采样（见 ErosGlassBar）。
+    // 页面记录层的引用：多选工具栏在骨架之外，需要显式拿着这一层去采样（见 ErosSelectionToolbar）。
     var recordLayer by remember { mutableStateOf<LayerBackdrop?>(null) }
 
     fun exitSelection() {
@@ -335,50 +335,18 @@ fun DownloadScreen(
                 }
             }
         }
-        // 工具栏是玻璃栏：必须挂在记录层之外（规则见 ErosGlassBar）。
+        // 工具栏实现统一在 ErosSelectionToolbar（内部 ErosGlassBar 保证挂在记录层之外）。
         if (selecting) {
             val enabled = selected.isNotEmpty()
-            // 多选态隐藏底部导航栏，工具栏与历史页一样贴屏幕底 24dp
+            // 多选态隐藏底部导航栏，工具栏与历史页一样贴屏幕底 24dp。
             TrackOverlay()
-            ErosGlassBar(name = "download selection toolbar", backdrop = recordLayer) {
-                ErosFloatingToolbar(
-                    backdrop = recordLayer,
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(bottom = 24.dp),
-                ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
-                    modifier = Modifier
-                        .clip(CircleShape)
-                        .clickable(enabled = enabled) { confirming = true }
-                        .padding(horizontal = 20.dp, vertical = 8.dp),
-                ) {
-                    Icon(
-                        MiuixIcons.Delete,
-                        contentDescription = "删除",
-                        tint = if (enabled) {
-                            MiuixTheme.colorScheme.error
-                        } else {
-                            MiuixTheme.colorScheme.onSurface.copy(alpha = 0.35f)
-                        },
-                        modifier = Modifier.size(22.dp),
-                    )
-                    if (AppSettings.navBarMode != 1) {
-                        Text(
-                            text = "删除",
-                            style = MiuixTheme.textStyles.footnote2,
-                            color = if (enabled) {
-                                MiuixTheme.colorScheme.error
-                            } else {
-                                MiuixTheme.colorScheme.onSurface.copy(alpha = 0.35f)
-                            },
-                        )
-                    }
-                }
-            }
-            }
+            ErosSelectionToolbar(
+                recordLayer = recordLayer,
+                name = "download selection toolbar",
+                enabled = enabled,
+                showLabel = AppSettings.navBarMode != 1,
+                onDelete = { confirming = true },
+            )
         }
     }
 }

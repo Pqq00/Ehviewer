@@ -59,3 +59,31 @@ kotlin {
         }
     }
 }
+
+
+// Phase 3 守卫：页面骨架只允许 ErosPageScaffold 使用 miuix Scaffold。
+// 本地检查（无 CI）：./gradlew :shared:checkUiStructure
+tasks.register("checkUiStructure") {
+    group = "verification"
+    description = "Ui screens must go through ErosPageScaffold instead of raw Scaffold"
+    doLast {
+        val root = file("src/commonMain/kotlin/app/eros/shared/ui")
+        val offenders = root.walkTopDown()
+            .filter { it.isFile && it.extension == "kt" }
+            .filter {
+                it.name != "ErosPageScaffold.kt" &&
+                    !it.invariantSeparatorsPath.contains("/reader/")
+            }
+            .filter { file ->
+                file.readLines().any {
+                    it.trimStart().startsWith("Scaffold(") ||
+                        it.contains("import top.yukonga.miuix.kmp.basic.Scaffold")
+                }
+            }
+            .map { it.relativeTo(root).invariantSeparatorsPath }
+            .toList()
+        check(offenders.isEmpty()) {
+            "raw Scaffold found in ui screens (use ErosPageScaffold): " + offenders.joinToString()
+        }
+    }
+}

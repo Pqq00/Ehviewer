@@ -6,7 +6,6 @@
 package app.eros.shared.ui
 
 import app.eros.shared.data.toEhError
-import app.eros.shared.ui.design.AppScaffold
 import app.eros.shared.ui.design.AppSection
 import app.eros.shared.ui.design.AppHint
 import app.eros.shared.data.userMessage
@@ -36,7 +35,6 @@ import top.yukonga.miuix.kmp.basic.ScrollBehavior
 
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 
-import top.yukonga.miuix.kmp.basic.Scaffold
 
 import androidx.compose.foundation.layout.WindowInsets
 
@@ -207,12 +205,12 @@ fun SettingsScreen(
         }.getOrElse { "读取失败" }
     }
 
-    AppScaffold(
+    ErosPageScaffold(
         title = "设置",
         navigationIcon = { AccountEntry(onOpenAccount) },
         actions = { HistoryAndSearchEntries(onOpenHistory, onOpenSearch) },
     ) { innerPadding, pageScrollBehavior, pageBackdrop ->
-    // 与首页 / 排行榜 / 收藏一致：内容要进 backdrop 层，顶栏模糊才能采到真实内容。
+    // 内容由 ErosPageScaffold 记录成一层，顶栏模糊从这一层采样。
     Box(
         modifier = Modifier
             .fillMaxSize()

@@ -23,6 +23,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import app.eros.shared.data.WatchedTagUi
 import com.hippo.ehviewer.util.AppLog
@@ -43,14 +44,11 @@ import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
-import top.yukonga.miuix.kmp.basic.Scaffold
-import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Switch
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Add
-import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** 关注标签页状态（`/watched`，需要登录）。 */
@@ -183,24 +181,15 @@ fun WatchedScreen(
     var addHidden by remember { mutableStateOf(false) }
     var pendingDeleteTag by remember { mutableStateOf<String?>(null) }
 
-    Scaffold(
-        contentWindowInsets = WindowInsets(0),
-        topBar = {
-            SmallTopAppBar(
-                title = "关注标签",
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(imageVector = MiuixIcons.Back, contentDescription = "返回")
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { showAdd = true }) {
-                        Icon(imageVector = MiuixIcons.Add, contentDescription = "添加")
-                    }
-                },
-            )
+    ErosPageScaffold(
+        title = "关注标签",
+        onBack = onBack,
+        actions = {
+            IconButton(onClick = { showAdd = true }) {
+                Icon(imageVector = MiuixIcons.Add, contentDescription = "添加")
+            }
         },
-    ) { innerPadding ->
+    ) { innerPadding, scrollBehavior, _ ->
         Box(Modifier.fillMaxSize()) {
             when {
                 !state.signedIn -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -232,6 +221,7 @@ fun WatchedScreen(
                 }
 
                 else -> LazyColumn(
+                    modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
                     contentPadding = PaddingValues(
                         start = 12.dp,
                         end = 12.dp,
