@@ -87,3 +87,68 @@ tasks.register("checkUiStructure") {
         }
     }
 }
+
+// H5 守卫：浮层与记录层的层级契约，规则见仓库根 UI_LAYERS.md。
+// 本地检查（无 CI）：./gradlew :shared:checkLayering
+tasks.register("checkLayering") {
+    group = "verification"
+    description = "Overlays and glass record layers must follow UI_LAYERS.md"
+    doLast {
+        val root = file("src/commonMain/kotlin/app/eros/shared/ui")
+
+        class Rule(
+            val name: String,
+            val matches: (String) -> Boolean,
+            val allowed: (String) -> Boolean,
+        )
+
+        fun rel(file: java.io.File) = file.relativeTo(root).invariantSeparatorsPath
+        fun codeLines(file: java.io.File) = file.readLines().filter {
+            val trimmed = it.trimStart()
+            !trimmed.startsWith("//") && !trimmed.startsWith("*") && !trimmed.startsWith("/*")
+        }
+
+        val rules = listOf(
+            Rule(
+                name = "miuix Overlay*/Popup/Dialog 直达（应走 ErosBottomSheet / ErosDialog / ErosConfirmDialog）",
+                matches = { line ->
+                    val trimmed = line.trimStart()
+                    trimmed.startsWith("Popup(") || trimmed.startsWith("Dialog(") ||
+                        trimmed.startsWith("OverlayDialog(") || trimmed.startsWith("OverlayBottomSheet(") ||
+                        trimmed.startsWith("OverlayPopup(")
+                },
+                allowed = { path ->
+                    path == "ErosGlassOverlays.kt" || path == "ConfirmDialog.kt" || path.startsWith("reader/")
+                },
+            ),
+            Rule(
+                name = "MiuixPopupUtils 直达（宿主由 App.kt 统一提供）",
+                matches = { it.contains("MiuixPopupUtils.") },
+                allowed = { false },
+            ),
+            Rule(
+                name = "layerBackdrop( 直达（应使用 ErosGlassRecordLayer）",
+                matches = { it.contains("layerBackdrop(") },
+                allowed = { path ->
+                    path == "chrome/ErosGlassRecordLayer.kt" ||
+                        path == "ErosPageScaffold.kt" ||
+                        path == "AccountScreen.kt" || // 页面背景自建的渐变色层
+                        path.startsWith("liquid/") ||
+                        path.startsWith("reader/")
+                },
+            ),
+        )
+
+        val offenders = rules.flatMap { rule ->
+            root.walkTopDown()
+                .filter { it.isFile && it.extension == "kt" }
+                .filter { !rule.allowed(rel(it)) }
+                .filter { file -> codeLines(file).any(rule.matches) }
+                .map { "${rule.name} -> ${rel(it)}" }
+                .toList()
+        }
+        check(offenders.isEmpty()) {
+            "ui layering violations (see UI_LAYERS.md):\n" + offenders.joinToString("\n")
+        }
+    }
+}
