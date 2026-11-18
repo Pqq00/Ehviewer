@@ -38,6 +38,7 @@ import com.hippo.ehviewer.net.EhSiteException
 import com.hippo.ehviewer.net.HttpCacheBridgeHolder
 import com.hippo.ehviewer.net.HttpCacheKeys
 import com.hippo.ehviewer.net.NetLog
+import com.hippo.ehviewer.net.ResponseClassifier
 import com.hippo.ehviewer.net.RetryAfter
 import com.hippo.ehviewer.net.cachePolicyFor
 import okhttp3.FormBody
@@ -948,6 +949,7 @@ object EhEngine {
         var size = 0L
         var failure: String? = null
         var servedFromCache: String? = null
+        var classified: String? = null
         try {
             val builder = Request.Builder()
                 .url(url)
@@ -967,6 +969,9 @@ object EhEngine {
                 call.execute().use { response ->
                     code = response.code
                     servedFromCache = response.header("X-Eh-HttpCache")
+                    // 分类头由 HttpCacheInterceptor 打上（NORMAL / LOGIN_REQUIRED / …），
+                    // 记进 netlog，导日志时不必再猜「空页面」到底是哪种。
+                    classified = response.header(ResponseClassifier.HEADER)
                     val text = response.body?.string().orEmpty()
                     size = text.length.toLong()
 
@@ -1002,7 +1007,7 @@ object EhEngine {
                 body == null -> "GET"
                 else -> "POST"
             }
-            NetLog.log(method, url, code, System.currentTimeMillis() - started, size, failure)
+            NetLog.log(method, url, code, System.currentTimeMillis() - started, size, failure, classified)
         }
     }
 

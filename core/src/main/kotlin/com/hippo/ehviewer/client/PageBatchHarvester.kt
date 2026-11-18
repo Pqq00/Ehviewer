@@ -23,8 +23,11 @@ import java.util.concurrent.locks.ReentrantLock
  *  3. **不自己重试**：重试（5xx / 429 / IO、退避与取消）由 HTTP 层的
  *     `RetryInterceptor` 统一负责。本类再叠一层会把一次 503 放大成 9 次请求，
  *     日志里「同一地址 GET 11–15 次」就有它一份。
- *  4. **串行限流**：同一画廊的请求用一把锁串起来（间隔 150ms），
+ *  4. **串行限流**：同一画廊会话的请求用一把锁串起来（间隔 150ms），
  *     避免并发被站点限速时互相拖慢（实测 3 个并发请求各要 7 秒）。
+ *     锁挂在会话上，随 LRU 淘汰一起回收——旧实现按 gid 存锁且从不移除，
+ *     看过的画廊越多、泄漏的锁越多。同一 gid 的不同 token 是两个会话，
+ *     各有各的锁：它们本来就是两份不同的页地址。
  *  5. **会话缓存**：最近 8 个画廊的页地址留在内存里，按访问序淘汰。
  *
  * 落盘缓存由调用方通过 [Storage] 注入，core 不认识任何应用层设置。
@@ -50,11 +53,18 @@ class PageBatchHarvester(private val storage: Storage) {
     class Stored(val urls: List<String>, val totalPages: Int)
 
     private class Session(val gid: Long, val token: String) {
+        /**
+         * 同会话串行锁：跟着会话一起被 LRU 淘汰，不需要额外的清理。
+         *
+         * 之前是 `ConcurrentHashMap<Long, ReentrantLock>`，`computeIfAbsent` 之后
+         * 从不移除，锁的数量等于「这辈子看过的画廊数」。
+         */
+        val lock = ReentrantLock()
+
         @Volatile var urls: List<String> = emptyList()
         @Volatile var totalPages: Int = 0
         @Volatile var pagesPerBatch: Int = DEFAULT_PAGES_PER_BATCH
         @Volatile var stepProbed: Boolean = false
-        @Volatile var done: Boolean = false
     }
 
     /** 同一批次只有一个线程真去抓，其它线程等结果。 */
@@ -91,8 +101,6 @@ class PageBatchHarvester(private val storage: Storage) {
             size > MAX_SESSIONS
     }
 
-    private val gidLocks = ConcurrentHashMap<Long, ReentrantLock>()
-
     private val inflight = ConcurrentHashMap<String, Pending>()
 
     // ------------------------------------------------------------------ 会话
@@ -112,7 +120,6 @@ class PageBatchHarvester(private val storage: Storage) {
         if (stored.urls.isEmpty()) return
         session.urls = stored.urls
         session.totalPages = stored.totalPages
-        session.done = stored.urls.size >= stored.totalPages
     }
 
     // ---------------------------------------------------------------- 批大小
@@ -125,12 +132,12 @@ class PageBatchHarvester(private val storage: Storage) {
      */
     private fun ensureStep(session: Session, force: Boolean = false, cancelKey: EhCalls.Handle? = null) {
         if (session.stepProbed && !force) return
-        withGidLock(session.gid, cancelKey) {
-            if (session.stepProbed && !force) return@withGidLock
+        withSessionLock(session, cancelKey) {
+            if (session.stepProbed && !force) return@withSessionLock
             if (!force) {
                 session.pagesPerBatch = DEFAULT_PAGES_PER_BATCH
                 session.stepProbed = true
-                return@withGidLock
+                return@withSessionLock
             }
             val step = runCatching {
                 val meta = metaFetcher(session.gid, session.token, cancelKey)
@@ -207,8 +214,8 @@ class PageBatchHarvester(private val storage: Storage) {
         }
         try {
             val startedAt = System.nanoTime()
-            val raw = withGidLock(session.gid, cancelKey) {
-                // 同一画廊串行：一个抓完再抓下一个，避免被限速拖成慢查询。
+            val raw = withSessionLock(session, cancelKey) {
+                // 同一会话串行：一个抓完再抓下一个，避免被限速拖成慢查询。
                 sleepCancellable(REQUEST_GAP_MS, cancelKey)
                 batchFetcher(session.gid, session.token, batch, cancelKey)
             }
@@ -244,16 +251,20 @@ class PageBatchHarvester(private val storage: Storage) {
         return if (capped <= start) "第 $start 页" else "第 $start–$capped 页"
     }
 
-    private fun <T> withGidLock(gid: Long, cancelKey: EhCalls.Handle? = null, block: () -> T): T {
+    /**
+     * 同会话串行锁；拿锁前后都检查取消，排队期间被取消就不白跑一次请求。
+     *
+     * 锁在 [Session] 上，会话被 LRU 淘汰时锁跟着回收，不会再随「看过的画廊数」增长。
+     */
+    private fun <T> withSessionLock(session: Session, cancelKey: EhCalls.Handle? = null, block: () -> T): T {
         throwIfCancelled(cancelKey)
-        val lock = gidLocks.computeIfAbsent(gid) { ReentrantLock() }
-        lock.lock()
+        session.lock.lock()
         try {
             // 排队期间可能已被取消：拿到锁后先确认，避免白跑一次完整请求。
             throwIfCancelled(cancelKey)
             return block()
         } finally {
-            lock.unlock()
+            session.lock.unlock()
         }
     }
 

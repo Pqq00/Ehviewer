@@ -31,6 +31,14 @@ object NetLog {
         val durationMs: Long,
         val bytes: Long,
         val error: String?,
+        /**
+         * 响应分类（`NORMAL` / `LOGIN_REQUIRED` / `SAD_PANDA` / …）。
+         *
+         * 来自 [ResponseClassifier] 打在响应上的 `X-Eh-Classified` 头；没经过分类器
+         * 的请求（POST、`api.php`、图片）为 null。排查「为什么页面看起来是空的」时，
+         * 一看就知道是登录失效还是 sad panda。
+         */
+        val classified: String? = null,
     )
 
     private val entries = ArrayDeque<Entry>()
@@ -43,13 +51,22 @@ object NetLog {
     /** 一行可读文本，UI 与导出共用。 */
     fun formatEntry(e: Entry): String {
         val status = if (e.status > 0) e.status.toString() else "ERR"
+        val cls = if (e.classified.isNullOrBlank()) "" else " [${e.classified}]"
         val err = if (e.error.isNullOrBlank()) "" else "  <= ${e.error}"
-        return "${formatTime(e.epochMs)} ${e.method} $status ${e.durationMs}ms ${e.bytes}B ${e.url}$err"
+        return "${formatTime(e.epochMs)} ${e.method} $status ${e.durationMs}ms ${e.bytes}B ${e.url}$cls$err"
     }
 
-    fun log(method: String, url: String, status: Int, durationMs: Long, bytes: Long, error: String?) {
+    fun log(
+        method: String,
+        url: String,
+        status: Int,
+        durationMs: Long,
+        bytes: Long,
+        error: String?,
+        classified: String? = null,
+    ) {
         if (!enabled) return
-        val entry = Entry(System.currentTimeMillis(), method, url, status, durationMs, bytes, error)
+        val entry = Entry(System.currentTimeMillis(), method, url, status, durationMs, bytes, error, classified)
         synchronized(entries) {
             entries.addLast(entry)
             while (entries.size > MAX_ENTRIES) {
