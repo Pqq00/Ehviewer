@@ -27,8 +27,15 @@ actual fun createGalleryCacheStore(): GalleryCacheStore =
  */
 internal class AndroidGalleryCacheStore(context: Context) : GalleryCacheStore {
 
-    private val helper = Helper(context.applicationContext)
+    private val appContext = context.applicationContext
+    private val helper = Helper(appContext)
     private val mutex = Mutex()
+
+    override suspend fun usageBytes(): Long = withContext(Dispatchers.IO) {
+        // 直接把落盘数据库文件大小当作「解析模型缓存」占用：简单、和文件系统口径一致，
+        // 也包含历史/标签等同一库内的表，设置页文案按「列表与详情缓存」表述。
+        runCatching { appContext.getDatabasePath("gallery_cache.db").length() }.getOrDefault(0L)
+    }
 
     override suspend fun loadPage(key: String, index: Int, maxAgeMs: Long): CachedPage? =
         withContext(Dispatchers.IO) {

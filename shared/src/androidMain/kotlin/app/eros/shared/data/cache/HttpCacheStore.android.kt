@@ -98,6 +98,12 @@ class AndroidHttpCacheBridge(context: Context) : HttpCacheBridge {
         helper.writableDatabase.delete("http_cache", "url LIKE ?", arrayOf("$prefix%"))
     }
 
+    override fun sizeBytes(): Long = runCatching {
+        helper.readableDatabase.rawQuery("SELECT IFNULL(SUM(LENGTH(body)),0) FROM http_cache", null).use { c ->
+            if (c.moveToFirst()) c.getLong(0) else 0L
+        }
+    }.getOrDefault(0L)
+
     override fun clear() {
         helper.writableDatabase.delete("http_cache", null, null)
     }

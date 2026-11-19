@@ -189,15 +189,20 @@ fun SettingsScreen(
 
     var netLogOn by remember { mutableStateOf(AppSettings.netLogEnabled) }
     var confirmClearCache by remember { mutableStateOf(false) }
+    var pendingClearScope by remember { mutableStateOf<app.eros.shared.data.cache.CacheScope?>(null) }
     var cacheVersion by remember { mutableIntStateOf(0) }
-    var cacheText by remember { mutableStateOf("计算中…") }
+    var cacheUsage by remember { mutableStateOf(app.eros.shared.data.cache.CacheUsage()) }
+    var coilCacheText by remember { mutableStateOf("计算中…") }
     val platformContext = coil3.compose.LocalPlatformContext.current
     var confirmSignOut by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
 
     LaunchedEffect(cacheVersion) {
-        // 只显示两项主缓存：阅读缓存与页地址属内部细节，清理时一并清掉。
-        cacheText = runCatching {
+        // 分区统计：HTTP 原始响应 / 解析模型 / 页地址 / 阅读图片；图片加载器（Coil）单独统计。
+        cacheUsage = runCatching {
+            app.eros.shared.data.cache.CacheManager.usage()
+        }.getOrDefault(app.eros.shared.data.cache.CacheUsage())
+        coilCacheText = runCatching {
             val loader = coil3.SingletonImageLoader.get(platformContext)
             val memory = loader.memoryCache?.size ?: 0L
             val disk = loader.diskCache?.size ?: 0L
@@ -388,9 +393,17 @@ fun SettingsScreen(
                     },
                 )
 
+                app.eros.shared.data.cache.CacheScope.entries.forEach { scope ->
+                    ArrowPreference(
+                        title = scope.title,
+                        summary = formatCacheSize(cacheUsage.of(scope)) + " · " + scope.summary,
+                        onClick = { pendingClearScope = scope },
+                    )
+                }
+
                 ArrowPreference(
-                    title = "图片缓存",
-                    summary = cacheText,
+                    title = "图片加载器",
+                    summary = coilCacheText,
                     onClick = { confirmClearCache = true },
                 )
 
@@ -633,12 +646,51 @@ fun SettingsScreen(
     // 设置页在 ErosPageScaffold 内，能拿到 Scaffold 的 popup 宿主，所以这里用 miuix 原生
     // OverlayDialog：420dp 最大宽度、32dp 圆角、DialogDefaults 的配色与进出场动画都由官方实现给出。
     // TrackOverlay 让弹窗显示期间隐藏底部导航栏（下载页「删除下载」同样处理），否则底栏会盖住按钮。
+    // 分区清理：每个缓存 scope 一个确认框，只删这一类，不动其它层。
+    val scopeToClear = pendingClearScope
+    TrackOverlay(scopeToClear != null)
+    ErosDialog(
+        backdrop = LocalPageBackdrop.current,
+        show = scopeToClear != null,
+        title = "清理" + (scopeToClear?.title ?: "缓存"),
+        summary = (scopeToClear?.summary ?: "") + "，删除后需重新缓存",
+        onDismissRequest = { pendingClearScope = null },
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Button(
+                onClick = { pendingClearScope = null },
+                modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.buttonColors(),
+            ) { Text("取消", style = MiuixTheme.textStyles.button) }
+            Button(
+                onClick = {
+                    val clearing = scopeToClear
+                    pendingClearScope = null
+                    if (clearing != null) {
+                        scope.launch {
+                            app.eros.shared.data.cache.CacheManager.clear(clearing)
+                            cacheVersion++
+                        }
+                    }
+                },
+                modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.buttonColors(
+                    color = MiuixTheme.colorScheme.primary,
+                    contentColor = MiuixTheme.colorScheme.onPrimary,
+                ),
+            ) { Text("清理", style = MiuixTheme.textStyles.button) }
+        }
+    }
+
     TrackOverlay(confirmClearCache)
     ErosDialog(
         backdrop = LocalPageBackdrop.current,
         show = confirmClearCache,
-        title = "清理图片缓存",
-        summary = "删除后需重新下载",
+        title = "清理图片加载器缓存",
+        summary = "内存与磁盘图片缓存会一起清空，之后需重新下载",
         onDismissRequest = { confirmClearCache = false },
     ) {
         Row(
@@ -658,9 +710,6 @@ fun SettingsScreen(
                             val loader = coil3.SingletonImageLoader.get(platformContext)
                             loader.memoryCache?.clear()
                             loader.diskCache?.clear()
-                            app.eros.shared.media.clearPageCache()
-                            app.eros.shared.media.clearPageLists()
-                            com.hippo.ehviewer.net.HttpCacheBridgeHolder.clear()
                         }
                         cacheVersion++
                     }

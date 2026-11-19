@@ -209,6 +209,9 @@ interface GalleryCacheStore {
 
     /** 测试/登出用：清空全部缓存。 */
     suspend fun clear()
+
+    /** 解析模型缓存当前占用字节数（设置页展示）；不支持的平台返回 0。 */
+    suspend fun usageBytes(): Long = 0L
 }
 
 expect fun createGalleryCacheStore(): GalleryCacheStore
@@ -217,15 +220,35 @@ object GalleryCache {
 
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
 
-    /** 页面缓存有效期：7 天；详情 7 天。 */
-    const val PAGE_MAX_AGE_MS: Long = 7L * 24 * 60 * 60 * 1000
-    const val DETAIL_MAX_AGE_MS: Long = 7L * 24 * 60 * 60 * 1000
+    /**
+     * 列表/详情模型的缓存有效期，与 core 的 `HttpCachePolicy` 口径对齐：
+     * 列表页 1 小时、详情 6 小时。命中后都是「先出内容、后台再刷新」，
+     * 所以短 TTL 只影响「冷启动首屏是否还显示旧内容」，不影响随时手动刷新。
+     */
+    const val PAGE_MAX_AGE_MS: Long = 60L * 60 * 1000
+    const val DETAIL_MAX_AGE_MS: Long = 6L * 60 * 60 * 1000
+
+    /**
+     * 解析模型缓存的结构版本：字段含义变化（例如标题语言、站点作用域）时 +1，
+     * 旧 key 自然不再命中，随后由 [pruneIfNeeded] 清掉。
+     */
+    private const val CACHE_SCHEMA = "v2"
 
     private val store: GalleryCacheStore by lazy { createGalleryCacheStore() }
 
     private var pruned = false
 
-    private fun sitePrefix(): String = if (AppSettings.exHentai) "ex" else "e"
+    /**
+     * 列表页 key 前缀：站点 + 登录态 + 结构版本。
+     *
+     * 未登录/已登录看到的首页、搜索结果不同（收藏数、标签可见性、部分分区），
+     * 只用站点前缀会让登出后继续命中登录态的列表。
+     */
+    private fun sitePrefix(): String {
+        val site = if (AppSettings.exHentai) "ex" else "e"
+        val signed = if (com.hippo.ehviewer.net.EhAuth.hasSignedIn()) "in" else "out"
+        return "$CACHE_SCHEMA|$site|$signed"
+    }
 
     fun homeKey(cats: Int): String = "${sitePrefix()}:home:$cats"
     fun rankKey(tl: Int): String = "${sitePrefix()}:rank:$tl"
@@ -328,6 +351,9 @@ object GalleryCache {
     suspend fun clearAll() {
         runCatching { store.clear() }
     }
+
+    /** 解析模型缓存占用字节数（设置页展示用）。 */
+    suspend fun usageBytes(): Long = runCatching { store.usageBytes() }.getOrDefault(0L)
 
     /** 站点 Profile 切换后清列表页缓存，让列表下次重新拉取。 */
     suspend fun clearListPages() {

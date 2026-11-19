@@ -31,6 +31,9 @@ interface HttpCacheBridge {
     fun put(url: String, response: CachedHttpResponse)
     fun removePrefix(prefix: String)
     fun clear()
+
+    /** 当前占用的字节数（用于设置页展示与容量治理）；不支持的平台返回 0。 */
+    fun sizeBytes(): Long = 0L
 }
 
 object HttpCacheBridgeHolder {
@@ -44,6 +47,9 @@ object HttpCacheBridgeHolder {
     fun clear() {
         bridge?.clear()
     }
+
+    /** 原始响应缓存当前占用字节数。 */
+    fun sizeBytes(): Long = runCatching { bridge?.sizeBytes() ?: 0L }.getOrDefault(0L)
 }
 
 /** 请求级缓存策略；值为 0 表示不读不写。 */
