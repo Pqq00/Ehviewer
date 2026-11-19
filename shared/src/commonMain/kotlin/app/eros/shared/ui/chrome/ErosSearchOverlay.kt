@@ -57,6 +57,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.BlurEffect
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.TileMode
@@ -104,8 +105,8 @@ import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
-import top.yukonga.miuix.kmp.glass.GlassIconButton
-import top.yukonga.miuix.kmp.glass.glassPanel
+import top.yukonga.miuix.kmp.blur.Backdrop
+import top.yukonga.miuix.kmp.glass.glass
 import top.yukonga.miuix.kmp.material.GlassShape
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
@@ -254,6 +255,21 @@ internal fun ErosSearchOverlay(
     val blurSupported = AppSettings.barBlurEnabled && isShaderSupported()
     val blurStyle = currentBarBlurStyle()
     // 内容滚到搜索栏下面时才把带子淡入，回到顶部就淡出（与页面顶栏的 ramp 行为一致）。
+    // 与上游 47d75e6 同一套配方：搜索框和 Cancel 默认是纯色，结果滚到栏下方
+    // 之后 450ms 线性淡成玻璃 —— 否则纯白底上看不出玻璃，反而像「没有材质」。
+    val pillShape = GlassShape(22.dp)
+    val pillThresholdPx = with(LocalDensity.current) { 16.dp.toPx() }
+    val hasContentUnderBar by remember(pillThresholdPx) {
+        derivedStateOf {
+            gridState.firstVisibleItemIndex > 0 ||
+                gridState.firstVisibleItemScrollOffset > pillThresholdPx
+        }
+    }
+    val pillMaterialProgress by animateFloatAsState(
+        targetValue = if (expanded && hasContentUnderBar) 1f else 0f,
+        animationSpec = tween(450, easing = LinearEasing),
+        label = "searchPillMaterial",
+    )
     val bandRamp by animateFloatAsState(
         targetValue = if (gridState.canScrollBackward) 1f else 0f,
         animationSpec = tween(150),
@@ -386,19 +402,17 @@ internal fun ErosSearchOverlay(
                             }
                         },
                     decorationBox = { field ->
+                        Box(Modifier.fillMaxSize()) {
+                        SearchPillSurface(
+                            backdrop = contentBackdrop,
+                            shape = pillShape,
+                            fill = colors.surfaceContainerHigh,
+                            progress = { pillMaterialProgress },
+                            modifier = Modifier.matchParentSize(),
+                        )
                         Row(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .glassPanel(
-                                    backdrop = contentBackdrop,
-                                    shape = GlassShape(22.dp),
-                                    shading = false,
-                                    alpha = 1f,
-                                    fallback = Modifier.background(
-                                        colors.surfaceContainerHigh,
-                                        CircleShape,
-                                    ),
-                                )
                                 .padding(horizontal = 16.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -436,6 +450,7 @@ internal fun ErosSearchOverlay(
                                 }
                             }
                         }
+                        }
                     },
                 )
                 Box(
@@ -452,24 +467,62 @@ internal fun ErosSearchOverlay(
                             renderEffect = if (blur > 0.5f) BlurEffect(blur, blur, TileMode.Decal) else null
                         },
                 ) {
-                    GlassIconButton(
-                        onClick = onDismissRequest,
-                        modifier = Modifier.size(44.dp),
-                        inheritTopBarMaterial = false,
-                        backdrop = contentBackdrop,
-                        size = 44.dp,
-                    ) {
-                        Icon(
-                            MiuixIcons.Glass.Close,
-                            contentDescription = "Cancel",
-                            modifier = Modifier.size(28.dp),
-                            tint = colors.onSurface,
+                    Box(Modifier.size(44.dp)) {
+                        SearchPillSurface(
+                            backdrop = contentBackdrop,
+                            shape = pillShape,
+                            fill = colors.surfaceContainerHigh,
+                            progress = { pillMaterialProgress },
+                            modifier = Modifier.matchParentSize(),
                         )
+                        IconButton(
+                            onClick = onDismissRequest,
+                            enabled = expanded,
+                            modifier = Modifier.matchParentSize(),
+                        ) {
+                            Icon(
+                                MiuixIcons.Glass.Close,
+                                contentDescription = "Cancel",
+                                modifier = Modifier.size(28.dp),
+                                tint = colors.onSurface,
+                            )
+                        }
                     }
                 }
             }
         }
     }
+    }
+}
+
+/**
+ * 纯色底 + 玻璃层的交叉淡入（上游 47d75e6 的 ScrollSearchPillBackground 同款）。
+ *
+ * 玻璃层只有 [progress] > 0 时才创建；没有 backdrop（旧设备 / 关掉栏模糊）时永远只有纯色底，
+ * 不会出现「半透明但背后什么都没有」的假玻璃。
+ */
+@Composable
+private fun SearchPillSurface(
+    backdrop: Backdrop?,
+    shape: GlassShape,
+    fill: Color,
+    progress: () -> Float,
+    modifier: Modifier = Modifier,
+) {
+    val fraction = progress()
+    Box(modifier = modifier.background(fill, shape)) {
+        if (backdrop != null && fraction > 0f) {
+            Box(
+                Modifier
+                    .matchParentSize()
+                    .graphicsLayer { alpha = fraction }
+                    .glass(
+                        backdrop = backdrop,
+                        shape = shape,
+                        shading = false,
+                    ),
+            )
+        }
     }
 }
 
