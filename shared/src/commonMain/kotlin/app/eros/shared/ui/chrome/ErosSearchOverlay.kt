@@ -1,0 +1,606 @@
+// Copyright 2026, eros-miuix contributors
+// SPDX-License-Identifier: Apache-2.0
+
+package app.eros.shared.ui.chrome
+
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.Easing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.updateTransition
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.BlurEffect
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.TileMode
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
+import app.eros.shared.PlatformBackHandler
+import app.eros.shared.data.GalleryLink
+import app.eros.shared.data.GalleryRef
+import app.eros.shared.data.GalleryUi
+import app.eros.shared.data.cache.GalleryCache
+import app.eros.shared.data.cache.SearchHistoryEntry
+import app.eros.shared.data.cache.TagRecord
+import app.eros.shared.settings.AppSettings
+import app.eros.shared.ui.CoverPrefetchEffect
+import app.eros.shared.ui.DetailPrefetchEffect
+import app.eros.shared.ui.ErosEmptyState
+import app.eros.shared.ui.ErosErrorState
+import app.eros.shared.ui.GalleryCard
+import app.eros.shared.ui.GalleryGridSidePadding
+import app.eros.shared.ui.SEARCH_HINTS
+import app.eros.shared.ui.SearchState
+import app.eros.shared.ui.rememberGalleryColumns
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.glass.Close
+import top.yukonga.miuix.kmp.icon.glass.Search
+import top.yukonga.miuix.kmp.theme.LocalContentColor
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.exp
+import kotlin.math.sin
+import kotlin.math.sqrt
+
+/**
+ * 搜索模式的弹簧缓动：把一秒的阻尼振动映射到 400ms 的入场动画上（对齐官方示例）。
+ * 官方用自算的弹簧曲线而不是 tween 的贝塞尔，收放都能被 Cancel 反向打断。
+ */
+private val SearchModeEasing: Easing = run {
+    val omega = 2.0 * PI / 0.75f
+    val stiffness = (omega * omega).toFloat()
+    val damping = (0.98f * 2.0 * omega).toFloat()
+    val decay = -damping / 2f
+    val frequency = sqrt(-(damping.toDouble() * damping - stiffness.toDouble() * 4)).toFloat() / 2f
+    val sineCoefficient = decay / frequency
+    Easing { fraction ->
+        (
+            1.0 + exp((decay * fraction).toDouble()) *
+                (-cos((frequency * fraction).toDouble()) + sineCoefficient * sin((frequency * fraction).toDouble()))
+            ).toFloat()
+    }
+}
+
+/**
+ * 搜索模式覆盖层（UI_LAYERS.md 的 L3 全屏浮层，方案 A 对齐官方 `GlassSearchOverlay`）。
+ *
+ * 与旧 `Route.Search` 页面的区别：搜索不再是导航目标，而是浮在整个窗口之上的模式——
+ * - 页面/chrome 先按 [rememberGlassSearchBarAlpha] 淡出，浮层再从顶部滑入，Cancel 可反向打断；
+ * - 因为宿主在根 `Scaffold` 内（`ErosAppChrome` 之后），它同时盖住侧栏与底栏；
+ * - 返回键、Esc、点空白都会退出；IME 弹出时内容整体上移（`imePadding`）。
+ *
+ * 内容复用 [SearchState]：未搜索时给最近搜索与语法示例，搜索后是同一套 `GalleryCard` 网格与分页。
+ */
+@Composable
+internal fun ErosSearchOverlay(
+    expanded: Boolean,
+    state: SearchState,
+    onDismissRequest: () -> Unit,
+    onGalleryClick: (GalleryUi) -> Unit,
+    modifier: Modifier = Modifier,
+    onOpenGallery: ((GalleryRef) -> Unit)? = null,
+) {
+    val transition = updateTransition(expanded, label = "searchOverlay")
+    val progress = transition.animateFloat(
+        transitionSpec = { tween(400, easing = SearchModeEasing) },
+        label = "searchOverlayGeometry",
+    ) { if (it) 1f else 0f }
+    val cancelAlpha = transition.animateFloat(
+        transitionSpec = { tween(150, delayMillis = if (targetState) 100 else 0, easing = LinearEasing) },
+        label = "searchOverlayCancel",
+    ) { if (it) 1f else 0f }
+    val active = expanded || transition.currentState || transition.isRunning
+
+    var input by remember { mutableStateOf("") }
+    var suggestions by remember { mutableStateOf<List<TagRecord>>(emptyList()) }
+    var recent by remember { mutableStateOf<List<SearchHistoryEntry>>(emptyList()) }
+    val focusRequester = remember { FocusRequester() }
+    val focusManager = LocalFocusManager.current
+    val keyboard = LocalSoftwareKeyboardController.current
+    val direction = LocalLayoutDirection.current
+    val scope = rememberCoroutineScope()
+    val topInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)
+    // 浮层盖住整个窗口，底部要让开系统导航栏（底栏已被盖住，不再有 App 底栏留白）。
+    val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+
+    LaunchedEffect(expanded) {
+        if (expanded) {
+            input = state.query
+            focusRequester.requestFocus()
+            keyboard?.show()
+            recent = runCatching { GalleryCache.searchHistory(8) }.getOrDefault(emptyList())
+        } else {
+            focusManager.clearFocus()
+            keyboard?.hide()
+            suggestions = emptyList()
+        }
+    }
+    LaunchedEffect(input, expanded) {
+        val q = input.trim()
+        if (!expanded || q.length < 2 || q == state.query) {
+            suggestions = emptyList()
+            return@LaunchedEffect
+        }
+        delay(180)
+        suggestions = runCatching { GalleryCache.searchTags(q, 10) }.getOrDefault(emptyList())
+    }
+    // 外部触发（点标签/上传者）时把关键词回填输入框。
+    LaunchedEffect(state.query, expanded) {
+        if (expanded && state.query.isNotBlank() && state.query != input) input = state.query
+    }
+    // 站点 Profile 切换后缓存被清空，屏上结果一起换掉。
+    val profileRevision = AppSettings.profileRevision
+    var seenProfileRevision by remember { mutableIntStateOf(profileRevision) }
+    LaunchedEffect(profileRevision) {
+        if (profileRevision != seenProfileRevision) {
+            seenProfileRevision = profileRevision
+            state.refresh()
+        }
+    }
+    if (!active) return
+
+    // 返回键退出搜索模式：优先于导航栈拦截（PlatformBackHandler 走 OnBackPressedDispatcher）。
+    PlatformBackHandler(enabled = expanded, onBack = onDismissRequest)
+    val colors = MiuixTheme.colorScheme
+    val submit: (String) -> Unit = { text ->
+        val q = text.trim()
+        val ref = GalleryLink.first(q)
+        when {
+            // 粘贴画廊链接时直接进详情，不再当关键词搜（与旧搜索页一致）。
+            ref != null && onOpenGallery != null -> {
+                onOpenGallery.invoke(ref)
+                onDismissRequest()
+            }
+            q.isNotBlank() -> {
+                input = q
+                state.search(q)
+            }
+        }
+        suggestions = emptyList()
+        keyboard?.hide()
+    }
+
+    CompositionLocalProvider(LocalContentColor provides colors.onSurface) {
+        Box(
+            modifier = modifier
+                .fillMaxSize()
+                // 浮层自带不透明底色：chrome 已淡出到 0，若透出窗口底色，浅色主题下会变成黑底黑字。
+                .background(colors.background)
+                .onPreviewKeyEvent {
+                if (it.key == Key.Escape && it.type == KeyEventType.KeyUp) {
+                    onDismissRequest()
+                    true
+                } else {
+                    false
+                }
+            },
+    ) {
+        // 退出动画期间也挡住点击：点空白只收键盘，不穿透到下面淡出的页面。
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .clickable(interactionSource = null, indication = null) { keyboard?.hide() },
+        )
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer { alpha = progress.value }
+                .windowInsetsPadding(topInsets)
+                .imePadding(),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp)
+                    .graphicsLayer {
+                        translationY = -topInsets.getTop(this) * (1f - progress.value)
+                    },
+            ) {
+                BasicTextField(
+                    value = input,
+                    onValueChange = { input = it },
+                    enabled = expanded,
+                    singleLine = true,
+                    textStyle = MiuixTheme.textStyles.body1.copy(color = colors.onSurface),
+                    cursorBrush = SolidColor(colors.primary),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(onSearch = { submit(input) }),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .layout { measurable, constraints ->
+                            // 右侧给 Cancel 让出 54dp * progress，Cancel 才能从外面滑进来。
+                            val endSpace = (54.dp.toPx() * progress.value).toInt()
+                            val width = (constraints.maxWidth - endSpace).coerceAtLeast(0)
+                            val placeable = measurable.measure(
+                                constraints.copy(minWidth = width, maxWidth = width),
+                            )
+                            layout(constraints.maxWidth, placeable.height) {
+                                placeable.placeRelative(0, 0)
+                            }
+                        }
+                        .height(44.dp)
+                        .focusRequester(focusRequester)
+                        // 硬件键盘回车也能提交（软键盘走 ImeAction.Search）。
+                        .onPreviewKeyEvent { event ->
+                            if (event.type == KeyEventType.KeyDown &&
+                                (event.key == Key.Enter || event.key == Key.NumPadEnter)
+                            ) {
+                                submit(input)
+                                true
+                            } else {
+                                false
+                            }
+                        },
+                    decorationBox = { field ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(colors.surfaceContainerHigh, CircleShape)
+                                .padding(horizontal = 16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Icon(
+                                MiuixIcons.Glass.Search,
+                                contentDescription = null,
+                                modifier = Modifier.size(28.dp),
+                                tint = colors.disabledOnSurface,
+                            )
+                            Box(Modifier.weight(1f)) {
+                                if (input.isEmpty()) {
+                                    Text(
+                                        "搜索标签或关键词",
+                                        color = colors.disabledOnSurface,
+                                        style = MiuixTheme.textStyles.body1,
+                                    )
+                                }
+                                field()
+                            }
+                            if (input.isNotEmpty()) {
+                                IconButton(
+                                    onClick = {
+                                        input = ""
+                                        focusRequester.requestFocus()
+                                    },
+                                    modifier = Modifier.size(24.dp),
+                                ) {
+                                    Icon(
+                                        MiuixIcons.Glass.Close,
+                                        contentDescription = "Clear",
+                                        modifier = Modifier.size(16.dp * (7f / 6f)),
+                                        tint = colors.disabledOnSurface,
+                                    )
+                                }
+                            }
+                        }
+                    },
+                )
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .graphicsLayer {
+                            val fraction = progress.value
+                            translationX = 66.dp.toPx() * (1f - fraction) *
+                                if (direction == LayoutDirection.Ltr) 1f else -1f
+                            scaleX = fraction
+                            scaleY = fraction
+                            alpha = cancelAlpha.value
+                            val blur = 50f * (1f - cancelAlpha.value)
+                            renderEffect = if (blur > 0.5f) BlurEffect(blur, blur, TileMode.Decal) else null
+                        },
+                ) {
+                    IconButton(
+                        onClick = onDismissRequest,
+                        enabled = expanded,
+                        modifier = Modifier
+                            .size(44.dp)
+                            .background(colors.surfaceContainerHigh, CircleShape),
+                    ) {
+                        Icon(
+                            MiuixIcons.Glass.Close,
+                            contentDescription = "Cancel",
+                            modifier = Modifier.size(28.dp),
+                            tint = colors.onSurface,
+                        )
+                    }
+                }
+            }
+
+            SearchOverlayBody(
+                state = state,
+                input = input,
+                suggestions = suggestions,
+                recent = recent,
+                navBottom = navBottom,
+                onPick = { term -> input = term; submit(term) },
+                onClearHistory = {
+                    scope.launch {
+                        GalleryCache.clearSearchHistory()
+                        recent = emptyList()
+                    }
+                },
+                onGalleryClick = onGalleryClick,
+            )
+        }
+    }
+    }
+}
+
+/** 未搜索：最近搜索 + 常用标签；已搜索：结果网格（与列表页同一套 [GalleryCard]）。 */
+@Composable
+private fun SearchOverlayBody(
+    state: SearchState,
+    input: String,
+    suggestions: List<TagRecord>,
+    recent: List<SearchHistoryEntry>,
+    navBottom: androidx.compose.ui.unit.Dp,
+    onPick: (String) -> Unit,
+    onClearHistory: () -> Unit,
+    onGalleryClick: (GalleryUi) -> Unit,
+) {
+    val gridState = rememberLazyGridState()
+    CoverPrefetchEffect(gridState, state.items)
+    DetailPrefetchEffect(gridState, state.items)
+
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val gridPadding = PaddingValues(
+            start = GalleryGridSidePadding,
+            end = GalleryGridSidePadding,
+            top = 12.dp,
+            bottom = navBottom + 12.dp,
+        )
+        val columns = if (AppSettings.cardStyle == "download") {
+            1
+        } else {
+            rememberGalleryColumns(maxWidth - GalleryGridSidePadding * 2)
+        }
+        val nearBottom by remember {
+            derivedStateOf {
+                val info = gridState.layoutInfo
+                // 头部是「搜索框提交 / 建议 / 最近搜索」这类整行项，卡片从 headerCount 之后开始。
+                val headerCount = 1
+                val lastIndex = headerCount + state.items.size - 1
+                state.items.isNotEmpty() && !state.loadingMore &&
+                    info.visibleItemsInfo.any { it.index >= lastIndex }
+            }
+        }
+        LaunchedEffect(nearBottom, state.items.size) {
+            if (nearBottom) state.loadMore()
+        }
+
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(columns),
+            state = gridState,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = gridPadding,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            if (!state.searched || suggestions.isNotEmpty()) {
+                item(span = { GridItemSpan(maxLineSpan) }, key = "hints") {
+                    Column(Modifier.fillMaxWidth()) {
+                        // 顶部给一行显式提交：不依赖软键盘的回车/搜索键。
+                        if (input.isNotBlank() && input.trim() != state.query) {
+                            Text(
+                                "搜索「" + input.trim() + "」",
+                                style = MiuixTheme.textStyles.body2,
+                                color = MiuixTheme.colorScheme.primary,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onPick(input) }
+                                    .padding(vertical = 10.dp),
+                            )
+                        }
+                        if (suggestions.isNotEmpty()) {
+                            suggestions.forEach { tag ->
+                                val label = tag.translated ?: tag.name
+                                Text(
+                                    label + "  ·  " + tag.full + "  ·  " + tag.count,
+                                    style = MiuixTheme.textStyles.body2,
+                                    color = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            val term = if (tag.name.contains(' ')) {
+                                                tag.namespace + ":\"" + tag.name + "\""
+                                            } else {
+                                                tag.full
+                                            }
+                                            onPick(term)
+                                        }
+                                        .padding(vertical = 10.dp),
+                                )
+                            }
+                            Box(Modifier.height(8.dp))
+                        } else {
+                            if (recent.isNotEmpty()) {
+                                Text("最近搜索", style = MiuixTheme.textStyles.subtitle)
+                                recent.forEach { entry ->
+                                    Text(
+                                        entry.query,
+                                        style = MiuixTheme.textStyles.body2,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable { onPick(entry.query) }
+                                            .padding(vertical = 9.dp),
+                                    )
+                                }
+                                Text(
+                                    "清空最近搜索",
+                                    style = MiuixTheme.textStyles.footnote2,
+                                    color = MiuixTheme.colorScheme.primary,
+                                    modifier = Modifier
+                                        .clickable { onClearHistory() }
+                                        .padding(vertical = 8.dp),
+                                )
+                                Box(Modifier.height(18.dp))
+                            }
+                            Text("语法示例", style = MiuixTheme.textStyles.subtitle)
+                            SEARCH_HINTS.forEach { hint ->
+                                Text(
+                                    hint,
+                                    style = MiuixTheme.textStyles.body2,
+                                    color = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { onPick(hint) }
+                                        .padding(vertical = 8.dp),
+                                )
+                            }
+                            Text(
+                                "支持 namespace:tag、多个词空格分隔、-tag 排除；含空格的标签用引号",
+                                style = MiuixTheme.textStyles.footnote2,
+                                color = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                                modifier = Modifier.padding(top = 8.dp),
+                            )
+                        }
+                    }
+                }
+            }
+
+            if (state.searched) {
+                itemsIndexed(state.items, key = { _, it -> it.gid }) { index, gallery ->
+                    GalleryCard(
+                        gallery = gallery,
+                        index = index,
+                        scrolling = gridState.isScrollInProgress,
+                        onClick = { onGalleryClick(gallery) },
+                    )
+                }
+                if (state.loadingMore) {
+                    item(span = { GridItemSpan(maxLineSpan) }, key = "loadingMore") {
+                        Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator()
+                        }
+                    }
+                }
+                val footerError = state.error
+                if (footerError != null && state.items.isNotEmpty()) {
+                    item(span = { GridItemSpan(maxLineSpan) }, key = "footerError") {
+                        Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                            Text(
+                                "加载失败，点按重试",
+                                style = MiuixTheme.textStyles.footnote1,
+                                color = MiuixTheme.colorScheme.primary,
+                                modifier = Modifier.clickable { state.retry() },
+                            )
+                        }
+                    }
+                }
+                if (state.endReached) {
+                    item(span = { GridItemSpan(maxLineSpan) }, key = "endReached") {
+                        Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                            Text(
+                                "没有更多了",
+                                style = MiuixTheme.textStyles.footnote2,
+                                color = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // 首屏加载：结果为空时居中转圈，不让搜索框下面的空白区域看起来像卡住。
+        if (state.loading && state.items.isEmpty()) {
+            Box(Modifier.fillMaxSize().padding(top = 56.dp), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+        }
+        // 错误 / 空结果：网格里本来没有卡片，覆盖层居中显示，避免懒加载项拿到无限高度约束。
+        if (state.searched && state.items.isEmpty() && !state.loading) {
+            Box(Modifier.fillMaxSize().padding(top = 56.dp)) {
+                val blockingError = state.error
+                if (blockingError != null) {
+                    ErosErrorState(message = blockingError, onRetry = { state.retry() })
+                } else {
+                    ErosEmptyState(
+                        title = "没有找到结果",
+                        description = "换一组关键词，或检查搜索语法（支持 namespace:tag、-tag 排除）",
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** 页面/chrome 的淡出曲线：进入搜索时 150ms 淡出，退出时更慢地淡回（对齐官方）。 */
+@Composable
+internal fun rememberGlassSearchBarAlpha(expanded: Boolean): State<Float> {
+    val transition = updateTransition(expanded, label = "searchOverlayChromeAlpha")
+    return transition.animateFloat(
+        transitionSpec = {
+            tween(
+                150,
+                easing = if (targetState) {
+                    CubicBezierEasing(0f, 0f, 0.67f, 1f)
+                } else {
+                    CubicBezierEasing(0.26f, 0f, 0.6f, 0.2f)
+                },
+            )
+        },
+        label = "searchOverlayChromeAlphaValue",
+    ) { if (it) 0f else 1f }
+}

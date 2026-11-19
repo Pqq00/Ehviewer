@@ -7,6 +7,8 @@ package app.eros.shared
 import app.eros.shared.navigation.Route
 import app.eros.shared.navigation.rememberErosNavigator
 import app.eros.shared.ui.chrome.ErosAppChrome
+import app.eros.shared.ui.chrome.ErosSearchOverlay
+import app.eros.shared.ui.chrome.rememberGlassSearchBarAlpha
 import app.eros.shared.ui.chrome.BarDestination
 import app.eros.shared.ui.chrome.ErosBottomBarHost
 import app.eros.shared.ui.chrome.ErosChromeRail
@@ -120,6 +122,7 @@ import top.yukonga.miuix.kmp.basic.HorizontalDivider
 
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import top.yukonga.miuix.kmp.blur.ProgressiveBlur
 import top.yukonga.miuix.kmp.blur.progressiveTextureBlur
 
@@ -173,7 +176,6 @@ import app.eros.shared.ui.HomeScreen
 import app.eros.shared.ui.HomeChipEditScreen
 import app.eros.shared.ui.HomeState
 import app.eros.shared.reader.ReaderSession
-import app.eros.shared.ui.SearchScreen
 import app.eros.shared.ui.reader.ReaderScreen
 import app.eros.shared.ui.SearchState
 import app.eros.shared.ui.SettingsScreen
@@ -325,8 +327,11 @@ fun App() {
         val homeState = AppStateHolder.homeState
         val favState = AppStateHolder.favouritesState
         val searchState = AppStateHolder.searchState
-        val openTag: (String) -> Unit = { q -> searchState.search(q); push(Route.Search) }
-        val openUploader: (String) -> Unit = { u -> searchState.searchUploader(u); push(Route.Search) }
+        // 搜索是浮层模式而不是路由（方案 A，对齐官方 GlassSearchOverlay）：
+        // 页面淡出的同时覆盖层从窗口顶部滑入，因此不需要压栈、也不影响返回栈。
+        var searchExpanded by remember { mutableStateOf(false) }
+        val openTag: (String) -> Unit = { q -> searchState.search(q); searchExpanded = true }
+        val openUploader: (String) -> Unit = { u -> searchState.searchUploader(u); searchExpanded = true }
         val homeGridState = AppStateHolder.homeGridState
         val topListState = AppStateHolder.topListState
         val rankGridState = AppStateHolder.rankGridState
@@ -423,7 +428,16 @@ fun App() {
             containerColor = Color.Transparent,
             contentWindowInsets = WindowInsets(0),
         ) { _ ->
-            ErosAppChrome(
+            // 搜索浮层要盖住侧栏与底栏，所以它在 chrome 之后绘制；页面/chrome 先按
+            // rememberGlassSearchBarAlpha 淡出，浮层再滑入（对齐官方 GlassPage 的搜索模式）。
+            val searchBarAlpha = rememberGlassSearchBarAlpha(searchExpanded)
+            Box(Modifier.fillMaxSize()) {
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .graphicsLayer { alpha = searchBarAlpha.value },
+                ) {
+                    ErosAppChrome(
                 rail = railMode,
                 selectedTab = tabIndex,
                 onSelectTab = onSelectTab,
@@ -447,7 +461,7 @@ fun App() {
                     topListState = topListState,
                     rankGridState = rankGridState,
                     favGridState = favGridState,
-                    onOpenSearch = { push(Route.Search) },
+                    onOpenSearch = { searchExpanded = true },
                     onOpenDetail = { gid, token -> push(Route.Detail(gid, token)) },
                     onOpenReader = { gid, token, total -> push(Route.Reader(gid, token, total)) },
                     onOpenWatched = { push(Route.Watched) },
@@ -490,7 +504,7 @@ fun App() {
                 WatchedScreen(
                     state = state,
                     onBack = { pop() },
-                    onSearchTag = { tag -> searchState.search(tag); push(Route.Search) },
+                    onSearchTag = openTag,
                 )
             }
 
@@ -518,15 +532,6 @@ fun App() {
                     onOpen = { e -> push(Route.Detail(e.gid, e.token)) },
                     // 卡片右下角的「阅读」直接续读：把记录里的页码当作起始页。
                     onRead = { e -> push(Route.Reader(e.gid, e.token, e.pages, startPage = e.page)) },
-                )
-            }
-
-            entry<Route.Search>(swipeDismiss = swipeDismiss) {
-                SearchScreen(
-                    state = searchState,
-                    onBack = { pop() },
-                    onGalleryClick = { push(Route.Detail(it.gid, it.token)) },
-                    onOpenGallery = { ref -> push(Route.Detail(ref.gid, ref.token)) },
                 )
             }
 
@@ -570,18 +575,35 @@ fun App() {
                     )
                 },
             )
+                }
 
-            // 帧率浮层：official example 的 FPSMonitor
-            if (AppSettings.showFps) {
-                FPSMonitor(
-                    Modifier
-                        .fillMaxSize()
-                        .statusBarsPadding()
-                        .padding(top = 4.dp),
+                // 帧率浮层：official example 的 FPSMonitor
+                if (AppSettings.showFps) {
+                    FPSMonitor(
+                        Modifier
+                            .fillMaxSize()
+                            .statusBarsPadding()
+                            .padding(top = 4.dp),
+                    )
+                }
+
+                // 搜索模式浮层（L3）：压在 chrome 之上，返回键/点空白/Cancel 都能退出。
+                ErosSearchOverlay(
+                    expanded = searchExpanded,
+                    state = searchState,
+                    onDismissRequest = { searchExpanded = false },
+                    onGalleryClick = { g ->
+                        searchExpanded = false
+                        push(Route.Detail(g.gid, g.token))
+                    },
+                    onOpenGallery = { ref ->
+                        searchExpanded = false
+                        push(Route.Detail(ref.gid, ref.token))
+                    },
                 )
-            }
 
-            // popup / dialog 宿主由上面这个根 Scaffold 的 popupHost 槽位提供（默认 MiuixPopupHost）。
+                // popup / dialog 宿主由上面这个根 Scaffold 的 popupHost 槽位提供（默认 MiuixPopupHost）。
+            }
         }
     }
 }

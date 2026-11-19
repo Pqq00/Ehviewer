@@ -29,9 +29,6 @@ internal sealed interface Route : NavKey {
     data class Comments(val gid: Long, val token: String) : Route
 
     @Serializable
-    data object Search : Route
-
-    @Serializable
     data object Account : Route
 
     @Serializable
