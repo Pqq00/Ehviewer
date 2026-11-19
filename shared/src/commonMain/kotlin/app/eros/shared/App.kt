@@ -153,6 +153,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
@@ -338,16 +339,25 @@ fun App() {
         // 不用 rememberLazyGridState（它会跨进程恢复旧偏移）；App 级 remember 足够保持会话内位置
         val favGridState = AppStateHolder.favGridState
 
-        // 预测式返回已固定关闭：统一用系统级回调接管，系统不再索取跟手进度
-        LaunchedEffect(backStack.size) {
-            setPlainBackInterceptor(true) {
-                if (backStack.size > 1) {
+        // 预测式返回已固定关闭：统一用系统级回调接管，系统不再索取跟手进度。
+        // 这个回调注册在 OnBackInvokedDispatcher 的 PRIORITY_OVERLAY，优先级高于 Compose 的
+        // BackHandler，所以搜索浮层这种「不压栈的模式层」必须在它里面先消费返回键，
+        // 否则会直接落到 activity.finish()（表现为搜索页一按返回就退出应用）。
+        val onSystemBack = rememberUpdatedState<() -> Boolean> {
+            when {
+                searchExpanded -> {
+                    searchExpanded = false
+                    true
+                }
+                backStack.size > 1 -> {
                     pop()
                     true
-                } else {
-                    false   // 栈底交给 Activity 退出
                 }
+                else -> false // 栈底交给 Activity 退出
             }
+        }
+        LaunchedEffect(Unit) {
+            setPlainBackInterceptor(true) { onSystemBack.value() }
         }
 
         // 官方示例的转场效果：跟随设备屏幕圆角、轻微调暗、底部露出宿主背景
