@@ -468,7 +468,11 @@ fun App() {
                     topListState = topListState,
                     rankGridState = rankGridState,
                     favGridState = favGridState,
-                    onOpenSearch = { searchExpanded = true },
+                    // 普通搜索入口每次都是干净的一页：不保留上次的关键词与结果。
+                    onOpenSearch = {
+                        searchState.reset()
+                        searchExpanded = true
+                    },
                     onOpenDetail = { gid, token -> push(Route.Detail(gid, token)) },
                     onOpenReader = { gid, token, total -> push(Route.Reader(gid, token, total)) },
                     onOpenWatched = { push(Route.Watched) },
@@ -586,6 +590,8 @@ fun App() {
                     )
                 },
                 contentAlpha = searchBarAlpha.value,
+                // 搜索浮层展开时整条底栏隐藏（含它的底部留白），退出搜索再出现。
+                bottomBarVisible = !searchExpanded,
                 // 搜索模式浮层（L3）：压在页面内容之上、底栏之下；返回键/点空白/Cancel 都能退出。
                 overlay = {
                     ErosSearchOverlay(

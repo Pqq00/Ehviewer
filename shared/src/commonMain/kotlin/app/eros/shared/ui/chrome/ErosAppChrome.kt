@@ -55,10 +55,13 @@ internal fun ErosAppChrome(
     bottomBar: @Composable (LayerBackdrop?) -> Unit,
     contentAlpha: Float = 1f,
     overlay: (@Composable () -> Unit)? = null,
+    /// 底栏是否可见；搜索浮层展开时整条隐藏，留白也要跟着归零。
+    bottomBarVisible: Boolean = true,
 ) {
     // 底栏留白要提供给「页面内容」与「底栏」的共同上层：页面在自己的 LazyColumn
     // contentPadding 里读 LocalAppBottomBarInset，如果只包 bottomBar 就读不到。
-    val barInset = rememberAppBottomBarInset(destination, rail != ErosChromeRail.None)
+    val measuredBarInset = rememberAppBottomBarInset(destination, rail != ErosChromeRail.None)
+    val barInset = if (bottomBarVisible) measuredBarInset else 0.dp
     CompositionLocalProvider(LocalAppBottomBarInset provides barInset) {
         ErosAppChromeContent(
             rail = rail,
@@ -69,6 +72,7 @@ internal fun ErosAppChrome(
             bottomBar = bottomBar,
             contentAlpha = contentAlpha,
             overlay = overlay,
+            bottomBarVisible = bottomBarVisible,
         )
     }
 }
@@ -83,6 +87,7 @@ private fun ErosAppChromeContent(
     bottomBar: @Composable (LayerBackdrop?) -> Unit,
     contentAlpha: Float,
     overlay: (@Composable () -> Unit)?,
+    bottomBarVisible: Boolean,
 ) {
     // 记录「页面内容」的层：侧栏/顶栏/底栏都采样它（官方把同一角色叫 sidebarBackdrop）。
     val pageBackdrop = rememberBarBackdrop()
@@ -174,9 +179,11 @@ private fun ErosAppChromeContent(
                 // 挂在记录层之外（规则见 ErosGlassRecordLayer）。玻璃侧栏展开时，底栏宿主
                 // 内部再按 erosGlassRailStartInset 右移，与页面内容同一让位量。
                 // 可见性、内容形态与底部留白都在 ErosBottomBarHost 里决定。
-                Box(Modifier.align(Alignment.BottomCenter)) {
-                    ErosGlassBar(name = "app bottom bar", backdrop = pageBackdrop) {
-                        bottomBar(pageBackdrop)
+                if (bottomBarVisible) {
+                    Box(Modifier.align(Alignment.BottomCenter)) {
+                        ErosGlassBar(name = "app bottom bar", backdrop = pageBackdrop) {
+                            bottomBar(pageBackdrop)
+                        }
                     }
                 }
             }

@@ -63,11 +63,31 @@ class SearchState(
     private var nextHref: String? = null
     private var uploaderMode = false
 
+    // 每次新搜索/清空都自增：用来丢弃「已经离开这次搜索」的旧请求，避免旧结果回填。
+    private var generation = 0
+
     /** 关键词 → 已富化的结果，切回同一关键词时瞬间出卡片（对齐首页的分类内存缓存）。 */
     private val memoryCache = mutableMapOf<String, List<GalleryUi>>()
 
+    /** 回到默认状态：下次打开搜索页不该还留着上次的关键词与结果。 */
+    fun reset() {
+        generation++
+        query = ""
+        uploaderMode = false
+        items = emptyList()
+        loading = false
+        loadingMore = false
+        error = null
+        searched = false
+        hiddenCount = 0
+        refreshing = false
+        endReached = false
+        nextHref = null
+    }
+
     /** 按上传者搜索（详情页点上传者）。 */
     fun searchUploader(name: String) {
+        generation++
         hiddenCount = 0
         val q = name.trim()
         if (q.isBlank()) return
@@ -79,6 +99,7 @@ class SearchState(
     }
 
     fun search(text: String) {
+        generation++
         hiddenCount = 0
         uploaderMode = false
         val q = text.trim()
@@ -128,6 +149,7 @@ class SearchState(
         cursor: String? = null,
         forceRefresh: Boolean = false,
     ) {
+        val gen = generation
         val key = GalleryCache.searchKey(uploaderMode, query)
         if (!append && items.isEmpty() && !forceRefresh) {
             val cached = GalleryCache.page(key)
@@ -150,7 +172,7 @@ class SearchState(
                     source.search(query, if (append) cursor else null)
                 }
             }
-            if (page != null) {
+            if (page != null && gen == generation) {
                 // 与首页/收藏/排行一致：先把这一页 gdata 富化完（最多 PAGE_TIMEOUT_MS）再发布，
                 // 卡片一出现标签与评分就是齐的，不会后补造成跳动。
                 val feed = GalleryFeed.enrich(source, page.items)
@@ -173,9 +195,11 @@ class SearchState(
                 AppLog.w("Search", "FAILED q=$query: $error")
             }
         } finally {
-            loading = false
-            loadingMore = false
-            refreshing = false
+            if (gen == generation) {
+                loading = false
+                loadingMore = false
+                refreshing = false
+            }
         }
     }
 

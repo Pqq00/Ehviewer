@@ -104,6 +104,9 @@ import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.glass.GlassIconButton
+import top.yukonga.miuix.kmp.glass.glassPanel
+import top.yukonga.miuix.kmp.material.GlassShape
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.blur.ProgressiveBlur
@@ -386,7 +389,16 @@ internal fun ErosSearchOverlay(
                         Row(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .background(colors.surfaceContainerHigh, CircleShape)
+                                .glassPanel(
+                                    backdrop = contentBackdrop,
+                                    shape = GlassShape(22.dp),
+                                    shading = false,
+                                    alpha = 1f,
+                                    fallback = Modifier.background(
+                                        colors.surfaceContainerHigh,
+                                        CircleShape,
+                                    ),
+                                )
                                 .padding(horizontal = 16.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -440,12 +452,12 @@ internal fun ErosSearchOverlay(
                             renderEffect = if (blur > 0.5f) BlurEffect(blur, blur, TileMode.Decal) else null
                         },
                 ) {
-                    IconButton(
+                    GlassIconButton(
                         onClick = onDismissRequest,
-                        enabled = expanded,
-                        modifier = Modifier
-                            .size(44.dp)
-                            .background(colors.surfaceContainerHigh, CircleShape),
+                        modifier = Modifier.size(44.dp),
+                        inheritTopBarMaterial = false,
+                        backdrop = contentBackdrop,
+                        size = 44.dp,
                     ) {
                         Icon(
                             MiuixIcons.Glass.Close,
