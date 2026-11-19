@@ -11,6 +11,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import app.eros.shared.ui.ErosGlassNavigationRail
@@ -52,12 +53,23 @@ internal fun ErosAppChrome(
     destination: BarDestination?,
     content: @Composable () -> Unit,
     bottomBar: @Composable (LayerBackdrop?) -> Unit,
+    contentAlpha: Float = 1f,
+    overlay: (@Composable () -> Unit)? = null,
 ) {
     // 底栏留白要提供给「页面内容」与「底栏」的共同上层：页面在自己的 LazyColumn
     // contentPadding 里读 LocalAppBottomBarInset，如果只包 bottomBar 就读不到。
     val barInset = rememberAppBottomBarInset(destination, rail != ErosChromeRail.None)
     CompositionLocalProvider(LocalAppBottomBarInset provides barInset) {
-        ErosAppChromeContent(rail, selectedTab, onSelectTab, detailActions, content, bottomBar)
+        ErosAppChromeContent(
+            rail = rail,
+            selectedTab = selectedTab,
+            onSelectTab = onSelectTab,
+            detailActions = detailActions,
+            content = content,
+            bottomBar = bottomBar,
+            contentAlpha = contentAlpha,
+            overlay = overlay,
+        )
     }
 }
 
@@ -69,6 +81,8 @@ private fun ErosAppChromeContent(
     detailActions: DetailActions,
     content: @Composable () -> Unit,
     bottomBar: @Composable (LayerBackdrop?) -> Unit,
+    contentAlpha: Float,
+    overlay: (@Composable () -> Unit)?,
 ) {
     // 记录「页面内容」的层：侧栏/顶栏/底栏都采样它（官方把同一角色叫 sidebarBackdrop）。
     val pageBackdrop = rememberBarBackdrop()
@@ -98,6 +112,12 @@ private fun ErosAppChromeContent(
             }
 
             Box(Modifier.weight(1f)) {
+                // 页面内容整体淡出（搜索浮层展开时），侧栏/底栏保持不透明且可点。
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .graphicsLayer { alpha = contentAlpha },
+                ) {
                 // 对齐官方 AppContent.kt:335-376：整窗先铺底色并裁剪（clipToBounds），
                 // 记录层（layerBackdrop）尺寸始终等于窗口；页面让位只作用于内层容器。
                 // 记录层：页面内容记录成一层，侧栏/底栏采样它（规则见 ErosGlassRecordLayer）。
@@ -143,6 +163,12 @@ private fun ErosAppChromeContent(
                         }
                     }
                 }
+
+                }
+
+                // 窗口级浮层（搜索）：放在页面内容之上、底栏之下，所以内容列让位后
+                // 侧栏仍然可见可点，底栏也保持原样 —— 与其他页面同一套 chrome 行为。
+                overlay?.invoke()
 
                 // 统一底栏：Tabs 与 Detail 共用同一实例，只切换内容；用 ErosGlassBar 保证
                 // 挂在记录层之外（规则见 ErosGlassRecordLayer）。玻璃侧栏展开时，底栏宿主

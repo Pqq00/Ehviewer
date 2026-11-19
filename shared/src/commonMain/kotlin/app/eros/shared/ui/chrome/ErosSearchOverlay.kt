@@ -94,6 +94,7 @@ import app.eros.shared.ui.SEARCH_HINTS
 import app.eros.shared.ui.SearchState
 import app.eros.shared.ui.barBlurColors
 import app.eros.shared.ui.currentBarBlurStyle
+import app.eros.shared.ui.design.erosGlassRailStartInset
 import app.eros.shared.ui.effect.erosGlassBlur
 import app.eros.shared.ui.effect.erosProgressiveGlassBlur
 import app.eros.shared.ui.effect.isShaderSupported
@@ -178,8 +179,9 @@ internal fun ErosSearchOverlay(
     val direction = LocalLayoutDirection.current
     val scope = rememberCoroutineScope()
     val topInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)
-    // 浮层盖住整个窗口，底部要让开系统导航栏（底栏已被盖住，不再有 App 底栏留白）。
-    val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    // 浮层在内容列里，底栏仍然可见：留白要和页面一样让开 App 底栏 + 系统导航栏。
+    val navBottom = LocalAppBottomBarInset.current +
+        WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
     LaunchedEffect(expanded) {
         if (expanded) {
@@ -288,6 +290,7 @@ internal fun ErosSearchOverlay(
                 modifier = Modifier.fillMaxSize(),
                 layerName = "search overlay results",
             ) {
+                Box(Modifier.fillMaxSize().erosGlassRailStartInset()) {
                 SearchOverlayBody(
                     state = state,
                     input = input,
@@ -305,6 +308,7 @@ internal fun ErosSearchOverlay(
                     },
                     onGalleryClick = onGalleryClick,
                 )
+                }
             }
             // 顶端模糊带：与页面顶栏同一套（渐进/高斯由设置决定，关闭时退回纯色底）。
             Box(
@@ -336,6 +340,7 @@ internal fun ErosSearchOverlay(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .erosGlassRailStartInset()
                     .windowInsetsPadding(topInsets)
                     .padding(horizontal = 16.dp, vertical = 4.dp)
                     .graphicsLayer {

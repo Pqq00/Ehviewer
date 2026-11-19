@@ -122,7 +122,6 @@ import top.yukonga.miuix.kmp.basic.HorizontalDivider
 
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import top.yukonga.miuix.kmp.blur.ProgressiveBlur
 import top.yukonga.miuix.kmp.blur.progressiveTextureBlur
 
@@ -438,19 +437,17 @@ fun App() {
             containerColor = Color.Transparent,
             contentWindowInsets = WindowInsets(0),
         ) { _ ->
-            // 搜索浮层要盖住侧栏与底栏，所以它在 chrome 之后绘制；页面/chrome 先按
-            // rememberGlassSearchBarAlpha 淡出，浮层再滑入（对齐官方 GlassPage 的搜索模式）。
+            // 搜索浮层挂在 chrome 的内容列里：页面淡出，侧栏与底栏保持原样（与其他页面一致）。
             val searchBarAlpha = rememberGlassSearchBarAlpha(searchExpanded)
             Box(Modifier.fillMaxSize()) {
-                Box(
-                    Modifier
-                        .fillMaxSize()
-                        .graphicsLayer { alpha = searchBarAlpha.value },
-                ) {
                     ErosAppChrome(
                 rail = railMode,
                 selectedTab = tabIndex,
-                onSelectTab = onSelectTab,
+                // 侧栏 / 底栏在搜索浮层打开时仍然可点：点标签先退出搜索再切换页面。
+                onSelectTab = { tab ->
+                    searchExpanded = false
+                    onSelectTab(tab)
+                },
                 detailActions = detailActions,
                 destination = barDestination,
                 content = {
@@ -580,12 +577,32 @@ fun App() {
                 bottomBar = { backdrop ->
                     ErosBottomBarHost(
                         destination = barDestination,
-                        onSelectTab = onSelectTab,
+                        // 与侧栏同一规则：搜索浮层打开时点底栏先退出搜索。
+                        onSelectTab = { tab ->
+                            searchExpanded = false
+                            onSelectTab(tab)
+                        },
                         backdrop = backdrop,
                     )
                 },
+                contentAlpha = searchBarAlpha.value,
+                // 搜索模式浮层（L3）：压在页面内容之上、底栏之下；返回键/点空白/Cancel 都能退出。
+                overlay = {
+                    ErosSearchOverlay(
+                        expanded = searchExpanded,
+                        state = searchState,
+                        onDismissRequest = { searchExpanded = false },
+                        onGalleryClick = { g ->
+                            searchExpanded = false
+                            push(Route.Detail(g.gid, g.token))
+                        },
+                        onOpenGallery = { ref ->
+                            searchExpanded = false
+                            push(Route.Detail(ref.gid, ref.token))
+                        },
+                    )
+                },
             )
-                }
 
                 // 帧率浮层：official example 的 FPSMonitor
                 if (AppSettings.showFps) {
@@ -596,21 +613,6 @@ fun App() {
                             .padding(top = 4.dp),
                     )
                 }
-
-                // 搜索模式浮层（L3）：压在 chrome 之上，返回键/点空白/Cancel 都能退出。
-                ErosSearchOverlay(
-                    expanded = searchExpanded,
-                    state = searchState,
-                    onDismissRequest = { searchExpanded = false },
-                    onGalleryClick = { g ->
-                        searchExpanded = false
-                        push(Route.Detail(g.gid, g.token))
-                    },
-                    onOpenGallery = { ref ->
-                        searchExpanded = false
-                        push(Route.Detail(ref.gid, ref.token))
-                    },
-                )
 
                 // popup / dialog 宿主由上面这个根 Scaffold 的 popupHost 槽位提供（默认 MiuixPopupHost）。
             }
