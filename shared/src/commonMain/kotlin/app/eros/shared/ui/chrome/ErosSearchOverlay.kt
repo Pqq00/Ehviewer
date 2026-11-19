@@ -7,6 +7,7 @@ import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.updateTransition
 import androidx.compose.foundation.background
@@ -32,6 +33,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
@@ -55,6 +57,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.BlurEffect
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.graphicsLayer
@@ -64,10 +67,12 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import app.eros.shared.PlatformBackHandler
@@ -78,6 +83,7 @@ import app.eros.shared.data.cache.GalleryCache
 import app.eros.shared.data.cache.SearchHistoryEntry
 import app.eros.shared.data.cache.TagRecord
 import app.eros.shared.settings.AppSettings
+import app.eros.shared.ui.BarBlurStyle
 import app.eros.shared.ui.CoverPrefetchEffect
 import app.eros.shared.ui.DetailPrefetchEffect
 import app.eros.shared.ui.ErosEmptyState
@@ -86,6 +92,11 @@ import app.eros.shared.ui.GalleryCard
 import app.eros.shared.ui.GalleryGridSidePadding
 import app.eros.shared.ui.SEARCH_HINTS
 import app.eros.shared.ui.SearchState
+import app.eros.shared.ui.barBlurColors
+import app.eros.shared.ui.currentBarBlurStyle
+import app.eros.shared.ui.effect.erosGlassBlur
+import app.eros.shared.ui.effect.erosProgressiveGlassBlur
+import app.eros.shared.ui.effect.isShaderSupported
 import app.eros.shared.ui.rememberGalleryColumns
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -93,6 +104,11 @@ import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.blur.LayerBackdrop
+import top.yukonga.miuix.kmp.blur.ProgressiveBlur
+import top.yukonga.miuix.kmp.blur.layerBackdrop
+import top.yukonga.miuix.kmp.blur.progressiveTextureBlur
+import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.glass.Close
 import top.yukonga.miuix.kmp.icon.glass.Search
@@ -222,6 +238,23 @@ internal fun ErosSearchOverlay(
         keyboard?.hide()
     }
 
+    // 结果网格：状态提到这里，顶栏模糊带与「搜索栏下方留白」都要用到它的滚动位置。
+    val gridState = rememberLazyGridState()
+    // 记录「搜索框下方的内容」这一层，供顶部模糊带采样（与页面顶栏同一套记录层机制）。
+    val contentBackdrop = rememberLayerBackdrop { drawContent() }
+    val topInsetPx = topInsets.getTop(LocalDensity.current)
+    val topInsetDp = with(LocalDensity.current) { topInsetPx.toDp() }
+    // 搜索栏高 44dp + 上下各 4dp 内边距，再加状态栏安全区，就是模糊带的高度。
+    val barHeight = topInsetDp + 52.dp
+    val blurSupported = AppSettings.barBlurEnabled && isShaderSupported()
+    val blurStyle = currentBarBlurStyle()
+    // 内容滚到搜索栏下面时才把带子淡入，回到顶部就淡出（与页面顶栏的 ramp 行为一致）。
+    val bandRamp by animateFloatAsState(
+        targetValue = if (gridState.canScrollBackward) 1f else 0f,
+        animationSpec = tween(150),
+        label = "searchTopBand",
+    )
+
     CompositionLocalProvider(LocalContentColor provides colors.onSurface) {
         Box(
             modifier = modifier
@@ -243,16 +276,67 @@ internal fun ErosSearchOverlay(
                 .matchParentSize()
                 .clickable(interactionSource = null, indication = null) { keyboard?.hide() },
         )
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .graphicsLayer { alpha = progress.value }
-                .windowInsetsPadding(topInsets)
                 .imePadding(),
         ) {
+            // 内容层：结果网格从搜索栏下方滚过，被记录成一层供顶端模糊带采样。
+            ErosGlassRecordLayer(
+                backdrop = contentBackdrop,
+                modifier = Modifier.fillMaxSize(),
+                layerName = "search overlay results",
+            ) {
+                SearchOverlayBody(
+                    state = state,
+                    input = input,
+                    suggestions = suggestions,
+                    recent = recent,
+                    navBottom = navBottom,
+                    gridState = gridState,
+                    topPadding = barHeight + 8.dp,
+                    onPick = { term -> input = term; submit(term) },
+                    onClearHistory = {
+                        scope.launch {
+                            GalleryCache.clearSearchHistory()
+                            recent = emptyList()
+                        }
+                    },
+                    onGalleryClick = onGalleryClick,
+                )
+            }
+            // 顶端模糊带：与页面顶栏同一套（渐进/高斯由设置决定，关闭时退回纯色底）。
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .height(barHeight)
+                    .graphicsLayer { alpha = bandRamp }
+                    .then(
+                        when {
+                            !blurSupported -> Modifier
+                            blurStyle == BarBlurStyle.PROGRESSIVE -> Modifier.erosProgressiveGlassBlur(
+                                backdrop = contentBackdrop,
+                                shape = RectangleShape,
+                                blurRadius = 25f,
+                                colors = barBlurColors(0.3f),
+                                gradient = ProgressiveBlur.Top.copy(curve = 0.5f),
+                            )
+                            else -> Modifier.erosGlassBlur(
+                                backdrop = contentBackdrop,
+                                shape = RectangleShape,
+                                blurRadius = 25f,
+                                colors = barBlurColors(0.8f),
+                            )
+                        },
+                    )
+                    // 不支持模糊（低版本 Android / 关闭栏模糊）时给一层不透明底，避免文字压在卡片上看不清。
+                    .then(if (blurSupported) Modifier else Modifier.background(colors.background)),
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .windowInsetsPadding(topInsets)
                     .padding(horizontal = 16.dp, vertical = 4.dp)
                     .graphicsLayer {
                         translationY = -topInsets.getTop(this) * (1f - progress.value)
@@ -367,22 +451,6 @@ internal fun ErosSearchOverlay(
                     }
                 }
             }
-
-            SearchOverlayBody(
-                state = state,
-                input = input,
-                suggestions = suggestions,
-                recent = recent,
-                navBottom = navBottom,
-                onPick = { term -> input = term; submit(term) },
-                onClearHistory = {
-                    scope.launch {
-                        GalleryCache.clearSearchHistory()
-                        recent = emptyList()
-                    }
-                },
-                onGalleryClick = onGalleryClick,
-            )
         }
     }
     }
@@ -396,11 +464,12 @@ private fun SearchOverlayBody(
     suggestions: List<TagRecord>,
     recent: List<SearchHistoryEntry>,
     navBottom: androidx.compose.ui.unit.Dp,
+    gridState: LazyGridState,
+    topPadding: Dp,
     onPick: (String) -> Unit,
     onClearHistory: () -> Unit,
     onGalleryClick: (GalleryUi) -> Unit,
 ) {
-    val gridState = rememberLazyGridState()
     CoverPrefetchEffect(gridState, state.items)
     DetailPrefetchEffect(gridState, state.items)
 
@@ -408,7 +477,8 @@ private fun SearchOverlayBody(
         val gridPadding = PaddingValues(
             start = GalleryGridSidePadding,
             end = GalleryGridSidePadding,
-            top = 12.dp,
+            // 顶部让出搜索栏（含状态栏安全区），内容滚动时才从栏下穿过。
+            top = topPadding + 12.dp,
             bottom = navBottom + 12.dp,
         )
         val columns = if (AppSettings.cardStyle == "download") {
@@ -420,7 +490,13 @@ private fun SearchOverlayBody(
             derivedStateOf {
                 val info = gridState.layoutInfo
                 // 头部是「搜索框提交 / 建议 / 最近搜索」这类整行项，卡片从 headerCount 之后开始。
-                val headerCount = 1
+                val headerCount = if (!state.searched || suggestions.isNotEmpty() ||
+                    (input.isNotBlank() && input.trim() != state.query)
+                ) {
+                    1
+                } else {
+                    0
+                }
                 val lastIndex = headerCount + state.items.size - 1
                 state.items.isNotEmpty() && !state.loadingMore &&
                     info.visibleItemsInfo.any { it.index >= lastIndex }
@@ -438,7 +514,10 @@ private fun SearchOverlayBody(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            if (!state.searched || suggestions.isNotEmpty()) {
+            // 头部条：未搜索时给建议/最近/示例；已搜索但输入框改过词时只保留显式提交行。
+            if (!state.searched || suggestions.isNotEmpty() ||
+                (input.isNotBlank() && input.trim() != state.query)
+            ) {
                 item(span = { GridItemSpan(maxLineSpan) }, key = "hints") {
                     Column(Modifier.fillMaxWidth()) {
                         // 顶部给一行显式提交：不依赖软键盘的回车/搜索键。
