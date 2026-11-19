@@ -1,13 +1,15 @@
-feat(cache): show per-layer usage and clear caches by scope
+feat(cache): cap parsed-model cache and decouple bitmap budget
 
-Settings used to expose one "image cache" row that wiped every layer at
-once. Now the storage section lists the four real layers - HTTP responses,
-parsed list/detail models, page lists and reader images - with their own
-size and their own confirm dialog, plus the Coil loader row.
+The parsed-model database grew without a limit: TTL pruning only removed
+expired rows, so a heavy user kept everything fetched within 7 days. It
+now has a 24MB content quota and evicts the least recently fetched list
+pages and details until it fits. The quota is measured on row payload
+bytes because SQLite does not shrink its file after deletes.
 
-- core HttpCacheBridge.sizeBytes (SQLite SUM(LENGTH(body)) on Android)
-- GalleryCacheStore.usageBytes (database file size on Android)
-- CacheManager/CacheScope as the single place that reports usage and
-  clears one scope, so logins and site switches keep their own bridges
-- parsed-model keys now carry a schema version and the signed-in state,
-  and PAGE/DETAIL TTLs follow the HTTP cache (1h/6h) instead of 7 days
+The HTTP layer also stops storing single responses above 4MB, which are
+not page markup and would otherwise crowd out normal entries.
+
+Bitmap cache used to share pageCacheLimitMb with the on-disk image cache,
+so 500MB of disk imagery also meant 500MB of decoded bitmaps. It now has
+its own bitmapCacheMb budget (32-512MB, default 128) exposed in reader
+settings, and the reader LRU follows it.

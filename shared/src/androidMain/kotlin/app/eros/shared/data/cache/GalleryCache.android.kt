@@ -416,9 +416,44 @@ internal class AndroidGalleryCacheStore(context: Context) : GalleryCacheStore {
                 db.delete("detail", "fetched_at < ?", arrayOf((now - detailMaxAgeMs).toString()))
                 // 画廊元数据保留 30 天；列表/详情引用会优先命中。
                 db.delete("gallery", "updated_at < ?", arrayOf((now - 30L * 24 * 60 * 60 * 1000).toString()))
+                enforceSizeCapLocked(db)
             }
             Unit
         }
+
+    /**
+     * 容量治理：按「内容字节」而不是文件大小统计（SQLite 删除后不会立刻缩小文件，
+     * 用 `length()` 判断永远超限）。超过 [MAX_CONTENT_BYTES] 时按最久未命中先删，
+     * 列表页与详情各删一批，直到回到配额或没有可删的行。
+     */
+    private fun enforceSizeCapLocked(db: SQLiteDatabase) {
+        repeat(32) {
+            if (contentBytesLocked(db) <= MAX_CONTENT_BYTES) return
+            val pages = db.delete(
+                "list_page",
+                "rowid IN (SELECT rowid FROM list_page ORDER BY fetched_at ASC LIMIT 100)",
+                null,
+            )
+            val details = db.delete(
+                "detail",
+                "rowid IN (SELECT rowid FROM detail ORDER BY fetched_at ASC LIMIT 50)",
+                null,
+            )
+            if (pages == 0 && details == 0) return
+        }
+    }
+
+    private fun contentBytesLocked(db: SQLiteDatabase): Long {
+        val pages = db.rawQuery(
+            "SELECT IFNULL(SUM(LENGTH(gids) + LENGTH(IFNULL(next_href, ''))), 0) FROM list_page",
+            null,
+        ).use { c -> if (c.moveToFirst()) c.getLong(0) else 0L }
+        val details = db.rawQuery(
+            "SELECT IFNULL(SUM(LENGTH(payload)), 0) FROM detail",
+            null,
+        ).use { c -> if (c.moveToFirst()) c.getLong(0) else 0L }
+        return pages + details
+    }
 
     override suspend fun clearListPages() = withContext(Dispatchers.IO) {
         mutex.withLock {
@@ -718,5 +753,8 @@ internal class AndroidGalleryCacheStore(context: Context) : GalleryCacheStore {
 
     private companion object {
         val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+
+        /** 解析模型缓存的内容配额 24MB：超过后按最久未命中淘汰（见 [enforceSizeCapLocked]）。 */
+        const val MAX_CONTENT_BYTES = 24L * 1024 * 1024
     }
 }

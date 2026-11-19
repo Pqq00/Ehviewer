@@ -320,6 +320,20 @@ fun SettingsScreen(
                         AppSettings.readerPreloadPages = listOf(0, 3, 5, 10)[it]
                     },
                 )
+                ErosDropdownPreference(
+                    title = "位图缓存",
+                    items = listOf("32 MB", "64 MB", "128 MB", "256 MB", "512 MB"),
+                    selectedIndex = when (AppSettings.bitmapCacheMb) {
+                        32 -> 0
+                        64 -> 1
+                        256 -> 3
+                        512 -> 4
+                        else -> 2
+                    },
+                    onSelectedIndexChange = {
+                        AppSettings.bitmapCacheMb = listOf(32, 64, 128, 256, 512)[it]
+                    },
+                )
                 SwitchPreference(
                     title = "左右点按翻页",
                     checked = AppSettings.readerTapPaging,

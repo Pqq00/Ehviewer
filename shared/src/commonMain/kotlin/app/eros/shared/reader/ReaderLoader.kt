@@ -138,7 +138,7 @@ class ReaderLoader(
     private val addressJobs = java.util.concurrent.ConcurrentHashMap<Int, Deferred<String?>>()
 
     /**
-     * 已解码位图的 LRU，按**字节预算**逐出（`pageCacheLimitMb`）。
+     * 已解码位图的 LRU，按**字节预算**逐出（`bitmapCacheMb`，与磁盘图片缓存解耦）。
      *
      * 位图很占内存（1200×1700 的 ARGB 约 8 MB），所以不随 [pageImages] 无限增长；
      * 但翻回去看上一页时也值得留着，省掉一次解码（以及页缓存被清后的重新下载）。
@@ -151,7 +151,7 @@ class ReaderLoader(
     }
 
     private fun bitmapBudgetBytes(): Long =
-        AppSettings.pageCacheLimitMb.coerceIn(100, 2_000).toLong() * 1024L * 1024L
+        AppSettings.bitmapCacheMb.coerceIn(32, 512).toLong() * 1024L * 1024L
 
     private fun bitmapBytes(): Long {
         var sum = 0L

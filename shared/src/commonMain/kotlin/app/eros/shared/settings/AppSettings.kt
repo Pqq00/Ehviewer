@@ -155,6 +155,11 @@ object AppSettings {
         get() = state.pageCacheLimitMb
         set(value) = update { it.copy(pageCacheLimitMb = value) }
 
+    /** 已解码位图的内存预算（MB），与磁盘图片缓存解耦。 */
+    var bitmapCacheMb: Int
+        get() = state.bitmapCacheMb
+        set(value) = update { it.copy(bitmapCacheMb = value) }
+
     var pageListTtlDays: Int
         get() = state.pageListTtlDays
         set(value) = update { it.copy(pageListTtlDays = value) }

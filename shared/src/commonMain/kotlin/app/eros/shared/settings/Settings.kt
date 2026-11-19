@@ -52,6 +52,8 @@ data class Settings(
     // 阅读器
     val readerPreloadPages: Int = 3,
     val pageCacheLimitMb: Int = 500,
+    /** 已解码位图的内存预算（MB）。与磁盘图片缓存 [pageCacheLimitMb] 解耦，避免两套口径互相迁就。 */
+    val bitmapCacheMb: Int = 128,
     val pageListTtlDays: Int = 7,
     /** 图片适应方式：0 适应宽度 / 1 适应高度 / 2 原始尺寸。 */
     val readerFit: Int = 0,
@@ -109,6 +111,7 @@ data class Settings(
         navBarMode = navBarMode.coerceIn(0, 2),
         readerPreloadPages = readerPreloadPages.coerceIn(0, 10),
         pageCacheLimitMb = pageCacheLimitMb.coerceIn(100, 2000),
+        bitmapCacheMb = bitmapCacheMb.coerceIn(32, 512),
         pageListTtlDays = pageListTtlDays.coerceIn(1, 90),
         readerFit = readerFit.coerceIn(0, 2),
         readerAutoHideSeconds = readerAutoHideSeconds.coerceIn(0, 10),

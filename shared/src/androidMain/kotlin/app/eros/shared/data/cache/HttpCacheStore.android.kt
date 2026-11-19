@@ -63,6 +63,8 @@ class AndroidHttpCacheBridge(context: Context) : HttpCacheBridge {
     }
 
     override fun put(url: String, response: CachedHttpResponse) {
+        // 单条上限：异常大（如附件/图集整包）或非文本响应不入库，避免一条就吃掉整个配额。
+        if (response.body.size > MAX_ENTRY_BYTES) return
         val values = ContentValues().apply {
             put("url", url)
             put("content_type", response.contentType)
@@ -117,5 +119,8 @@ class AndroidHttpCacheBridge(context: Context) : HttpCacheBridge {
         const val DB_NAME = "http_cache.db"
         const val DB_VERSION = 1
         const val MAX_BYTES = 64L * 1024 * 1024
+
+        /** 单条响应上限 4MB：超过它就不是「页面原文」，缓存下来只会挤掉正常条目。 */
+        const val MAX_ENTRY_BYTES = 4 * 1024 * 1024
     }
 }
