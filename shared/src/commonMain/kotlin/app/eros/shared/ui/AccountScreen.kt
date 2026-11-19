@@ -79,6 +79,7 @@ import app.eros.shared.data.cache.GalleryCache
 import app.eros.shared.data.createEhApi
 import app.eros.shared.settings.AppSettings
 import app.eros.shared.system.showSystemToast
+import app.eros.shared.ui.design.erosPageHorizontalInsets
 import app.eros.shared.ui.effect.BgEffectBackground
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -198,6 +199,8 @@ fun AccountScreen(
     ErosPageScaffold(
         title = "账号",
         onBack = onBack,
+        // 炫彩背景要满宽铺到挖孔/边缘；安全区改由 LazyColumn 自己吃。
+        horizontalSafeInset = false,
     ) { innerPadding, pageScrollBehavior, barBackdrop ->
         BgEffectBackground(
                 dynamicBackground = true,
@@ -211,6 +214,7 @@ fun AccountScreen(
                     state = listState,
                     modifier = Modifier
                         .fillMaxSize()
+                        .erosPageHorizontalInsets()
                         // 键盘弹出时把列表让到键盘上方，否则 Cookie 模式三行字段会把
                         // 登录按钮压在键盘下面点不到。
                         .imePadding()

@@ -75,6 +75,13 @@ fun ErosPageScaffold(
     selectedTab: Int = 0,
     onTabSelected: (Int) -> Unit = {},
     tabVariant: ErosTabVariant = ErosTabVariant.Segmented,
+    /**
+     * 内容是否默认避开水平安全区（横屏挖孔）。
+     *
+     * 需要「背景满宽 + 内容内缩」的页面（例如账号页的炫彩背景）传 `false`，自己给内容
+     * 加 [app.eros.shared.ui.design.erosPageHorizontalInsets]；否则默认 `true`。
+     */
+    horizontalSafeInset: Boolean = true,
     content: @Composable (
         innerPadding: PaddingValues,
         scrollBehavior: ScrollBehavior,
@@ -128,16 +135,21 @@ fun ErosPageScaffold(
         // 规则与崩溃原因见 ErosGlassRecordLayer 的 KDoc。
         ErosGlassRecordLayer(
             backdrop = backdrop,
-            modifier = Modifier.fillMaxSize().erosPageHorizontalInsets(),
+            modifier = Modifier.fillMaxSize(),
             layerName = "page content",
         ) {
             // 页面内容层对页面内的玻璃弹层可见（玻璃 sheet / 对话框从这里取采样源）。
             CompositionLocalProvider(LocalPageBackdrop provides backdrop) {
                 // 玻璃侧栏的让位是「内容内缩」：暴露在侧栏下方的是满宽背景与真实内容。
                 // 记录层必须整宽：侧栏/顶栏的渐变带要在「任意 x」都有采样数据。
-                // 让位（erosGlassRailStartInset）挂在记录层内部的子 Box 上，只影响内容摆放，
-                // 不影响记录范围 —— 对应官方 example 的「内容内缩、pager 保持满宽」。
-                Box(Modifier.fillMaxSize().erosGlassRailStartInset()) {
+                // 水平安全区（横屏挖孔 46dp）同样只内缩内容：若挂在记录层上，记录层会从
+                // 挖孔内侧才开始，顶栏渐变带在挖孔那一条没有采样，表现为左上硬边浅色矩形。
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .then(if (horizontalSafeInset) Modifier.erosPageHorizontalInsets() else Modifier)
+                        .erosGlassRailStartInset(),
+                ) {
                     content(innerPadding, scrollBehavior, backdrop)
                 }
             }
