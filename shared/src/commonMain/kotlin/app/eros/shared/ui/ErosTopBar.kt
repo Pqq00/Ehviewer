@@ -9,8 +9,14 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -110,6 +116,7 @@ fun ErosTopBar(
     actions: @Composable RowScope.() -> Unit = {},
     navigationIcon: @Composable () -> Unit = {},
     blurStyleOverride: BarBlurStyle? = null,
+    isContentScrolled: Boolean? = null,
     bottomContent: @Composable () -> Unit = {},
 ) {
     val blurStyle = blurStyleOverride ?: currentBarBlurStyle()
@@ -120,6 +127,11 @@ fun ErosTopBar(
     val chromeTitleAlpha = LocalTopAppBarTitleAlpha.current
     val useBlur = backdrop != null
     val progressive = useBlur && blurStyle == BarBlurStyle.PROGRESSIVE
+    // 官方等价物：调用方给显式状态优先（页面列表的 `canScrollBackward`），
+    // 否则退回 `scrollBehavior.contentOffset < 0` 的判定。
+    val contentScrolledState = remember(scrollBehavior, isContentScrolled) {
+        derivedStateOf { isContentScrolled ?: (scrollBehavior.state.contentOffset < 0f) }
+    }
 
     Column(
         modifier = modifier
@@ -144,6 +156,10 @@ fun ErosTopBar(
     ) {
         GlassTopAppBar(
             title = title,
+            // 官方示例（`example/.../GlassPage.kt:330-337`）显式传 `isContentScrolled`
+            // （来自 `listState.canScrollBackward`），而不是只靠 `scrollBehavior` 的 offset：
+            // 宽屏侧栏模式下 `expandable=false`，offset 可能不更新，band 就不会按预期浮出。
+            isContentScrolled = contentScrolledState.value,
             titleAlpha = { chromeTitleAlpha() },
             expandable = !railMode,
             progressiveBlur = progressive,
@@ -151,7 +167,12 @@ fun ErosTopBar(
             scrollBehavior = scrollBehavior,
             // 前景（标题/图标）可以内缩，背景渐变带仍满宽 —— 官方 `contentModifier` 语义：
             // "Modifier for the foreground bar; the background band remains stationary."
-            contentModifier = contentModifier,
+            // 顶栏自己不再吃 window insets（官方 `defaultWindowInsetsPadding = false`），
+            // 顶部安全区改由 contentModifier 给前景加 padding。
+            contentModifier = contentModifier.windowInsetsPadding(
+                WindowInsets.safeDrawing.only(WindowInsetsSides.Top),
+            ),
+            defaultWindowInsetsPadding = false,
             // 高斯模糊/纯色时底色由外层负责，关掉自带渐变带。
             backgroundAlpha = { if (progressive) 1f else 0f },
             navigationIcon = navigationIcon,
