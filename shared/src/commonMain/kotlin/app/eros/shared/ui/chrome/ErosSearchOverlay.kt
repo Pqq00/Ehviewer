@@ -95,6 +95,8 @@ import app.eros.shared.ui.SEARCH_HINTS
 import app.eros.shared.ui.SearchState
 import app.eros.shared.ui.barBlurColors
 import app.eros.shared.ui.currentBarBlurStyle
+import app.eros.shared.ui.design.GlassRailChrome
+import app.eros.shared.ui.design.GlassRailStartInset
 import app.eros.shared.ui.design.erosGlassRailStartInset
 import app.eros.shared.ui.effect.erosGlassBlur
 import app.eros.shared.ui.effect.erosProgressiveGlassBlur
@@ -106,6 +108,7 @@ import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.blur.Backdrop
+import top.yukonga.miuix.kmp.glass.GlassNavigationRailDefaults
 import top.yukonga.miuix.kmp.glass.glass
 import top.yukonga.miuix.kmp.material.GlassShape
 import top.yukonga.miuix.kmp.basic.Text
@@ -250,8 +253,26 @@ internal fun ErosSearchOverlay(
     val contentBackdrop = rememberLayerBackdrop { drawContent() }
     val topInsetPx = topInsets.getTop(LocalDensity.current)
     val topInsetDp = with(LocalDensity.current) { topInsetPx.toDp() }
-    // 搜索栏高 44dp + 上下各 4dp 内边距，再加状态栏安全区，就是模糊带的高度。
-    val barHeight = topInsetDp + 52.dp
+    // 玻璃侧栏折叠时，胶囊浮在窗口顶部中央（页面靠顶栏给它留白）。搜索浮层没有顶栏，
+    // 搜索框会正好被胶囊压住，所以这里按官方 `pageInsets.searchTop` 的做法补一段让位量：
+    // 折叠时 = CollapsedTop + CollapsedHeight + 4dp，展开过程中线性收回到 0。
+    val railInsetDp = GlassRailStartInset.current()
+    val railProgress = if (GlassRailChrome.railMode) {
+        with(LocalDensity.current) {
+            (railInsetDp / (GlassNavigationRailDefaults.Margin + GlassNavigationRailDefaults.ExpandedWidth))
+                .coerceIn(0f, 1f)
+        }
+    } else {
+        1f
+    }
+    val capsuleClearance = if (GlassRailChrome.railMode) {
+        (GlassNavigationRailDefaults.CollapsedTop + GlassNavigationRailDefaults.CollapsedHeight + 4.dp) *
+            (1f - railProgress)
+    } else {
+        0.dp
+    }
+    // 搜索栏高 44dp + 上下各 4dp 内边距，再加状态栏安全区与胶囊让位，就是模糊带的高度。
+    val barHeight = topInsetDp + capsuleClearance + 52.dp
     val blurSupported = AppSettings.barBlurEnabled && isShaderSupported()
     val blurStyle = currentBarBlurStyle()
     // 内容滚到搜索栏下面时才把带子淡入，回到顶部就淡出（与页面顶栏的 ramp 行为一致）。
@@ -361,6 +382,7 @@ internal fun ErosSearchOverlay(
                     .fillMaxWidth()
                     .erosGlassRailStartInset()
                     .windowInsetsPadding(topInsets)
+                    .padding(top = capsuleClearance)
                     .padding(horizontal = 16.dp, vertical = 4.dp)
                     .graphicsLayer {
                         translationY = -topInsets.getTop(this) * (1f - progress.value)
