@@ -96,6 +96,11 @@ object AppSettings {
         get() = state.detailPrefetch
         set(value) = update { it.copy(detailPrefetch = value) }
 
+    /** 只在 Wi-Fi 等非计费网络下预取封面/详情。 */
+    var prefetchWifiOnly: Boolean
+        get() = state.prefetchWifiOnly
+        set(value) = update { it.copy(prefetchWifiOnly = value) }
+
     // ---------------------------------------------------------------- 顶栏 / 底栏
 
     var barBlurEnabled: Boolean

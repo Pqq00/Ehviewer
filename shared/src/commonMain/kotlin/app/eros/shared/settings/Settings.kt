@@ -54,6 +54,8 @@ data class Settings(
     val pageCacheLimitMb: Int = 500,
     /** 已解码位图的内存预算（MB）。与磁盘图片缓存 [pageCacheLimitMb] 解耦，避免两套口径互相迁就。 */
     val bitmapCacheMb: Int = 128,
+    /** 仅在非计费网络（Wi-Fi 等）下做封面/详情预取；移动数据下跳过。 */
+    val prefetchWifiOnly: Boolean = false,
     val pageListTtlDays: Int = 7,
     /** 图片适应方式：0 适应宽度 / 1 适应高度 / 2 原始尺寸。 */
     val readerFit: Int = 0,

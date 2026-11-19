@@ -12,6 +12,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import app.eros.shared.data.GalleryUi
 import app.eros.shared.data.ThumbUrl
+import app.eros.shared.isMeteredNetwork
+import app.eros.shared.settings.AppSettings
 import coil3.SingletonImageLoader
 import coil3.compose.LocalPlatformContext
 import coil3.request.ImageRequest
@@ -46,6 +48,8 @@ fun CoverPrefetchEffect(
             .filterNotNull()
             .distinctUntilChanged()
             .collect { (lastVisible, widthPx) ->
+                // 「仅 Wi-Fi 预取」：计费网络下不主动拉封面，滑到哪加载到哪。
+                if (AppSettings.prefetchWifiOnly && isMeteredNetwork()) return@collect
                 val start = lastVisible + 1
                 if (start >= items.size) return@collect
                 val end = minOf(items.size, start + ahead)

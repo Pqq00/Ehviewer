@@ -188,26 +188,17 @@ fun SettingsScreen(
     val password = rememberTextFieldState()
 
     var netLogOn by remember { mutableStateOf(AppSettings.netLogEnabled) }
-    var confirmClearCache by remember { mutableStateOf(false) }
     var pendingClearScope by remember { mutableStateOf<app.eros.shared.data.cache.CacheScope?>(null) }
     var cacheVersion by remember { mutableIntStateOf(0) }
     var cacheUsage by remember { mutableStateOf(app.eros.shared.data.cache.CacheUsage()) }
-    var coilCacheText by remember { mutableStateOf("计算中…") }
-    val platformContext = coil3.compose.LocalPlatformContext.current
     var confirmSignOut by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
 
     LaunchedEffect(cacheVersion) {
-        // 分区统计：HTTP 原始响应 / 解析模型 / 页地址 / 阅读图片；图片加载器（Coil）单独统计。
+        // 分区统计：HTTP 原始响应 / 解析模型 / 页地址 / 阅读图片 / Coil 图片加载器。
         cacheUsage = runCatching {
             app.eros.shared.data.cache.CacheManager.usage()
         }.getOrDefault(app.eros.shared.data.cache.CacheUsage())
-        coilCacheText = runCatching {
-            val loader = coil3.SingletonImageLoader.get(platformContext)
-            val memory = loader.memoryCache?.size ?: 0L
-            val disk = loader.diskCache?.size ?: 0L
-            "内存 " + formatCacheSize(memory) + " · 磁盘 " + formatCacheSize(disk)
-        }.getOrElse { "读取失败" }
     }
 
     ErosPageScaffold(
@@ -407,19 +398,30 @@ fun SettingsScreen(
                     },
                 )
 
+                SwitchPreference(
+                    title = "仅 Wi-Fi 预取",
+                    summary = "移动数据下不预取封面与详情，滑到哪加载到哪",
+                    checked = AppSettings.prefetchWifiOnly,
+                    onCheckedChange = { AppSettings.prefetchWifiOnly = it },
+                )
+
                 app.eros.shared.data.cache.CacheScope.entries.forEach { scope ->
+                    val summary = if (scope == app.eros.shared.data.cache.CacheScope.ImageLoader) {
+                        if (cacheUsage.imageLoaderKnown) {
+                            "内存 " + formatCacheSize(cacheUsage.imageLoaderMemory) +
+                                " · 磁盘 " + formatCacheSize(cacheUsage.imageLoaderDisk)
+                        } else {
+                            "此平台不可用"
+                        }
+                    } else {
+                        formatCacheSize(cacheUsage.of(scope)) + " · " + scope.summary
+                    }
                     ArrowPreference(
                         title = scope.title,
-                        summary = formatCacheSize(cacheUsage.of(scope)) + " · " + scope.summary,
+                        summary = summary,
                         onClick = { pendingClearScope = scope },
                     )
                 }
-
-                ArrowPreference(
-                    title = "图片加载器",
-                    summary = coilCacheText,
-                    onClick = { confirmClearCache = true },
-                )
 
             }
         }
@@ -688,44 +690,6 @@ fun SettingsScreen(
                             app.eros.shared.data.cache.CacheManager.clear(clearing)
                             cacheVersion++
                         }
-                    }
-                },
-                modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.buttonColors(
-                    color = MiuixTheme.colorScheme.primary,
-                    contentColor = MiuixTheme.colorScheme.onPrimary,
-                ),
-            ) { Text("清理", style = MiuixTheme.textStyles.button) }
-        }
-    }
-
-    TrackOverlay(confirmClearCache)
-    ErosDialog(
-        backdrop = LocalPageBackdrop.current,
-        show = confirmClearCache,
-        title = "清理图片加载器缓存",
-        summary = "内存与磁盘图片缓存会一起清空，之后需重新下载",
-        onDismissRequest = { confirmClearCache = false },
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Button(
-                onClick = { confirmClearCache = false },
-                modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.buttonColors(),
-            ) { Text("取消", style = MiuixTheme.textStyles.button) }
-            Button(
-                onClick = {
-                    confirmClearCache = false
-                    scope.launch {
-                        runCatching {
-                            val loader = coil3.SingletonImageLoader.get(platformContext)
-                            loader.memoryCache?.clear()
-                            loader.diskCache?.clear()
-                        }
-                        cacheVersion++
                     }
                 },
                 modifier = Modifier.weight(1f),

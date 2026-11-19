@@ -6,6 +6,8 @@ package app.eros.shared.data.cache
 import com.hippo.ehviewer.util.AppLog
 
 import app.eros.shared.data.createEhApi
+import app.eros.shared.isMeteredNetwork
+import app.eros.shared.settings.AppSettings
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -25,6 +27,8 @@ object DetailPrefetcher {
     private val inFlight = mutableSetOf<String>()
 
     suspend fun prefetch(gid: Long, token: String) {
+        // 「仅 Wi-Fi 预取」：计费网络下不主动拉详情，用户点进去时再正常请求。
+        if (AppSettings.prefetchWifiOnly && isMeteredNetwork()) return
         if (DetailMemoryCache.isFresh(gid, token)) return
         val key = "$gid:$token"
         mutex.withLock { if (!inFlight.add(key)) return }
