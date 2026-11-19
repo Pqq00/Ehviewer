@@ -80,6 +80,7 @@ import app.eros.shared.filter.FilterMode
 import app.eros.shared.filter.FilterRule
 import app.eros.shared.proxy.applyProxy
 import app.eros.shared.reader.ReaderFit
+import app.eros.shared.isDebugBuild
 import com.hippo.ehviewer.net.EhHttp
 import app.eros.shared.settings.AppSettings
 import app.eros.shared.system.showSystemToast
@@ -398,29 +399,32 @@ fun SettingsScreen(
                     },
                 )
 
-                SwitchPreference(
-                    title = "仅 Wi-Fi 预取",
-                    summary = "移动数据下不预取封面与详情，滑到哪加载到哪",
-                    checked = AppSettings.prefetchWifiOnly,
-                    onCheckedChange = { AppSettings.prefetchWifiOnly = it },
-                )
-
-                app.eros.shared.data.cache.CacheScope.entries.forEach { scope ->
-                    val summary = if (scope == app.eros.shared.data.cache.CacheScope.ImageLoader) {
-                        if (cacheUsage.imageLoaderKnown) {
-                            "内存 " + formatCacheSize(cacheUsage.imageLoaderMemory) +
-                                " · 磁盘 " + formatCacheSize(cacheUsage.imageLoaderDisk)
-                        } else {
-                            "此平台不可用"
-                        }
-                    } else {
-                        formatCacheSize(cacheUsage.of(scope)) + " · " + scope.summary
-                    }
-                    ArrowPreference(
-                        title = scope.title,
-                        summary = summary,
-                        onClick = { pendingClearScope = scope },
+                // 缓存分区与「仅 Wi-Fi 预取」目前只作为调试/验证入口，发行版不暴露。
+                if (isDebugBuild) {
+                    SwitchPreference(
+                        title = "仅 Wi-Fi 预取",
+                        summary = "移动数据下不预取封面与详情，滑到哪加载到哪",
+                        checked = AppSettings.prefetchWifiOnly,
+                        onCheckedChange = { AppSettings.prefetchWifiOnly = it },
                     )
+
+                    app.eros.shared.data.cache.CacheScope.entries.forEach { scope ->
+                        val summary = if (scope == app.eros.shared.data.cache.CacheScope.ImageLoader) {
+                            if (cacheUsage.imageLoaderKnown) {
+                                "内存 " + formatCacheSize(cacheUsage.imageLoaderMemory) +
+                                    " · 磁盘 " + formatCacheSize(cacheUsage.imageLoaderDisk)
+                            } else {
+                                "此平台不可用"
+                            }
+                        } else {
+                            formatCacheSize(cacheUsage.of(scope)) + " · " + scope.summary
+                        }
+                        ArrowPreference(
+                            title = scope.title,
+                            summary = summary,
+                            onClick = { pendingClearScope = scope },
+                        )
+                    }
                 }
 
             }
