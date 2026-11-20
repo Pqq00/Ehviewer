@@ -23,8 +23,8 @@ android {
         applicationId = "com.ehviewer"
         minSdk = 33
         targetSdk = 36
-        versionCode = 8
-        versionName = "1.2.4"
+        versionCode = 9
+        versionName = "1.2.5"
     }
 
     signingConfigs {
