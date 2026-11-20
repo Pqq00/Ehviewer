@@ -102,6 +102,7 @@ import app.eros.shared.ui.currentBarBlurStyle
 import app.eros.shared.ui.design.GlassRailChrome
 import app.eros.shared.ui.design.GlassRailStartInset
 import app.eros.shared.ui.design.erosGlassRailStartInset
+import app.eros.shared.ui.design.erosPageHorizontalInsets
 import app.eros.shared.ui.effect.erosGlassBlur
 import app.eros.shared.ui.effect.erosProgressiveGlassBlur
 import app.eros.shared.ui.effect.isShaderSupported
@@ -197,6 +198,11 @@ internal fun ErosSearchOverlay(
     } else {
         0.dp
     }
+    // 展开的面板是带圆角与阴影的悬浮块：内容若正好从面板右缘开始，圆角会压掉输入框
+    // 左端与首列文字的开头。页面靠自身 12dp 横向 padding 避开，搜索浮层是贴边布局，
+    // 所以这里把面板让位量再加出同样的一段间隙。安全区（横屏挖孔）另外由
+    // erosPageHorizontalInsets() 补齐，与页面内容列保持一致。
+    val railGap = 12.dp * railProgress
     // 搜索栏高 44dp + 上下各 4dp 内边距，再加状态栏安全区与胶囊让位，就是列表要让出的高度。
     val contentTopPadding = topInsetDp + capsuleClearance + 52.dp
     // 站点 Profile 切换后缓存被清空，屏上结果一起换掉。
@@ -248,8 +254,11 @@ internal fun ErosSearchOverlay(
         onDismissRequest = onDismissRequest,
         scrollMaterialThreshold = 16.dp,
         modifier = modifier,
-        // 搜索框让开玻璃侧栏，和页面内容列对齐。
-        horizontalInsetsModifier = Modifier.erosGlassRailStartInset(),
+        // 搜索框让开玻璃侧栏，和页面内容列对齐；展开的面板是带圆角的悬浮块，
+        // 这里额外留 [railGap]，否则输入框左端会被面板圆角压掉。
+        horizontalInsetsModifier = Modifier
+            .erosPageHorizontalInsets()
+            .erosGlassRailStartInset(gap = railGap),
         label = "搜索标签或关键词",
         // 结果滚过一点距离后，搜索框与 Cancel 才淡入玻璃；未搜索时列表没有滚动量。
         scrollOffset = {
@@ -278,7 +287,12 @@ internal fun ErosSearchOverlay(
             delay(180)
             suggestions = runCatching { GalleryCache.searchTags(q, 10) }.getOrDefault(emptyList())
         }
-        Box(Modifier.fillMaxSize().erosGlassRailStartInset()) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .erosPageHorizontalInsets()
+                .erosGlassRailStartInset(gap = railGap),
+        ) {
             SearchOverlayBody(
                 state = state,
                 input = query,

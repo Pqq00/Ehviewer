@@ -74,11 +74,13 @@ object GlassRailStartInset {
  * 位移会让记录层里出现空白硬边界，模糊核会把边界另一侧的卡片卷进面板。
  */
 @Composable
-fun Modifier.erosGlassRailStartInset(): Modifier {
+fun Modifier.erosGlassRailStartInset(gap: Dp = 0.dp): Modifier {
     return layout { measurable, constraints ->
         // 在这里（layout 阶段）才取 provider：竖屏→横屏切换后页面不一定重组，
         // 但一定会重新测量，所以能拿到 App.kt 最新的让位宽度。
-        val start = GlassRailStartInset.current().roundToPx().coerceIn(0, constraints.maxWidth)
+        // gap 给「内容第一像素紧贴面板右缘」的布局（如搜索浮层）留出面板圆角与边缘阴影：
+        // 普通页面自带 12dp 横向 padding，不需要额外间隙。
+        val start = (GlassRailStartInset.current() + gap).roundToPx().coerceIn(0, constraints.maxWidth)
         val placeable = measurable.measure(constraints.offset(horizontal = -start))
         layout(placeable.width + start, placeable.height) {
             placeable.placeRelative(start, 0)
