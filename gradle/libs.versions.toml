@@ -1,12 +1,15 @@
 [versions]
 agp = "9.4.1"
-kotlin = "2.4.20"
-compose = "1.12.0"
+kotlin = "2.4.21"
+# 0.9.5-beta02 要求 Compose Multiplatform 1.13.0-rc01（用到 computedStateOf、
+# CapturedAnimatedVisibility、DialogProperties.scrimAlpha），并新增传递依赖
+# androidx.navigationevent:navigationevent-compose（由 settings.gradle.kts 的 google() 解析）。
+compose = "1.13.0-rc01"
 activityCompose = "1.13.0"
-# 0.9.5-beta01：miuix 首次把 miuix-material / miuix-glass / miuix-glass-icons 正式发到 Maven Central
-# （2026-11-17），因此不再需要 GitHub Packages 快照与 read:packages 凭据。
-# 升级方式：把它换成 maven-metadata.xml 里的新哈希，同时确认 11 个模块都有该版本。
-miuix = "0.9.5-beta01"
+# 0.9.5-beta02：miuix-glass 内置 GlassSearchOverlay / GlassTextField，GlassTopAppBar 的渐进模糊
+# 改由 maskProgress 驱动并把 band 顶部对齐 systemBars；ScrollBar 与 MiuixWindow 有破坏性变更
+# （本项目均未使用）。升级方式：换成 maven-metadata.xml 里的新版本，并确认 9 个模块都有该版本。
+miuix = "0.9.5-beta02"
 lifecycle = "2.11.0"
 coil = "3.6.3"
 coreKtx = "1.13.1"

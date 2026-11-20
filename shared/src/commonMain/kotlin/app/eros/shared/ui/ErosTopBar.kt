@@ -167,11 +167,10 @@ fun ErosTopBar(
             scrollBehavior = scrollBehavior,
             // 前景（标题/图标）可以内缩，背景渐变带仍满宽 —— 官方 `contentModifier` 语义：
             // "Modifier for the foreground bar; the background band remains stationary."
-            // 顶栏自己不再吃 window insets（官方 `defaultWindowInsetsPadding = false`），
-            // 安全区改由 contentModifier 只给前景加 padding（官方 `appPageTopBarInsets()`
-            // = 水平安全区 + 顶部安全区）：横屏左侧有挖孔时，标题/返回箭头不能被画进挖孔区。
+            // 顶部安全区（状态栏/挖孔）自 0.9.5-beta02 起由 miuix 顶栏内部无条件处理
+            // （band 也按 systemBars 计算高度），这里只补水平安全区，避免顶部加两次。
             contentModifier = contentModifier.windowInsetsPadding(
-                WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal),
+                WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal),
             ),
             defaultWindowInsetsPadding = false,
             // 高斯模糊/纯色时底色由外层负责，关掉自带渐变带。

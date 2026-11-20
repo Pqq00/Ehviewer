@@ -22,8 +22,9 @@ dependencyResolutionManagement {
             name = "miuixCentral"
             content { includeGroup("top.yukonga.miuix.kmp") }
         }
-        maven("https://maven.aliyun.com/repository/public")
-        maven("https://maven.aliyun.com/repository/google")
+        // Google Maven 必须排在 aliyun 镜像之前：aliyun 的 google 镜像有时只有模块元数据、
+        // 缺 desktop 分类 jar（如 compose 1.13 的 runtime-retain-desktop），Gradle 命中元数据后
+        // 不会回退到下一个仓库，会直接报 Could not find ...jar。
         google {
             mavenContent {
                 includeGroupAndSubgroups("androidx")
@@ -31,6 +32,8 @@ dependencyResolutionManagement {
                 includeGroupAndSubgroups("com.google")
             }
         }
+        maven("https://maven.aliyun.com/repository/public")
+        maven("https://maven.aliyun.com/repository/google")
         mavenCentral()
     }
 }
