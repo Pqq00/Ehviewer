@@ -4,13 +4,14 @@
 package app.eros.shared.media
 
 import com.hippo.ehviewer.util.AppLog
-
+import app.eros.shared.platform.StorageArea
+import app.eros.shared.platform.storagePath
 import java.io.File
 
 private const val MAX_GALLERIES = 100
 
 private fun pageListDir(): File {
-    val dir = File(System.getProperty("java.io.tmpdir"), "eros-page-lists")
+    val dir = File(storagePath(StorageArea.PageLists))
     if (!dir.exists()) dir.mkdirs()
     return dir
 }

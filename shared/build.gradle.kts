@@ -21,6 +21,10 @@ kotlin {
     jvm("desktop")
 
     sourceSets {
+        // 「平台无关、但依赖 JVM core」的共享实现：android 与 desktop 共用一份，
+        // 避免 EhApi / DownloadStore / PageListStore / ProxyBridge / TimeFormat 各抄一遍。
+        // 注意 commonMain 不能直接依赖 :core（JVM 模块），所以放在这一层。
+        val jvmSharedMain by creating { dependsOn(commonMain.get()) }
         commonMain.dependencies {
             implementation(libs.miuix.ui)
             implementation(libs.miuix.preference)
@@ -58,6 +62,12 @@ kotlin {
             implementation(compose.ui)
             implementation(project(":core"))
             implementation(libs.coil.network.okhttp)
+        }
+        // 两个 JVM 目标都继承 jvmSharedMain；jvmSharedMain 自己依赖 :core。
+        androidMain.get().dependsOn(jvmSharedMain)
+        desktopMain.dependsOn(jvmSharedMain)
+        jvmSharedMain.dependencies {
+            implementation(project(":core"))
         }
     }
 }

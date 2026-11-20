@@ -3,7 +3,8 @@
 
 package app.eros.shared.download
 
-import app.eros.shared.settings.AndroidPlatform
+import app.eros.shared.platform.StorageArea
+import app.eros.shared.platform.storagePath
 import kotlinx.serialization.json.Json
 import java.io.File
 import java.nio.file.AtomicMoveNotSupportedException
@@ -13,7 +14,7 @@ import java.nio.file.StandardCopyOption
 private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
 
 private fun root(): File {
-    val dir = File(AndroidPlatform.appContext.filesDir, DownloadManifest.DIR_NAME)
+    val dir = File(storagePath(StorageArea.DownloadsBase), DownloadManifest.DIR_NAME)
     if (!dir.exists()) dir.mkdirs()
     return dir
 }
