@@ -5,25 +5,15 @@ package app.eros.shared.ui
 
 import com.hippo.ehviewer.util.AppLog
 
-import androidx.compose.foundation.layout.WindowInsets
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridState
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.ScrollState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -33,9 +23,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import app.eros.shared.data.GalleryFeed
 import app.eros.shared.data.GalleryMetaEnricher
@@ -58,13 +46,8 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
-import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.IconButton
-import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
-import top.yukonga.miuix.kmp.basic.PullToRefresh
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Search
 import top.yukonga.miuix.kmp.squircle.squircleSurface
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -509,115 +492,23 @@ fun FavouritesScreen(
         navigationIcon = { AccountEntry(onOpenAccount) },
         actions = { HistoryAndSearchEntries(onOpenHistory, onOpenSearch) },
     ) { innerPadding, pageScrollBehavior, pageBackdrop ->
-        Box(
-            Modifier
-                .fillMaxSize()
-        ) {
-            PullToRefresh(
-                isRefreshing = state.loading && state.items.isNotEmpty(),
-                onRefresh = { state.refresh() },
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(
-                    start = 12.dp,
-                    end = 12.dp,
-                    top = innerPadding.calculateTopPadding() + 12.dp,
-                    bottom = barInset + 12.dp,
-                ),
-                topAppBarScrollBehavior = pageScrollBehavior,
-            ) {
-                // 列数按容器实测宽度算：rail 展开时窗口宽 ≠ 内容宽，按窗口算会多一列。
-                BoxWithConstraints(Modifier.fillMaxSize()) {
-                val columns = if (AppSettings.cardStyle == "download") {
-                    rememberListColumns(maxWidth - GalleryGridSidePadding * 2)
-                } else {
-                    rememberGalleryColumns(maxWidth - GalleryGridSidePadding * 2)
-                }
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(columns),
-                    state = gridState,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .nestedScroll(pageScrollBehavior.nestedScrollConnection),
-                    contentPadding = PaddingValues(
-                        start = 12.dp,
-                        end = 12.dp,
-                        top = innerPadding.calculateTopPadding() + 12.dp,
-                        bottom = barInset + 12.dp,
-                    ),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    item(span = { GridItemSpan(maxLineSpan) }, key = "catRow") {
-                        FavouritesCatRow(state, state.catRowScroll)
-                    }
-
-                    if (state.loading && state.items.isEmpty()) {
-                        // 骨架由外层 [SkeletonGridOverlay] 负责淡出，这里不再画骨架项。
-                    } else if (state.error != null && state.items.isEmpty()) {
-                        item(span = { GridItemSpan(maxLineSpan) }) {
-                            ErosErrorState(
-                                message = state.error,
-                                onRetry = { state.retry() },
-                                modifier = Modifier.fillMaxWidth().height(200.dp),
-                            )
-                        }
-                    } else if (state.items.isEmpty()) {
-                        item(span = { GridItemSpan(maxLineSpan) }) {
-                            ErosEmptyState(
-                                title = "这个收藏夹是空的",
-                                description = "在详情页点收藏，选择一个收藏夹",
-                                modifier = Modifier.fillMaxWidth().height(200.dp),
-                            )
-                        }
-                    } else {
-                        itemsIndexed(state.items, key = { _, it -> it.gid }) { index, g ->
-                            GalleryCard(
-                                gallery = g,
-                                index = index,
-                                scrolling = gridState.isScrollInProgress,
-                                onClick = { onGalleryClick(g) },
-                            )
-                        }
-                        if (state.loadingMore) {
-                            item(span = { GridItemSpan(maxLineSpan) }) {
-                                Box(
-                                    Modifier.fillMaxWidth().padding(16.dp),
-                                    contentAlignment = Alignment.Center,
-                                ) { CircularProgressIndicator() }
-                            }
-                        }
-
-                        if (state.endReached) {
-                            item(span = { GridItemSpan(maxLineSpan) }) {
-                                Box(
-                                    Modifier.fillMaxWidth().padding(16.dp),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    Text(
-                                        "没有更多了",
-                                        style = MiuixTheme.textStyles.footnote2,
-                                        color = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // 首屏骨架整层覆盖，内容到达时淡出；收藏夹 chips 始终是真的。
-                SkeletonGridOverlay(
-                    visible = state.loading && state.items.isEmpty(),
-                    columns = columns,
-                    contentPadding = PaddingValues(
-                        start = 12.dp,
-                        end = 12.dp,
-                        top = innerPadding.calculateTopPadding() + 12.dp,
-                        bottom = barInset + 12.dp,
-                    ),
-                    header = { FavouritesCatRow(state, state.catRowScroll) },
-                )
-                }
-            }
-        }
+        PagedGalleryGrid(
+            items = state.items,
+            gridState = gridState,
+            isRefreshing = state.loading && state.items.isNotEmpty(),
+            initialLoading = state.loading && state.items.isEmpty(),
+            loadingMore = state.loadingMore,
+            endReached = state.endReached,
+            error = state.error,
+            innerPadding = innerPadding,
+            pageScrollBehavior = pageScrollBehavior,
+            onRefresh = { state.refresh() },
+            onRetry = { state.retry() },
+            onItemClick = onGalleryClick,
+            emptyTitle = "这个收藏夹是空的",
+            emptyDescription = "在详情页点收藏，选择一个收藏夹",
+            emptyHeight = 200.dp,
+            header = { FavouritesCatRow(state, state.catRowScroll) },
+        )
     }
 }

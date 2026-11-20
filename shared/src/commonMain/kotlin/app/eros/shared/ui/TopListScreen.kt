@@ -3,26 +3,10 @@
 
 package app.eros.shared.ui
 
-import androidx.compose.foundation.clickable
 import com.hippo.ehviewer.util.AppLog
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridState
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.itemsIndexed
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -31,10 +15,6 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.unit.dp
 import app.eros.shared.data.GalleryFeed
 import app.eros.shared.data.GalleryMetaEnricher
 import app.eros.shared.data.GalleryMetaEnricher.enrichRetryLoop
@@ -42,10 +22,7 @@ import app.eros.shared.data.GalleryUi
 import app.eros.shared.data.cache.GalleryCache
 import app.eros.shared.data.RankPeriod
 import app.eros.shared.data.EhApi
-import app.eros.shared.data.toEhError
 import app.eros.shared.data.withEhErrors
-import app.eros.shared.ui.design.AppErrorState
-import app.eros.shared.data.userMessage
 import app.eros.shared.data.createEhApi
 import app.eros.shared.settings.AppSettings
 import kotlinx.coroutines.CancellationException
@@ -53,12 +30,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
-import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
-import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
-import top.yukonga.miuix.kmp.basic.PullToRefresh
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.squircle.squircleSurface
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 import app.eros.shared.ui.chrome.LocalAppBottomBarInset
 
 /**
@@ -370,111 +341,20 @@ fun TopListScreen(
         selectedTab = state.periodIndex,
         onTabSelected = { state.selectPeriod(it) },
     ) { innerPadding, pageScrollBehavior, pageBackdrop ->
-        Box(Modifier.fillMaxSize()) {
-        // 内容由 ErosPageScaffold 记录成一层，顶栏与玻璃时段 Tab 都从这一层采样；
-        // Tab 本身留在这层外面（规则见 ErosGlassRecordLayer）。
-        Box(
-            Modifier
-                .fillMaxSize()
-        ) {
-            PullToRefresh(
-                isRefreshing = state.refreshing,
-                onRefresh = { state.refresh() },
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(
-                    start = 12.dp,
-                    end = 12.dp,
-                    top = innerPadding.calculateTopPadding() + 12.dp,
-                    bottom = barInset + 12.dp,
-                ),
-                topAppBarScrollBehavior = pageScrollBehavior,
-            ) {
-                // 列数按容器实测宽度算：rail 展开时窗口宽 ≠ 内容宽，按窗口算会多一列。
-                BoxWithConstraints(Modifier.fillMaxSize()) {
-                val columns = if (AppSettings.cardStyle == "download") {
-                    rememberListColumns(maxWidth - GalleryGridSidePadding * 2)
-                } else {
-                    rememberGalleryColumns(maxWidth - GalleryGridSidePadding * 2)
-                }
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(columns),
-                    state = gridState,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .nestedScroll(pageScrollBehavior.nestedScrollConnection),
-                    contentPadding = PaddingValues(
-                        start = 12.dp,
-                        end = 12.dp,
-                        top = innerPadding.calculateTopPadding() + 12.dp,
-                        bottom = barInset + 12.dp,
-                    ),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    // 时段 Tab 已浮在网格上方（见外层 ErosTabRow），这里不再作为网格首项。
-                    when {
-                        // 骨架由外层 [SkeletonGridOverlay] 负责淡出，这里不再画骨架项。
-                        state.loading && state.items.isEmpty() -> Unit
-
-                        state.error != null && state.items.isEmpty() -> item(
-                            span = { GridItemSpan(maxLineSpan) },
-                            key = "error",
-                        ) {
-                            AppErrorState(onRetry = { state.retry() })
-                        }
-
-                        else -> {
-                            itemsIndexed(state.items, key = { _, it -> it.gid }) { index, item ->
-                                GalleryCard(
-                                    gallery = item,
-                                    index = index,
-                                    scrolling = gridState.isScrollInProgress,
-                                    onClick = { onGalleryClick(item) },
-                                )
-                            }
-
-                            if (state.loadingMore) {
-                                item(span = { GridItemSpan(maxLineSpan) }, key = "loadingMore") {
-                                    Box(
-                                        Modifier.fillMaxWidth().padding(16.dp),
-                                        contentAlignment = Alignment.Center,
-                                    ) { CircularProgressIndicator() }
-                                }
-                            }
-
-                            if (state.endReached && state.items.isNotEmpty()) {
-                                item(span = { GridItemSpan(maxLineSpan) }, key = "end") {
-                                    Box(
-                                        Modifier.fillMaxWidth().height(48.dp),
-                                        contentAlignment = Alignment.Center,
-                                    ) {
-                                        Text(
-                                            "没有更多了",
-                                            style = MiuixTheme.textStyles.footnote2,
-                                            color = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // 首屏骨架整层覆盖，内容到达时淡出；上半部分的时段 chips 始终是真的。
-                SkeletonGridOverlay(
-                    visible = state.loading && state.items.isEmpty(),
-                    columns = columns,
-                    contentPadding = PaddingValues(
-                        start = 12.dp,
-                        end = 12.dp,
-                        top = innerPadding.calculateTopPadding() + 12.dp,
-                        bottom = barInset + 12.dp,
-                    ),
-                    header = {},
-                )
-                }
-            }
-        }
-        }
+        PagedGalleryGrid(
+            items = state.items,
+            gridState = gridState,
+            isRefreshing = state.refreshing,
+            initialLoading = state.loading && state.items.isEmpty(),
+            loadingMore = state.loadingMore,
+            endReached = state.endReached,
+            error = state.error,
+            innerPadding = innerPadding,
+            pageScrollBehavior = pageScrollBehavior,
+            onRefresh = { state.refresh() },
+            onRetry = { state.retry() },
+            onItemClick = onGalleryClick,
+            skeletonHeader = null,
+        )
     }
 }

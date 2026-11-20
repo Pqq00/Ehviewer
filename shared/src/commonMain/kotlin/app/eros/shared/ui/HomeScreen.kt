@@ -11,43 +11,27 @@ import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.horizontalScroll
 
 
-import top.yukonga.miuix.kmp.icon.extended.Contacts
-import top.yukonga.miuix.kmp.icon.extended.Recent
 import top.yukonga.miuix.kmp.icon.extended.Search
 
-import top.yukonga.miuix.kmp.icon.MiuixIcons
 
-import top.yukonga.miuix.kmp.basic.IconButton
 
 import top.yukonga.miuix.kmp.basic.Icon
 
 
-import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 
-import androidx.compose.foundation.layout.WindowInsets
 
 import top.yukonga.miuix.kmp.basic.ScrollBehavior
 
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridState
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -57,7 +41,6 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -79,8 +62,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
-import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
-import top.yukonga.miuix.kmp.basic.PullToRefresh
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import app.eros.shared.ui.chrome.LocalAppBottomBarInset
@@ -556,146 +537,23 @@ fun HomeScreen(
         navigationIcon = { AccountEntry(onOpenAccount) },
         actions = { HistoryAndSearchEntries(onOpenHistory, onOpenSearch) },
     ) { innerPadding, pageScrollBehavior, pageBackdrop ->
-    Box(
-        Modifier
-            .fillMaxSize()
-    ) {
-    PullToRefresh(
-        isRefreshing = state.refreshing,
-        onRefresh = { state.refresh() },
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(
-            start = 12.dp,
-            end = 12.dp,
-            top = innerPadding.calculateTopPadding() + 12.dp,
-            bottom = barInset + 12.dp,
-        ),
-        topAppBarScrollBehavior = pageScrollBehavior,
-    ) {
-        // 用容器实测宽度算列数：rail 展开时窗口宽不等于内容宽，按窗口算会多一列、
-        // 卡片被压窄。这里扣掉页面左右各 12dp 的内边距，剩下的就是网格真正能用的宽度。
-        BoxWithConstraints(Modifier.fillMaxSize()) {
-        val columns = if (AppSettings.cardStyle == "download") {
-            rememberListColumns(maxWidth - GalleryGridSidePadding * 2)
-        } else {
-            rememberGalleryColumns(maxWidth - GalleryGridSidePadding * 2)
-        }
-        // 始终是同一棵网格；首屏的骨架单独一层覆盖在上面（见 SkeletonGridOverlay），
-        // 内容到达时整层淡出，下拉刷新和滚动在首屏就可用。
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(columns),
-            state = gridState,
-            modifier = Modifier
-                .fillMaxSize()
-                .nestedScroll(pageScrollBehavior.nestedScrollConnection),
-            contentPadding = PaddingValues(
-                start = 12.dp,
-                end = 12.dp,
-                top = innerPadding.calculateTopPadding() + 12.dp,
-                bottom = barInset + 12.dp,
-            ),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            item(span = { GridItemSpan(maxLineSpan) }, key = "catRow") {
-                HomeCatRow(state, state.catRowScroll, homeEntries, onEditEntry)
-            }
-
-            when {
-                // 首屏加载不在这里画骨架：外面那层 [SkeletonGridOverlay] 负责呼吸，
-                // 内容到达时整层淡出，避免「骨架项 → 卡片」同帧硬切。
-                state.initialLoading -> Unit
-
-                state.items.isEmpty() && state.error != null -> {
-                    item(span = { GridItemSpan(maxLineSpan) }) {
-                        ErosErrorState(
-                            message = state.error,
-                            onRetry = { state.retry() },
-                            modifier = Modifier.fillMaxWidth().height(220.dp),
-                        )
-                    }
-                }
-
-                state.items.isEmpty() -> {
-                    item(span = { GridItemSpan(maxLineSpan) }) {
-                        ErosEmptyState(
-                            title = "没有数据",
-                            description = "下拉刷新，或切换分类试试",
-                            modifier = Modifier.fillMaxWidth().height(220.dp),
-                        )
-                    }
-                }
-
-                else -> {
-                    itemsIndexed(state.items, key = { _, it -> it.gid }) { index, gallery ->
-                        GalleryCard(
-                            gallery = gallery,
-                            index = index,
-                            scrolling = gridState.isScrollInProgress,
-                            onClick = { onGalleryClick(gallery) },
-                        )
-                    }
-
-                    if (state.loadingMore) {
-                        item(span = { GridItemSpan(maxLineSpan) }) {
-                            Box(
-                                modifier = Modifier.fillMaxWidth().padding(16.dp),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                CircularProgressIndicator()
-                            }
-                        }
-                    }
-
-                    val err = state.error
-                    if (err != null) {
-                        item(span = { GridItemSpan(maxLineSpan) }) {
-                            Box(
-                                modifier = Modifier.fillMaxWidth().padding(16.dp),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Text(
-                                    "加载失败，点按重试",
-                                    style = MiuixTheme.textStyles.footnote1,
-                                    color = MiuixTheme.colorScheme.primary,
-                                    modifier = Modifier.clickable { state.retry() },
-                                )
-                            }
-                        }
-                    }
-
-                    if (state.endReached) {
-                        item(span = { GridItemSpan(maxLineSpan) }) {
-                            Box(
-                                modifier = Modifier.fillMaxWidth().padding(16.dp),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Text(
-                                    "没有更多了",
-                                    style = MiuixTheme.textStyles.footnote2,
-                                    color = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-            // 首屏骨架整层覆盖在网格上方，内容到达时淡出（180ms），而不是把骨架项原地换掉。
-            SkeletonGridOverlay(
-                visible = state.initialLoading,
-                columns = columns,
-                contentPadding = PaddingValues(
-                    start = 12.dp,
-                    end = 12.dp,
-                    top = innerPadding.calculateTopPadding() + 12.dp,
-                    bottom = barInset + 12.dp,
-                ),
-                header = { HomeCatRow(state, state.catRowScroll, homeEntries, onEditEntry) },
-            )
-        }
+        PagedGalleryGrid(
+            items = state.items,
+            gridState = gridState,
+            isRefreshing = state.refreshing,
+            initialLoading = state.initialLoading,
+            loadingMore = state.loadingMore,
+            endReached = state.endReached,
+            error = state.error,
+            innerPadding = innerPadding,
+            pageScrollBehavior = pageScrollBehavior,
+            onRefresh = { state.refresh() },
+            onRetry = { state.retry() },
+            onItemClick = onGalleryClick,
+            emptyTitle = "没有数据",
+            emptyDescription = "下拉刷新，或切换分类试试",
+            emptyHeight = 220.dp,
+            header = { HomeCatRow(state, state.catRowScroll, homeEntries, onEditEntry) },
+        )
     }
 }
-    }
-    }
