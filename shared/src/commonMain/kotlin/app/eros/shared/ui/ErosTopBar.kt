@@ -29,6 +29,9 @@ import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.ScrollBehavior
 import top.yukonga.miuix.kmp.blur.BlendColorEntry
+import app.eros.shared.ui.chrome.LocalSearchBarAlpha
+import app.eros.shared.ui.chrome.LocalSearchModeExpanded
+import app.eros.shared.ui.chrome.glassSearchBarTransition
 import top.yukonga.miuix.kmp.blur.BlurColors
 import top.yukonga.miuix.kmp.blur.BlurDefaults
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
@@ -132,6 +135,10 @@ fun ErosTopBar(
     val contentScrolledState = remember(scrollBehavior, isContentScrolled) {
         derivedStateOf { isContentScrolled ?: (scrollBehavior.state.contentOffset < 0f) }
     }
+    // 搜索浮层展开时，顶栏跟着缩小 + 模糊 + 淡出（官方 `glassSearchBarTransition`），
+    // 而不是随页面整体 alpha 一起消失，收放才有「让位给搜索」的方向感。
+    val searchModeExpanded = LocalSearchModeExpanded.current
+    val searchBarAlpha = LocalSearchBarAlpha.current
 
     Column(
         modifier = modifier
@@ -146,6 +153,17 @@ fun ErosTopBar(
                         colors = barBlurColors(),
                     )
                     else -> Modifier.background(MiuixTheme.colorScheme.surface)
+                },
+            )
+            .then(
+                if (useBlur) {
+                    Modifier.glassSearchBarTransition(
+                        expanded = searchModeExpanded,
+                        blurEnabled = AppSettings.barBlurEnabled,
+                        barAlpha = { searchBarAlpha.value },
+                    )
+                } else {
+                    Modifier
                 },
             )
             .clickable(

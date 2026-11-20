@@ -8,6 +8,8 @@ import app.eros.shared.navigation.Route
 import app.eros.shared.navigation.rememberErosNavigator
 import app.eros.shared.ui.chrome.ErosAppChrome
 import app.eros.shared.ui.chrome.ErosSearchOverlay
+import app.eros.shared.ui.chrome.LocalSearchBarAlpha
+import app.eros.shared.ui.chrome.LocalSearchModeExpanded
 import app.eros.shared.ui.chrome.BarDestination
 import app.eros.shared.ui.chrome.ErosBottomBarHost
 import app.eros.shared.ui.chrome.ErosChromeRail
@@ -440,6 +442,11 @@ fun App() {
             // 搜索浮层挂在 chrome 的内容列里：页面淡出，侧栏与底栏保持原样（与其他页面一致）。
             val searchBarAlpha = rememberGlassSearchBarAlpha(searchExpanded)
             Box(Modifier.fillMaxSize()) {
+                // 顶栏据此与浮层同步收放（官方 GlassPage 的 glassSearchBarTransition 语义）。
+                CompositionLocalProvider(
+                    LocalSearchModeExpanded provides searchExpanded,
+                    LocalSearchBarAlpha provides searchBarAlpha,
+                ) {
                     ErosAppChrome(
                 rail = railMode,
                 selectedTab = tabIndex,
@@ -610,6 +617,7 @@ fun App() {
                 },
             )
 
+                }
                 // 帧率浮层：official example 的 FPSMonitor
                 if (AppSettings.showFps) {
                     FPSMonitor(
