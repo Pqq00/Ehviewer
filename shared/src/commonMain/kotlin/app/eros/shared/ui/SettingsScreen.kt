@@ -11,7 +11,6 @@ import app.eros.shared.ui.design.AppHint
 import app.eros.shared.data.userMessage
 
 
-import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 
 import androidx.compose.runtime.mutableIntStateOf
@@ -38,12 +37,10 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 
 import androidx.compose.foundation.layout.WindowInsets
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -73,28 +70,19 @@ import app.eros.shared.auth.signIn
 import app.eros.shared.auth.signInWithCookies
 import app.eros.shared.auth.signOut
 import app.eros.shared.data.createEhApi
-import app.eros.shared.diag.exportDiagnostics
 import app.eros.shared.diag.NetLogUi
-import app.eros.shared.diag.setNetLogEnabled
 import app.eros.shared.filter.FilterMode
 import app.eros.shared.filter.FilterRule
-import app.eros.shared.proxy.applyProxy
-import app.eros.shared.reader.ReaderFit
 import app.eros.shared.isDebugBuild
-import com.hippo.ehviewer.net.EhHttp
 import app.eros.shared.settings.AppSettings
-import app.eros.shared.system.showSystemToast
 import app.eros.shared.tags.initTagDatabase
 import app.eros.shared.tags.saveTagDatabase
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.LinearProgressIndicator
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.basic.VerticalScrollBar
 import top.yukonga.miuix.kmp.basic.rememberScrollBarAdapter
 import top.yukonga.miuix.kmp.preference.SwitchPreference
@@ -185,10 +173,7 @@ fun SettingsScreen(
 
     val proxyHost = rememberTextFieldState(AppSettings.proxyHost)
     val proxyPort = rememberTextFieldState(AppSettings.proxyPort.toString())
-    val username = rememberTextFieldState()
-    val password = rememberTextFieldState()
 
-    var netLogOn by remember { mutableStateOf(AppSettings.netLogEnabled) }
     var pendingClearScope by remember { mutableStateOf<app.eros.shared.data.cache.CacheScope?>(null) }
     var cacheVersion by remember { mutableIntStateOf(0) }
     var cacheUsage by remember { mutableStateOf(app.eros.shared.data.cache.CacheUsage()) }
@@ -227,312 +212,30 @@ fun SettingsScreen(
         // ---------------------------------------------------------------- 封面
         item(key = "appearance") {
             AppSection("外观") {
-                SwitchPreference(
-                    title = "模糊封面",
-                    checked = AppSettings.blurCovers,
-                    onCheckedChange = { AppSettings.blurCovers = it },
-                )
-                ErosDropdownPreference(
-                    title = "列表布局",
-                    // 持久化值仍是 classic / download。
-                    items = listOf("网格", "列表"),
-                    selectedIndex = if (AppSettings.cardStyle == "download") 1 else 0,
-                    onSelectedIndexChange = {
-                        AppSettings.cardStyle = if (it == 1) "download" else "classic"
-                    },
-                )
-
-
-                ErosDropdownPreference(
-                    title = "标题语言",
-                    items = listOf("英文优先", "日文优先"),
-                    selectedIndex = AppSettings.galleryTitleMode,
-                    onSelectedIndexChange = { AppSettings.galleryTitleMode = it },
-                )
-                ErosDropdownPreference(
-                    title = "主题模式",
-                    items = ThemeModeEntry.entries.map { it.label },
-                    selectedIndex = AppSettings.themeMode,
-                    onSelectedIndexChange = { AppSettings.themeMode = it },
-                )
-
-                ErosDropdownPreference(
-                    title = "导航栏样式",
-                    items = NavBarStyleEntry.entries.map { it.label },
-                    selectedIndex = AppSettings.navBarStyle,
-                    onSelectedIndexChange = { AppSettings.navBarStyle = it },
-                )
-                // 「导航项显示」只对固定/悬浮两种原生样式生效；iOS 与玻璃样式的图标与文字恒定显示
-                AnimatedVisibility(visible = AppSettings.navBarStyle != 2 && AppSettings.navBarStyle != 3) {
-                    ErosDropdownPreference(
-                        title = "导航项显示",
-                        items = NavBarModeEntry.entries.map { it.label },
-                        selectedIndex = AppSettings.navBarMode,
-                        onSelectedIndexChange = { AppSettings.navBarMode = it },
-                    )
-                }
-                // 只在会真正触发侧边导航栏的宽度（≥600dp）上暴露这个开关，
-                // 手机上它永远命中不了，放着只会让人误以为能开。
-                AnimatedVisibility(visible = rememberNavigationRailBreakpointReached()) {
-                    SwitchPreference(
-                        title = "侧边导航栏",
-                        checked = AppSettings.navRail,
-                        onCheckedChange = { AppSettings.navRail = it },
-                    )
-                }
-                SwitchPreference(
-                    title = "栏模糊",
-                    summary = "Android 13+",
-                    checked = AppSettings.barBlurEnabled,
-                    onCheckedChange = { AppSettings.barBlurEnabled = it },
-                )
-                AnimatedVisibility(visible = AppSettings.barBlurEnabled) {
-                    ErosDropdownPreference(
-                        title = "顶栏模糊样式",
-                        items = BarBlurStyle.entries.map { it.label },
-                        selectedIndex = AppSettings.barBlurStyle,
-                        onSelectedIndexChange = { AppSettings.barBlurStyle = it },
-                    )
-                }
-
+                SettingsAppearanceSection()
             }
         }
         item(key = "reading") {
             AppSection("阅读") {
-                ErosDropdownPreference(
-                    title = "预加载页数",
-                    items = listOf("0 页", "3 页", "5 页", "10 页"),
-                    selectedIndex = when (AppSettings.readerPreloadPages) {
-                        0 -> 0
-                        5 -> 2
-                        10 -> 3
-                        else -> 1
-                    },
-                    onSelectedIndexChange = {
-                        AppSettings.readerPreloadPages = listOf(0, 3, 5, 10)[it]
-                    },
-                )
-                ErosDropdownPreference(
-                    title = "位图缓存",
-                    items = listOf("32 MB", "64 MB", "128 MB", "256 MB", "512 MB"),
-                    selectedIndex = when (AppSettings.bitmapCacheMb) {
-                        32 -> 0
-                        64 -> 1
-                        256 -> 3
-                        512 -> 4
-                        else -> 2
-                    },
-                    onSelectedIndexChange = {
-                        AppSettings.bitmapCacheMb = listOf(32, 64, 128, 256, 512)[it]
-                    },
-                )
-                SwitchPreference(
-                    title = "左右点按翻页",
-                    checked = AppSettings.readerTapPaging,
-                    onCheckedChange = { AppSettings.readerTapPaging = it },
-                )
-                ErosDropdownPreference(
-                    title = "页面适应",
-                    items = ReaderFit.entries.map { it.label },
-                    selectedIndex = ReaderFit.fromOrdinal(AppSettings.readerFit).ordinal,
-                    onSelectedIndexChange = { AppSettings.readerFit = it },
-                )
-                ErosDropdownPreference(
-                    title = "自动隐藏顶底栏",
-                    items = listOf("不隐藏", "2 秒", "3 秒", "5 秒"),
-                    selectedIndex = when (AppSettings.readerAutoHideSeconds) {
-                        0 -> 0
-                        2 -> 1
-                        5 -> 3
-                        else -> 2
-                    },
-                    onSelectedIndexChange = {
-                        AppSettings.readerAutoHideSeconds = listOf(0, 2, 3, 5)[it]
-                    },
-                )
-                SwitchPreference(
-                    title = "音量键翻页",
-                    checked = AppSettings.readerVolumeKeys,
-                    onCheckedChange = { AppSettings.readerVolumeKeys = it },
-                )
-                SwitchPreference(
-                    title = "双击缩放",
-                    checked = AppSettings.readerDoubleTapZoom,
-                    onCheckedChange = { AppSettings.readerDoubleTapZoom = it },
-                )
-                ErosDropdownPreference(
-                    title = "最大缩放",
-                    items = listOf("2×", "3×", "4×", "5×", "6×"),
-                    selectedIndex = (AppSettings.readerMaxZoom - 2).coerceIn(0, 4),
-                    onSelectedIndexChange = { AppSettings.readerMaxZoom = it + 2 },
-                )
-                SwitchPreference(
-                    title = "按画廊记忆模式",
-                    checked = AppSettings.readerPerGalleryMode,
-                    onCheckedChange = { AppSettings.readerPerGalleryMode = it },
-                )
-
+                SettingsReadingSection()
             }
         }
         item(key = "storage") {
             AppSection("下载与存储") {
-                ErosDropdownPreference(
-                    title = "同时下载",
-                    items = listOf("1 个", "2 个", "3 个"),
-                    selectedIndex = (AppSettings.downloadGalleryConcurrency - 1).coerceIn(0, 2),
-                    onSelectedIndexChange = {
-                        AppSettings.downloadGalleryConcurrency = it + 1
-                    },
+                SettingsStorageSection(
+                    cacheUsage = cacheUsage,
+                    onClearScope = { pendingClearScope = it },
                 )
-
-                ErosDropdownPreference(
-                    title = "单画廊并发",
-                    items = listOf("1 页", "2 页", "3 页", "5 页"),
-                    selectedIndex = when (AppSettings.downloadPageConcurrency) {
-                        1 -> 0
-                        2 -> 1
-                        5 -> 3
-                        else -> 2
-                    },
-                    onSelectedIndexChange = {
-                        AppSettings.downloadPageConcurrency = listOf(1, 2, 3, 5)[it]
-                    },
-                )
-
-                // 缓存分区与「仅 Wi-Fi 预取」目前只作为调试/验证入口，发行版不暴露。
-                if (isDebugBuild) {
-                    SwitchPreference(
-                        title = "仅 Wi-Fi 预取",
-                        summary = "移动数据下不预取封面与详情，滑到哪加载到哪",
-                        checked = AppSettings.prefetchWifiOnly,
-                        onCheckedChange = { AppSettings.prefetchWifiOnly = it },
-                    )
-
-                    app.eros.shared.data.cache.CacheScope.entries.forEach { scope ->
-                        val summary = if (scope == app.eros.shared.data.cache.CacheScope.ImageLoader) {
-                            if (cacheUsage.imageLoaderKnown) {
-                                "内存 " + formatCacheSize(cacheUsage.imageLoaderMemory) +
-                                    " · 磁盘 " + formatCacheSize(cacheUsage.imageLoaderDisk)
-                            } else {
-                                "此平台不可用"
-                            }
-                        } else {
-                            formatCacheSize(cacheUsage.of(scope)) + " · " + scope.summary
-                        }
-                        ArrowPreference(
-                            title = scope.title,
-                            summary = summary,
-                            onClick = { pendingClearScope = scope },
-                        )
-                    }
-                }
-
             }
         }
 
         item(key = "network") {
             AppSection("网络") {
-                var proxyType by remember { mutableStateOf(AppSettings.proxyType) }
-                ErosDropdownPreference(
-                    title = "代理类型",
-                    items = listOf("跟随系统", "HTTP", "SOCKS5", "直连"),
-                    selectedIndex = when (proxyType) {
-                        "http" -> 1
-                        "socks5" -> 2
-                        "direct" -> 3
-                        else -> 0
-                    },
-                    onSelectedIndexChange = { index ->
-                        val type = listOf("system", "http", "socks5", "direct")[index]
-                        proxyType = type
-                        AppSettings.proxyType = type
-                        applyProxy(type, AppSettings.proxyHost, AppSettings.proxyPort)
-                        authMessage = when (type) {
-                            "http" -> "代理：HTTP ${AppSettings.proxyHost}:${AppSettings.proxyPort}"
-                            "socks5" -> "代理：SOCKS5 ${AppSettings.proxyHost}:${AppSettings.proxyPort}"
-                            "direct" -> "代理：直连"
-                            else -> "代理：跟随系统"
-                        }
-                    },
-                )
-                if (proxyType == "http" || proxyType == "socks5") {
-                    Column(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        TextField(state = proxyHost, label = "代理主机（如 127.0.0.1）")
-                        TextField(state = proxyPort, label = "端口（如 7890）")
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                            ActionText("应用代理") {
-                                val host = proxyHost.text.toString().trim()
-                                val port = proxyPort.text.toString().trim().toIntOrNull()
-                                if (host.isBlank() || port == null || port !in 1..65535) {
-                                    authMessage = "代理地址不合法"
-                                } else {
-                                    AppSettings.proxyHost = host
-                                    AppSettings.proxyPort = port
-                                    applyProxy(proxyType, host, port)
-                                    authMessage = "已应用代理 $host:$port"
-                                }
-                            }
-                        }
-                    }
-                }
-                ErosDropdownPreference(
-                    title = "同主机并发数",
-                    items = listOf("2", "4", "6", "8"),
-                    selectedIndex = when (AppSettings.netMaxPerHost) {
-                        2 -> 0
-                        4 -> 1
-                        8 -> 3
-                        else -> 2
-                    },
-                    onSelectedIndexChange = { index ->
-                        val n = listOf(2, 4, 6, 8)[index]
-                        AppSettings.netMaxPerHost = n
-                        EhHttp.update(maxRequestsPerHost = n)
-                        authMessage = "同主机并发数：$n"
-                    },
-                )
-                ErosDropdownPreference(
-                    title = "全局限速",
-                    summary = "过高会被限流",
-                    items = listOf("不限", "4 次/秒", "6 次/秒", "8 次/秒", "12 次/秒"),
-                    selectedIndex = when (AppSettings.maxRequestsPerSecond) {
-                        0 -> 0
-                        4 -> 1
-                        8 -> 3
-                        12 -> 4
-                        else -> 2
-                    },
-                    onSelectedIndexChange = { index ->
-                        val n = listOf(0, 4, 6, 8, 12)[index]
-                        AppSettings.maxRequestsPerSecond = n
-                        EhHttp.update(maxRequestsPerSecond = n)
-                        authMessage = if (n == 0) "全局限速：不限" else "全局限速：$n 次/秒"
-                    },
-                )
-                SwitchPreference(
-                    title = "固定 IP 解析",
-                    summary = "绕开 DNS 污染",
-                    checked = AppSettings.domainFronting,
-                    onCheckedChange = { enabled ->
-                        AppSettings.domainFronting = enabled
-                        EhHttp.update(domainFronting = enabled)
-                        if (!enabled) {
-                            authMessage = "域名前置：关"
-                        } else {
-                            authMessage = "正在检测域名前置…"
-                            scope.launch {
-                                val result = withContext(Dispatchers.IO) { EhHttp.testConnection(6000) }
-                                if (result.startsWith("连接失败")) {
-                                    AppSettings.domainFronting = false
-                                    EhHttp.update(domainFronting = false)
-                                }
-                                authMessage = "域名前置：$result"
-                            }
-                        }
-                    },
+                SettingsNetworkSection(
+                    scope = scope,
+                    proxyHost = proxyHost,
+                    proxyPort = proxyPort,
+                    onMessage = { authMessage = it },
                 )
             }
         }
@@ -605,53 +308,14 @@ fun SettingsScreen(
         if (app.eros.shared.isDebugBuild) {
             item(key = "debug") {
                 AppSection("调试") {
-                    SwitchPreference(
-                        title = "显示 FPS",
-                        checked = AppSettings.showFps,
-                        onCheckedChange = { AppSettings.showFps = it },
-                    )
-                    SwitchPreference(
-                        title = "网络日志",
-                        checked = netLogOn,
-                        onCheckedChange = {
-                            netLogOn = it
-                            AppSettings.netLogEnabled = it
-                            setNetLogEnabled(it)
-                        },
-                    )
-                    AnimatedVisibility(visible = netLogOn) {
-                        ArrowPreference(
-                            title = "查看日志",
-                            onClick = { onOpenNetLog() },
-                        )
-                    }
-                    // 只用于验证崩溃日志这条链路：点一下会立刻闪退，下次启动能看到崩溃提示。
-                    ArrowPreference(
-                        title = "模拟崩溃",
-                        onClick = { throw IllegalStateException("诊断测试：模拟崩溃") },
-                    )
+                    SettingsDebugSection(onOpenNetLog = onOpenNetLog)
                 }
             }
         }
         item(key = "about") {
             AppSection("关于") {
                 // 导出日志放在「关于」而不是「调试」：release 包也需要能把问题带回来。
-                ArrowPreference(
-                    title = "导出日志",
-                    onClick = {
-                        scope.launch { showSystemToast(exportDiagnostics(share = false)) }
-                    },
-                )
-                ArrowPreference(
-                    title = "分享日志",
-                    onClick = {
-                        scope.launch { showSystemToast(exportDiagnostics(share = true)) }
-                    },
-                )
-                BasicComponent(
-                    title = "版本",
-                    summary = "${app.eros.shared.BuildInfo.version} (${app.eros.shared.BuildInfo.versionCode})",
-                )
+                SettingsAboutSection(scope)
             }
         }
     }
@@ -707,28 +371,4 @@ fun SettingsScreen(
 
 }
 
-}
-/** 卡内动作按钮：用 miuix 官方 Button（次要色 + 标准按压反馈）。 */
-@Composable
-private fun ActionText(label: String, onClick: () -> Unit) {
-    Button(
-        onClick = onClick,
-        minHeight = 34.dp,
-        insideMargin = androidx.compose.foundation.layout.PaddingValues(
-            horizontal = 14.dp,
-            vertical = 6.dp,
-        ),
-        colors = ButtonDefaults.buttonColors(
-            color = MiuixTheme.colorScheme.primary.copy(alpha = 0.12f),
-            contentColor = MiuixTheme.colorScheme.primary,
-        ),
-    ) {
-        Text(label, style = MiuixTheme.textStyles.button)
-    }
-}
-/** 字节数 → 人类可读（MB/KB）。 */
-private fun formatCacheSize(bytes: Long): String = when {
-    bytes >= 1024L * 1024L -> "%.1f MB".format(bytes / 1024.0 / 1024.0)
-    bytes >= 1024L -> "%.0f KB".format(bytes / 1024.0)
-    else -> "$bytes B"
 }
