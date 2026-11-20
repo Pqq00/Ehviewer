@@ -201,244 +201,247 @@ fun AccountScreen(
         onBack = onBack,
         // 炫彩背景要满宽铺到挖孔/边缘；安全区改由 LazyColumn 自己吃。
         horizontalSafeInset = false,
-    ) { innerPadding, pageScrollBehavior, barBackdrop ->
-        BgEffectBackground(
+        // 背景铺在记录层、内容盒子之外：玻璃侧栏展开时内容整体右移，
+        // 背景若跟着移就会露出侧栏下方的窗口底色（左侧白条）。
+        background = {
+            BgEffectBackground(
                 dynamicBackground = true,
                 modifier = Modifier.fillMaxSize(),
                 bgModifier = if (bgBackdrop != null) Modifier.layerBackdrop(bgBackdrop) else Modifier,
                 isFullSize = true,
                 isOs3Effect = true,
                 alpha = { 1f },
-            ) {
-                LazyColumn(
-                    state = listState,
+            ) {}
+        },
+    ) { innerPadding, pageScrollBehavior, barBackdrop ->
+        LazyColumn(
+            state = listState,
+            modifier = Modifier
+                .fillMaxSize()
+                .erosPageHorizontalInsets()
+                // 键盘弹出时把列表让到键盘上方，否则 Cookie 模式三行字段会把
+                // 登录按钮压在键盘下面点不到。
+                .imePadding()
+                // 键盘弹出时窗口高度塌陷，借此把登录卡顶到视口顶部。
+                .onSizeChanged { size ->
+                    if (size.height > maxListHeightPx) {
+                        maxListHeightPx = size.height
+                    } else if (!signedIn && maxListHeightPx - size.height > 300) {
+                        scope.launch { listState.animateScrollToItem(1) }
+                    }
+                }
+                .nestedScroll(pageScrollBehavior.nestedScrollConnection),
+            contentPadding = PaddingValues(
+                top = innerPadding.calculateTopPadding() + 8.dp,
+                bottom = barInset + innerPadding.calculateBottomPadding() + 24.dp,
+            ),
+        ) {
+            // logo + 名称 + 状态（About 页头部）
+            item(key = "header") {
+                Column(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .erosPageHorizontalInsets()
-                        // 键盘弹出时把列表让到键盘上方，否则 Cookie 模式三行字段会把
-                        // 登录按钮压在键盘下面点不到。
-                        .imePadding()
-                        // 键盘弹出时窗口高度塌陷，借此把登录卡顶到视口顶部。
-                        .onSizeChanged { size ->
-                            if (size.height > maxListHeightPx) {
-                                maxListHeightPx = size.height
-                            } else if (!signedIn && maxListHeightPx - size.height > 300) {
-                                scope.launch { listState.animateScrollToItem(1) }
-                            }
-                        }
-                        .nestedScroll(pageScrollBehavior.nestedScrollConnection),
-                    contentPadding = PaddingValues(
-                        top = innerPadding.calculateTopPadding() + 8.dp,
-                        bottom = barInset + innerPadding.calculateBottomPadding() + 24.dp,
-                    ),
+                        .fillMaxWidth()
+                        .padding(top = 32.dp, bottom = 20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    // logo + 名称 + 状态（About 页头部）
-                    item(key = "header") {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 32.dp, bottom = 20.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(10.dp),
-                        ) {
-                            val appIcon = LocalAppIcon.current
-                            Box(
-                                modifier = Modifier
-                                    .size(88.dp)
-                                    .clip(RoundedCornerShape(24.dp))
-                                    .background(
-                                        color = if (appIcon != null) Color.White else MiuixTheme.colorScheme.primary,
-                                    ),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                if (appIcon != null) {
-                                    // 图标是满底色方块，铺满容器（24dp 圆角由外层 clip 负责），
-                                    // 不再留一圈白边。
-                                    Image(
-                                        painter = appIcon,
-                                        contentDescription = null,
-                                        modifier = Modifier.fillMaxSize(),
-                                    )
-                                } else {
-                                    Icon(
-                                        imageVector = MiuixIcons.Contacts,
-                                        contentDescription = null,
-                                        tint = MiuixTheme.colorScheme.onPrimary,
-                                        modifier = Modifier.size(48.dp),
-                                    )
-                                }
-                            }
-                            LogoTitle(BuildInfo.name, bgBackdrop)
-                            Text(
-                                if (signedIn) {
-                                    "已登录 · " + (displayName?.takeIf { it.isNotBlank() }
-                                        ?: accountId?.takeIf { it.isNotBlank() }
-                                        ?: "-")
-                                } else {
-                                    "未登录"
-                                },
-                                style = MiuixTheme.textStyles.footnote2,
-                                color = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                                textAlign = TextAlign.Center,
+                    val appIcon = LocalAppIcon.current
+                    Box(
+                        modifier = Modifier
+                            .size(88.dp)
+                            .clip(RoundedCornerShape(24.dp))
+                            .background(
+                                color = if (appIcon != null) Color.White else MiuixTheme.colorScheme.primary,
+                            ),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (appIcon != null) {
+                            // 图标是满底色方块，铺满容器（24dp 圆角由外层 clip 负责），
+                            // 不再留一圈白边。
+                            Image(
+                                painter = appIcon,
+                                contentDescription = null,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        } else {
+                            Icon(
+                                imageVector = MiuixIcons.Contacts,
+                                contentDescription = null,
+                                tint = MiuixTheme.colorScheme.onPrimary,
+                                modifier = Modifier.size(48.dp),
                             )
                         }
                     }
+                    LogoTitle(BuildInfo.name, bgBackdrop)
+                    Text(
+                        if (signedIn) {
+                            "已登录 · " + (displayName?.takeIf { it.isNotBlank() }
+                                ?: accountId?.takeIf { it.isNotBlank() }
+                                ?: "-")
+                        } else {
+                            "未登录"
+                        },
+                        style = MiuixTheme.textStyles.footnote2,
+                        color = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                        textAlign = TextAlign.Center,
+                    )
+                }
+            }
 
-                    // 账号状态（未登录时整块不显示）
-                    if (signedIn) {
-                        item(key = "status") {
-                            SmallTitle("账号状态")
-                            GlassCard(bgBackdrop, Modifier.padding(horizontal = 12.dp)) {
-                                // 站点切换：E-Hentai（表站）/ ExHentai（里站）
-                                ArrowPreference(
-                                    title = "站点选择",
-                                    summary = if (AppSettings.exHentai) "ExHentai" else "E-Hentai",
-                                    onClick = { showSitePicker = true },
-                                )
-                                val currentProfile = profiles.firstOrNull { it.selected }?.name
-                                ArrowPreference(
-                                    title = "站点 Profile",
-                                    summary = when {
-                                        profilesLoading -> "加载中…"
-                                        currentProfile != null -> currentProfile
-                                        profiles.isEmpty() -> "点击从站点读取配置档案"
-                                        else -> "点击切换配置档案"
-                                    },
-                                    onClick = { showProfiles = true },
-                                )
-                                ArrowPreference(
-                                    title = "退出登录",
-                                    summary = "清除 Cookie",
-                                    onClick = { confirmSignOut = true },
-                                )
-                            }
-                            Spacer(Modifier.height(12.dp))
-                        }
+            // 账号状态（未登录时整块不显示）
+            if (signedIn) {
+                item(key = "status") {
+                    SmallTitle("账号状态")
+                    GlassCard(bgBackdrop, Modifier.padding(horizontal = 12.dp)) {
+                        // 站点切换：E-Hentai（表站）/ ExHentai（里站）
+                        ArrowPreference(
+                            title = "站点选择",
+                            summary = if (AppSettings.exHentai) "ExHentai" else "E-Hentai",
+                            onClick = { showSitePicker = true },
+                        )
+                        val currentProfile = profiles.firstOrNull { it.selected }?.name
+                        ArrowPreference(
+                            title = "站点 Profile",
+                            summary = when {
+                                profilesLoading -> "加载中…"
+                                currentProfile != null -> currentProfile
+                                profiles.isEmpty() -> "点击从站点读取配置档案"
+                                else -> "点击切换配置档案"
+                            },
+                            onClick = { showProfiles = true },
+                        )
+                        ArrowPreference(
+                            title = "退出登录",
+                            summary = "清除 Cookie",
+                            onClick = { confirmSignOut = true },
+                        )
                     }
+                    Spacer(Modifier.height(12.dp))
+                }
+            }
 
-                    // 登录（已登录时不显示）
-                    if (!signedIn) {
-                    item(key = "login") {
-                        SmallTitle("登录")
-                        GlassCard(bgBackdrop, Modifier.padding(horizontal = 12.dp)) {
-                            Column(
-                                modifier = Modifier.fillMaxWidth().padding(16.dp),
-                                verticalArrangement = Arrangement.spacedBy(10.dp),
+            // 登录（已登录时不显示）
+            if (!signedIn) {
+            item(key = "login") {
+                SmallTitle("登录")
+                GlassCard(bgBackdrop, Modifier.padding(horizontal = 12.dp)) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        if (cookieLogin) {
+                            TextField(state = memberId, label = "ipb_member_id", modifier = bringLoginIntoView)
+                            TextField(state = passHash, label = "ipb_pass_hash", modifier = bringLoginIntoView)
+                            TextField(state = igneous, label = "igneous（可选）", modifier = bringLoginIntoView)
+                        } else {
+                            TextField(state = username, label = "用户名 / 邮箱", modifier = bringLoginIntoView)
+                            TextField(
+                                state = password,
+                                label = "密码",
+                                modifier = bringLoginIntoView,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                                outputTransformation = passwordMask,
+                            )
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            // 左：在账号密码与 Cookie 两种登录方式之间切换
+                            IconButton(
+                                onClick = { cookieLogin = !cookieLogin },
+                                minHeight = 44.dp,
+                                minWidth = 44.dp,
                             ) {
-                                if (cookieLogin) {
-                                    TextField(state = memberId, label = "ipb_member_id", modifier = bringLoginIntoView)
-                                    TextField(state = passHash, label = "ipb_pass_hash", modifier = bringLoginIntoView)
-                                    TextField(state = igneous, label = "igneous（可选）", modifier = bringLoginIntoView)
-                                } else {
-                                    TextField(state = username, label = "用户名 / 邮箱", modifier = bringLoginIntoView)
-                                    TextField(
-                                        state = password,
-                                        label = "密码",
-                                        modifier = bringLoginIntoView,
-                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                                        outputTransformation = passwordMask,
-                                    )
-                                }
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                ) {
-                                    // 左：在账号密码与 Cookie 两种登录方式之间切换
-                                    IconButton(
-                                        onClick = { cookieLogin = !cookieLogin },
-                                        minHeight = 44.dp,
-                                        minWidth = 44.dp,
-                                    ) {
-                                        Icon(
-                                            imageVector = MiuixIcons.Background,
-                                            contentDescription = if (cookieLogin) "切换到账号密码登录" else "切换到 Cookie 登录",
-                                            tint = if (cookieLogin) MiuixTheme.colorScheme.primary
-                                            else MiuixTheme.colorScheme.onBackground,
-                                        )
-                                    }
-                                    Button(
-                                        onClick = {
-                                            if (working) return@Button
-                                            working = true
-                                            scope.launch {
-                                                val result = withContext(Dispatchers.IO) {
-                                                    if (cookieLogin) {
-                                                        signInWithCookies(
-                                                            memberId.text.toString(),
-                                                            passHash.text.toString(),
-                                                            igneous.text.toString().ifBlank { null },
-                                                        )
-                                                    } else {
-                                                        signIn(username.text.toString(), password.text.toString())
-                                                    }
-                                                }
-                                                showSystemToast(
-                                                    if (result.ok) "登录成功"
-                                                    else "登录失败：" + result.message.lineSequence().first().take(48),
-                                                )
-                                                signedIn = isSignedIn()
-                                                if (signedIn) {
-                                                    withContext(Dispatchers.IO) {
-                                                        app.eros.shared.filter.HiddenTagStore.refresh()
-                                                    }
-                                                }
-                                                working = false
-                                            }
-                                        },
-                                        enabled = !working,
-                                        colors = ButtonDefaults.buttonColorsPrimary(),
-                                        modifier = Modifier.weight(1f),
-                                    ) {
-                                        Text(if (working) "登录中…" else "登录")
-                                    }
-                                    // 右：从剪贴板填入 Cookie；密码模式下可见但不可点
-                                    IconButton(
-                                        onClick = { applyClipboardCookies() },
-                                        enabled = cookieLogin,
-                                        minHeight = 44.dp,
-                                        minWidth = 44.dp,
-                                    ) {
-                                        Icon(
-                                            imageVector = MiuixIcons.ScreenCapture,
-                                            contentDescription = "从剪贴板读取 Cookie",
-                                            tint = if (cookieLogin) MiuixTheme.colorScheme.onBackground
-                                            else MiuixTheme.colorScheme.onBackground.copy(alpha = 0.3f),
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                        Spacer(Modifier.height(12.dp))
-                    }
-                    }
-
-                    // Cookie（便于复制）
-                    if (signedIn) {
-                        item(key = "cookie") {
-                            SmallTitle("Cookie")
-                            GlassCard(bgBackdrop, Modifier.padding(horizontal = 12.dp)) {
-                                CookieRow("ipb_member_id", app.eros.shared.auth.cookieValue("ipb_member_id"))
-                                CookieRow("ipb_pass_hash", app.eros.shared.auth.cookieValue("ipb_pass_hash"))
-                                CookieRow("igneous", app.eros.shared.auth.cookieValue("igneous"))
-                                HorizontalDivider()
-                                BasicComponent(
-                                    title = "复制全部",
-                                    onClick = {
-                                        val cookie = buildString {
-                                            app.eros.shared.auth.cookieValue("ipb_member_id")?.let { append("ipb_member_id=$it; ") }
-                                            app.eros.shared.auth.cookieValue("ipb_pass_hash")?.let { append("ipb_pass_hash=$it; ") }
-                                            app.eros.shared.auth.cookieValue("igneous")?.let { append("igneous=$it; ") }
-                                        }.trim()
-                                        app.eros.shared.platformCopy(cookie)
-                                        showSystemToast("复制成功")
-                                    },
+                                Icon(
+                                    imageVector = MiuixIcons.Background,
+                                    contentDescription = if (cookieLogin) "切换到账号密码登录" else "切换到 Cookie 登录",
+                                    tint = if (cookieLogin) MiuixTheme.colorScheme.primary
+                                    else MiuixTheme.colorScheme.onBackground,
                                 )
                             }
-                            Spacer(Modifier.height(12.dp))
+                            Button(
+                                onClick = {
+                                    if (working) return@Button
+                                    working = true
+                                    scope.launch {
+                                        val result = withContext(Dispatchers.IO) {
+                                            if (cookieLogin) {
+                                                signInWithCookies(
+                                                    memberId.text.toString(),
+                                                    passHash.text.toString(),
+                                                    igneous.text.toString().ifBlank { null },
+                                                )
+                                            } else {
+                                                signIn(username.text.toString(), password.text.toString())
+                                            }
+                                        }
+                                        showSystemToast(
+                                            if (result.ok) "登录成功"
+                                            else "登录失败：" + result.message.lineSequence().first().take(48),
+                                        )
+                                        signedIn = isSignedIn()
+                                        if (signedIn) {
+                                            withContext(Dispatchers.IO) {
+                                                app.eros.shared.filter.HiddenTagStore.refresh()
+                                            }
+                                        }
+                                        working = false
+                                    }
+                                },
+                                enabled = !working,
+                                colors = ButtonDefaults.buttonColorsPrimary(),
+                                modifier = Modifier.weight(1f),
+                            ) {
+                                Text(if (working) "登录中…" else "登录")
+                            }
+                            // 右：从剪贴板填入 Cookie；密码模式下可见但不可点
+                            IconButton(
+                                onClick = { applyClipboardCookies() },
+                                enabled = cookieLogin,
+                                minHeight = 44.dp,
+                                minWidth = 44.dp,
+                            ) {
+                                Icon(
+                                    imageVector = MiuixIcons.ScreenCapture,
+                                    contentDescription = "从剪贴板读取 Cookie",
+                                    tint = if (cookieLogin) MiuixTheme.colorScheme.onBackground
+                                    else MiuixTheme.colorScheme.onBackground.copy(alpha = 0.3f),
+                                )
+                            }
                         }
                     }
                 }
+                Spacer(Modifier.height(12.dp))
+            }
+            }
+
+            // Cookie（便于复制）
+            if (signedIn) {
+                item(key = "cookie") {
+                    SmallTitle("Cookie")
+                    GlassCard(bgBackdrop, Modifier.padding(horizontal = 12.dp)) {
+                        CookieRow("ipb_member_id", app.eros.shared.auth.cookieValue("ipb_member_id"))
+                        CookieRow("ipb_pass_hash", app.eros.shared.auth.cookieValue("ipb_pass_hash"))
+                        CookieRow("igneous", app.eros.shared.auth.cookieValue("igneous"))
+                        HorizontalDivider()
+                        BasicComponent(
+                            title = "复制全部",
+                            onClick = {
+                                val cookie = buildString {
+                                    app.eros.shared.auth.cookieValue("ipb_member_id")?.let { append("ipb_member_id=$it; ") }
+                                    app.eros.shared.auth.cookieValue("ipb_pass_hash")?.let { append("ipb_pass_hash=$it; ") }
+                                    app.eros.shared.auth.cookieValue("igneous")?.let { append("igneous=$it; ") }
+                                }.trim()
+                                app.eros.shared.platformCopy(cookie)
+                                showSystemToast("复制成功")
+                            },
+                        )
+                    }
+                    Spacer(Modifier.height(12.dp))
+                }
+            }
         }
     }
 

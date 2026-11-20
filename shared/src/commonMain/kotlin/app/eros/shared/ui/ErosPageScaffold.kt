@@ -4,6 +4,7 @@
 package app.eros.shared.ui
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.WindowInsets
@@ -82,6 +83,15 @@ fun ErosPageScaffold(
      * 加 [app.eros.shared.ui.design.erosPageHorizontalInsets]；否则默认 `true`。
      */
     horizontalSafeInset: Boolean = true,
+    /**
+     * 整页背景（渐变/图片等），铺满记录层、不参与玻璃侧栏的「内容内缩」。
+     *
+     * 背景必须画在记录层里、内容盒子外：玻璃侧栏展开时内容整体右移，背景若跟着移
+     * 就会露出侧栏下方的窗口底色（账号页炫彩背景在横屏展开时左侧白条即此原因）。
+     * 需要「背景满宽 + 内容内缩」的页面传 `horizontalSafeInset = false`，背景放这里，
+     * 内容自己给 [app.eros.shared.ui.design.erosPageHorizontalInsets]。
+     */
+    background: (@Composable BoxScope.() -> Unit)? = null,
     content: @Composable (
         innerPadding: PaddingValues,
         scrollBehavior: ScrollBehavior,
@@ -140,17 +150,21 @@ fun ErosPageScaffold(
         ) {
             // 页面内容层对页面内的玻璃弹层可见（玻璃 sheet / 对话框从这里取采样源）。
             CompositionLocalProvider(LocalPageBackdrop provides backdrop) {
-                // 玻璃侧栏的让位是「内容内缩」：暴露在侧栏下方的是满宽背景与真实内容。
-                // 记录层必须整宽：侧栏/顶栏的渐变带要在「任意 x」都有采样数据。
-                // 水平安全区（横屏挖孔 46dp）同样只内缩内容：若挂在记录层上，记录层会从
-                // 挖孔内侧才开始，顶栏渐变带在挖孔那一条没有采样，表现为左上硬边浅色矩形。
-                Box(
-                    Modifier
-                        .fillMaxSize()
-                        .then(if (horizontalSafeInset) Modifier.erosPageHorizontalInsets() else Modifier)
-                        .erosGlassRailStartInset(),
-                ) {
-                    content(innerPadding, scrollBehavior, backdrop)
+                Box(Modifier.fillMaxSize()) {
+                    // 整页背景先铺满记录层：它不跟随内容内缩，侧栏展开时也覆盖到最左侧。
+                    background?.invoke(this)
+                    // 玻璃侧栏的让位是「内容内缩」：暴露在侧栏下方的是满宽背景与真实内容。
+                    // 记录层必须整宽：侧栏/顶栏的渐变带要在「任意 x」都有采样数据。
+                    // 水平安全区（横屏挖孔 46dp）同样只内缩内容：若挂在记录层上，记录层会从
+                    // 挖孔内侧才开始，顶栏渐变带在挖孔那一条没有采样，表现为左上硬边浅色矩形。
+                    Box(
+                        Modifier
+                            .fillMaxSize()
+                            .then(if (horizontalSafeInset) Modifier.erosPageHorizontalInsets() else Modifier)
+                            .erosGlassRailStartInset(),
+                    ) {
+                        content(innerPadding, scrollBehavior, backdrop)
+                    }
                 }
             }
         }
