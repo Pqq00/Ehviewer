@@ -96,8 +96,8 @@ fun DownloadScreen(
     val ready by DownloadManager.ready.collectAsState()
 
     var tab by rememberSaveable { mutableIntStateOf(0) }
-    var selecting by remember { mutableStateOf(false) }
-    val selected = remember { mutableStateMapOf<Long, Boolean>() }
+    val selection = rememberSelectionState<Long>()
+    val selecting = selection.selecting
     var confirming by remember { mutableStateOf(false) }
     val speeds = remember { mutableStateMapOf<Long, Long>() }
     val listState = rememberLazyListState()
@@ -136,27 +136,20 @@ fun DownloadScreen(
 
     val scope = rememberCoroutineScope()
     val visibleTasks = showActive + showDone
-    val allSelected = visibleTasks.isNotEmpty() && visibleTasks.all { selected.containsKey(it.gid) }
+    val allSelected = selection.allSelected(visibleTasks.map { it.gid })
     val toolbarInset by animateDpAsState(if (selecting) 64.dp else 0.dp)
     // 页面记录层的引用：多选工具栏在骨架之外，需要显式拿着这一层去采样（见 ErosSelectionToolbar）。
     var recordLayer by remember { mutableStateOf<LayerBackdrop?>(null) }
 
-    fun exitSelection() {
-        selecting = false
-        selected.clear()
-    }
+    fun exitSelection() = selection.exit()
 
-    fun toggle(gid: Long) {
-        if (selected.remove(gid) == null) selected[gid] = true
-    }
+    fun toggle(gid: Long) = selection.toggle(gid)
 
-    fun toggleAll() {
-        if (allSelected) selected.clear() else visibleTasks.forEach { selected[it.gid] = true }
-    }
+    fun toggleAll() = selection.toggleAll(visibleTasks.map { it.gid })
 
     Box(modifier = Modifier.fillMaxSize()) {
         ErosPageScaffold(
-            title = if (selecting) "已选 ${selected.size} 项" else "下载",
+            title = if (selecting) "已选 ${selection.size} 项" else "下载",
             navigationIcon = if (selecting) {
                 {
                     ErosBarIcon(onClick = { exitSelection() }) {
@@ -220,7 +213,7 @@ fun DownloadScreen(
                                 index = index,
                                 scrolling = listState.isScrollInProgress,
                                 selecting = selecting,
-                                selected = selected.containsKey(task.gid),
+                                selected = selection.contains(task.gid),
                                 onClick = { if (selecting) toggle(task.gid) },
                                 onOpenReader = { onOpenReader(task.gid, task.token, task.totalPages) },
                                 onAction = {
@@ -231,10 +224,7 @@ fun DownloadScreen(
                                     }
                                 },
                                 onLongClick = {
-                                    if (!selecting) {
-                                        selecting = true
-                                        selected[task.gid] = true
-                                    }
+                                    if (!selecting) selection.start(task.gid)
                                 },
                             )
                         }
@@ -250,7 +240,7 @@ fun DownloadScreen(
                                 index = index,
                                 scrolling = listState.isScrollInProgress,
                                 selecting = selecting,
-                                selected = selected.containsKey(task.gid),
+                                selected = selection.contains(task.gid),
                                 onClick = {
                                     if (selecting) {
                                         toggle(task.gid)
@@ -261,10 +251,7 @@ fun DownloadScreen(
                                 onOpenReader = { onOpenReader(task.gid, task.token, task.totalPages) },
                                 onAction = { onOpenReader(task.gid, task.token, task.totalPages) },
                                 onLongClick = {
-                                    if (!selecting) {
-                                        selecting = true
-                                        selected[task.gid] = true
-                                    }
+                                    if (!selecting) selection.start(task.gid)
                                 },
                             )
                         }
@@ -297,7 +284,7 @@ fun DownloadScreen(
                 }
 
                 TrackOverlay(confirming)
-                val pending = visibleTasks.filter { selected.containsKey(it.gid) }
+                val pending = visibleTasks.filter { selection.contains(it.gid) }
                 ErosDialog(
                     backdrop = LocalPageBackdrop.current,
                     show = confirming,
@@ -338,7 +325,7 @@ fun DownloadScreen(
         }
         // 工具栏实现统一在 ErosSelectionToolbar（内部 ErosGlassBar 保证挂在记录层之外）。
         if (selecting) {
-            val enabled = selected.isNotEmpty()
+            val enabled = selection.isNotEmpty()
             // 多选态隐藏底部导航栏，工具栏与历史页一样贴屏幕底 24dp。
             TrackOverlay()
             ErosSelectionToolbar(

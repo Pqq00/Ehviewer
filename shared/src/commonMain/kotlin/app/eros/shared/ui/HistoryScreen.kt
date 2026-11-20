@@ -28,7 +28,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -80,23 +79,13 @@ fun HistoryScreen(
     val listState = rememberLazyListState()
 
     // 多选：长按任意一条进入，顶栏变「已选 N 项」，可全选 / 批量删除。
-    var selecting by remember { mutableStateOf(false) }
-    val selected = remember { mutableStateMapOf<Long, Boolean>() }
+    val selection = rememberSelectionState<Long>()
+    val selecting = selection.selecting
     var confirming by remember { mutableStateOf(false) }
 
-    fun exitSelection() {
-        selecting = false
-        selected.clear()
-    }
+    fun exitSelection() = selection.exit()
 
-    fun toggle(gid: Long) {
-        if (selected.containsKey(gid)) {
-            // 允许「已选 0 项」：只清掉勾选，多选态保留，由左上角关闭图标退出。
-            selected.remove(gid)
-        } else {
-            selected[gid] = true
-        }
-    }
+    fun toggle(gid: Long) = selection.toggle(gid)
 
     fun reload() {
         scope.launch {
@@ -108,7 +97,7 @@ fun HistoryScreen(
 
     LaunchedEffect(Unit) { reload() }
 
-    val allSelected = items.isNotEmpty() && selected.size == items.size
+    val allSelected = selection.allSelected(items.map { it.gid })
 
     // 多选态：左上角关闭、右上角全选/取消全选，删除放在底部 FloatingToolbar。
     val navigationIcon: (@Composable () -> Unit)? = if (selecting) {
@@ -128,21 +117,14 @@ fun HistoryScreen(
 
     Box(modifier = Modifier.fillMaxSize()) {
         ErosPageScaffold(
-            title = if (selecting) "已选 ${selected.size} 项" else "浏览历史",
+            title = if (selecting) "已选 ${selection.size} 项" else "浏览历史",
             onBack = if (selecting) null else onBack,
             navigationIcon = navigationIcon,
             actions = {
                 if (selecting) {
-                    // 一个图标两种语义：点一次全选，再点一次取消全选（清空后自动退出多选，
-                    // 与「取消掉最后一条卡片」的行为一致）。
+                    // 一个图标两种语义：点一次全选，再点一次清空勾选（与下载页一致）。
                     ErosBarIcon(
-                        onClick = {
-                            if (allSelected) {
-                                exitSelection()
-                            } else {
-                                items.forEach { selected[it.gid] = true }
-                            }
-                        },
+                        onClick = { selection.toggleAll(items.map { it.gid }) },
                     ) {
                         Icon(
                             imageVector = MiuixIcons.SelectAll,
@@ -182,7 +164,7 @@ fun HistoryScreen(
                         verticalArrangement = Arrangement.spacedBy(ErosDimens.listGap),
                     ) {
                         itemsIndexed(items, key = { _, it -> it.gid }) { index, entry ->
-                            val isSelected = selected.containsKey(entry.gid)
+                            val isSelected = selection.contains(entry.gid)
                             HistoryRow(
                                 entry = entry,
                                 index = index,
@@ -193,12 +175,7 @@ fun HistoryScreen(
                                     if (selecting) toggle(entry.gid) else onOpen(entry)
                                 },
                                 onLongClick = {
-                                    if (!selecting) {
-                                        selecting = true
-                                        selected[entry.gid] = true
-                                    } else {
-                                        toggle(entry.gid)
-                                    }
+                                    if (!selecting) selection.start(entry.gid) else toggle(entry.gid)
                                 },
                                 onDelete = {
                                     scope.launch {
@@ -220,7 +197,7 @@ fun HistoryScreen(
         // 放在页面最外层 Box 里，而不是 Scaffold 的 floatingToolbar 槽位：
         // miuix Scaffold 的工具栏虽然画在内容之上，但命中测试会输给列表卡片（真机实测点不动）。
         if (selecting) {
-            val enabled = selected.isNotEmpty()
+            val enabled = selection.isNotEmpty()
             ErosSelectionToolbar(
                 recordLayer = recordLayer,
                 name = "history selection toolbar",
@@ -236,7 +213,7 @@ fun HistoryScreen(
         ErosDialog(
             backdrop = LocalPageBackdrop.current,
             show = confirming,
-            title = "删除 ${selected.size} 条浏览记录？",
+            title = "删除 ${selection.size} 条浏览记录？",
             summary = "只删除本机的浏览记录与封面缓存，不影响画廊本身。",
             onDismissRequest = { confirming = false },
         ) {
@@ -251,7 +228,7 @@ fun HistoryScreen(
                 ) { Text("取消", style = MiuixTheme.textStyles.button) }
                 Button(
                     onClick = {
-                        val gids = selected.keys.toList()
+                        val gids = selection.selectedKeys()
                         confirming = false
                         exitSelection()
                         scope.launch {
