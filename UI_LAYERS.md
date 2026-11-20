@@ -33,6 +33,10 @@ L0  窗口 chrome     侧栏（原生 / 玻璃）、底栏宿主、FPS 浮层
   - chrome 可以采样 **L1 页面记录层**（`pageBackdrop`），自身不参与记录。
   - chrome 不得放进任何页面记录层内。
   - 底栏/侧栏的显示逻辑只由 `ErosAppChrome` 与 `BarDestination` 决定，页面不得自己画全局底栏。
+  - chrome 在搜索时的进出规则与官方 `GlassPage` 一致：**整棵树**（页面 + 侧栏 + 底栏）吃同一条
+    `contentAlpha` 淡出，不增删节点；窗口底色由 chrome 最外层 `background(surface)` 兜住，
+    搜索浮层本身不画 scrim。搜索浮层是窗口级浮层，挂在这个 Box **之外的兄弟节点**上
+    （`App()` 里 `ErosAppChrome` 之后），所以能盖住侧栏与底栏、并接管它们的点击。
 
 ### L1 页面记录层
 

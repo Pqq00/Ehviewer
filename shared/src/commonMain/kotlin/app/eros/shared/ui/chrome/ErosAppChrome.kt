@@ -93,7 +93,13 @@ private fun ErosAppChromeContent(
         initialExpanded = rememberGlassNavigationRailStartsExpanded(),
     )
 
-    Box(Modifier.fillMaxSize()) {
+    // 窗口底色：页面淡出（搜索）时露出的就是这层，与官方 AppContent.kt:337
+    // `Modifier.background(MiuixTheme.colorScheme.surface)` 同一角色。
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(MiuixTheme.colorScheme.surface),
+    ) {
         Row(Modifier.fillMaxSize()) {
             if (rail == ErosChromeRail.Native) {
                 ErosNavigationRail(
