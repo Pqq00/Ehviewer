@@ -177,7 +177,8 @@ internal fun ErosSearchOverlay(
     var recent by remember { mutableStateOf<List<SearchHistoryEntry>>(emptyList()) }
     val scope = rememberCoroutineScope()
     val gridState = rememberLazyGridState()
-    // 浮层在内容列里，底栏在搜索结果期间隐藏：只留系统导航栏的安全区。
+    // 浮层挂在根 Box 上、chrome 之外：读不到 chrome 的 `LocalAppBottomBarInset`（默认 0），
+    // 底栏虽然还在组合树里（只淡出），这里不需要再为它让位，只留系统导航栏安全区。
     val navBottom = LocalAppBottomBarInset.current +
         WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val topInsetDp = with(LocalDensity.current) { WindowInsets.safeDrawing.getTop(this).toDp() }

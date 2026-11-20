@@ -202,8 +202,10 @@ fun App() {
 
         // 预测式返回已固定关闭：统一用系统级回调接管，系统不再索取跟手进度。
         // 这个回调注册在 OnBackInvokedDispatcher 的 PRIORITY_OVERLAY，优先级高于 Compose 的
-        // BackHandler，所以搜索浮层这种「不压栈的模式层」必须在它里面先消费返回键，
-        // 否则会直接落到 activity.finish()（表现为搜索页一按返回就退出应用）。
+        // BackHandler。注意 Android 的 OnBackInvokedCallback 是 void、没有「未处理」返回值，
+        // 我们的适配层在返回 false 时会直接 finish()（见 BackInterceptor.android.kt），
+        // 所以搜索展开时只能在这里消费返回键（浮层内部的 NavigationBackHandler 只作为
+        // 桌面/无拦截器环境的后备，不能在 Android 上同时接管，否则两处会抢同一次返回）。
         val onSystemBack = rememberUpdatedState<() -> Boolean> {
             when {
                 searchExpanded -> {
