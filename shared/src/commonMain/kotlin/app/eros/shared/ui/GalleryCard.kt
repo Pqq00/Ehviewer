@@ -3,12 +3,9 @@
 
 package app.eros.shared.ui
 
-import com.hippo.ehviewer.util.AppLog
-
 import app.eros.shared.data.GalleryTitles
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -25,41 +22,23 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import app.eros.shared.data.DetailSeedStore
 import app.eros.shared.data.GalleryUi
-import app.eros.shared.data.ThumbUrl
-import app.eros.shared.data.createEhApi
 import app.eros.shared.download.DownloadedStore
 import app.eros.shared.settings.AppSettings
-import app.eros.shared.system.showSystemToast
-import coil3.compose.AsyncImage
-import coil3.compose.LocalPlatformContext
-import coil3.request.ImageRequest
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
-import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
@@ -120,8 +99,6 @@ fun GalleryCard(
     }
     val titleLines = AppSettings.titleLines
     var showSheet by remember { mutableStateOf(false) }
-    val clipboard = LocalClipboardManager.current
-    val scope = rememberCoroutineScope()
     // 标题还没解析出来 = 这一条还不能用：不给点击、不给按压反馈。
     val canOpen = gallery.title.isNotBlank()
 
@@ -141,30 +118,11 @@ fun GalleryCard(
         onLongPress = { if (canOpen) showSheet = true },
     ) {
         val thumb = gallery.thumb
-        val context = LocalPlatformContext.current
         val density = LocalDensity.current
         // 兜底尺寸：约束不可用时才使用，正常情况下直接按列宽请求，避免二次请求。
         val fallback = with(density) { 190.dp.roundToPx() }
-        var useRaw by remember(thumb) { mutableStateOf(false) }
-        val cardUrl = remember(thumb, useRaw) {
-            when {
-                thumb == null -> null
-                useRaw -> thumb
-                else -> ThumbUrl.forCard(thumb)
-            }
-        }
-        var coverReady by remember(cardUrl) { mutableStateOf(false) }
-        var coverFailed by remember(cardUrl) { mutableStateOf(false) }
-        var timedOut by remember(cardUrl) { mutableStateOf(false) }
-        var retryToken by remember(cardUrl) { mutableIntStateOf(0) }
-        // 弱网兜底：4 秒还没加载出来就先出内容，避免整张卡长期停在骨架。
-        LaunchedEffect(cardUrl) {
-            if (cardUrl != null) {
-                delay(4_000)
-                timedOut = true
-            }
-        }
-        val revealed = cardUrl == null || coverReady || coverFailed || timedOut
+        val coverState = rememberGalleryCoverState(thumb)
+        val revealed = thumb == null || coverState.revealed
         // 入场动画与下载卡共用同一套（GalleryCardParts.rememberCardEntrance）：
         // 淡入 + 缩放 + 上滑，错峰最多 5 个位置，每个 gid 只播一次。
         val entrance = rememberCardEntrance(gallery.gid, index, revealed)
@@ -185,7 +143,7 @@ fun GalleryCard(
                         .squircleClip(cornerRadius = 10.dp)
                         .background(MiuixTheme.colorScheme.surfaceVariant),
                 ) {
-                    if (cardUrl != null) {
+                    if (thumb != null) {
                         val measuredWidth = constraints.maxWidth
                         val requestWidth = if (measuredWidth > 0) measuredWidth else fallback
                         val requestHeight = if (measuredWidth > 0) {
@@ -193,47 +151,20 @@ fun GalleryCard(
                         } else {
                             fallback * 4 / 3
                         }
-                        key(retryToken) {
-                            val request = remember(cardUrl, requestWidth, requestHeight) {
-                                ImageRequest.Builder(context)
-                                    .data(cardUrl)
-                                    .size(requestWidth, requestHeight)
-                                    .build()
-                            }
-                            AsyncImage(
-                                model = request,
-                                contentDescription = null,
-                                contentScale = ContentScale.Crop,
-                                onSuccess = { coverReady = true },
-                                onError = {
-                                    if (!useRaw) {
-                                        AppLog.d("Thumb", "fallback to original: $thumb")
-                                        useRaw = true
-                                    } else {
-                                        coverFailed = true
-                                    }
-                                },
-                                placeholder = androidx.compose.ui.graphics.painter.ColorPainter(
-                                    MiuixTheme.colorScheme.surfaceVariant,
-                                ),
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .coverBlur(),
-                            )
-                        }
+                        GalleryCoverImage(
+                            state = coverState,
+                            thumb = thumb,
+                            requestWidth = requestWidth,
+                            requestHeight = requestHeight,
+                            modifier = Modifier.fillMaxSize(),
+                        )
                     }
 
-                    if (coverFailed) {
+                    if (coverState.failed) {
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .clickable {
-                                    coverFailed = false
-                                    coverReady = false
-                                    timedOut = false
-                                    useRaw = false
-                                    retryToken += 1
-                                },
+                                .clickable { coverState.retry() },
                             contentAlignment = Alignment.Center,
                         ) {
                             Text(
@@ -367,50 +298,10 @@ fun GalleryCard(
     }
 
     TrackOverlay(showSheet)
-    ErosBottomSheet(
-        backdrop = LocalPageBackdrop.current,
+    GalleryCardActions(
         show = showSheet,
-        title = GalleryTitles.primary(gallery.title, gallery.titleJpn),
-            onDismissRequest = { showSheet = false },
-            onDismissFinished = { },
-        ) {
-            Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-                SheetAction("加入收藏夹 0") {
-                    showSheet = false
-                    scope.launch {
-                        val ok = runCatching {
-                            withContext(Dispatchers.IO) {
-                                createEhApi().setFavourite(gallery.gid, gallery.token, 0)
-                            }
-                        }.getOrDefault(false)
-                        showSystemToast(if (ok) "已加入收藏夹 0" else "收藏失败，请确认已登录")
-                    }
-                }
-                SheetAction("复制标题") {
-                    clipboard.setText(AnnotatedString(GalleryTitles.primary(gallery.title, gallery.titleJpn)))
-                    showSheet = false
-                    showSystemToast("标题已复制")
-                }
-                SheetAction("复制链接") {
-                    clipboard.setText(
-                        AnnotatedString("https://e-hentai.org/g/${gallery.gid}/"),
-                    )
-                    showSheet = false
-                    showSystemToast("链接已复制")
-                }
-            }
-        }
-}
-
-/** 底部菜单里的一行动作。 */
-@Composable
-private fun SheetAction(text: String, onClick: () -> Unit) {
-    Text(
-        text = text,
-        style = MiuixTheme.textStyles.body1,
-        modifier = Modifier
-            .fillMaxWidth()
-            .combinedClickable(onClick = onClick, onLongClick = null)
-            .padding(vertical = 14.dp),
+        gallery = gallery,
+        onDismiss = { showSheet = false },
     )
 }
+

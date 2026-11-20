@@ -3,12 +3,11 @@
 
 package app.eros.shared.ui
 
-import app.eros.shared.data.GalleryTitles
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -25,23 +24,18 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.painter.ColorPainter
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.Layout
-import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
@@ -51,23 +45,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.eros.shared.data.DetailSeedStore
 import app.eros.shared.data.GalleryUi
-import app.eros.shared.data.ThumbUrl
-import app.eros.shared.data.createEhApi
 import app.eros.shared.settings.AppSettings
-import app.eros.shared.system.showSystemToast
-import coil3.compose.AsyncImage
-import coil3.compose.LocalPlatformContext
-import coil3.request.ImageRequest
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import java.util.Locale
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.squircle.squircleClip
 import top.yukonga.miuix.kmp.squircle.squircleSurface
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.PressFeedbackType
-import java.util.Locale
 
 // 供「与下载卡对齐」的其它列表复用（例如浏览历史），保证封面尺寸/圆角/淡入一致。
 internal val CARD_HEIGHT = 160.dp
@@ -181,45 +166,29 @@ internal fun DownloadCardCover(
     modifier: Modifier = Modifier,
     scrolling: Boolean = false,
 ) {
-    val context = LocalPlatformContext.current
+    val density = LocalDensity.current
+    val coverState = rememberGalleryCoverState(thumb)
     Box(
         modifier = modifier
             .squircleClip(cornerRadius = COVER_CORNER)
             .background(MiuixTheme.colorScheme.surfaceVariant),
     ) {
-        var coverReady by remember(thumb) { mutableStateOf(false) }
-        var coverFailed by remember(thumb) { mutableStateOf(false) }
         // 封面淡入：图片解码完成的那一刻不要再"啪"地出现，而是 220ms 淡上来，
         // 骨架层同步淡出，两者交叉，中间不会闪出一块底色。
-        val coverShown = coverReady || thumb == null || coverFailed
+        val coverShown = coverState.ready || thumb == null || coverState.failed || coverState.timedOut
         val coverAlpha by animateFloatAsState(
             targetValue = if (coverShown) 1f else 0f,
             animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
             label = "coverReveal",
         )
-        thumb?.let { t ->
-            var useRaw by remember(t) { mutableStateOf(false) }
-            val url = remember(t, useRaw) {
-                if (useRaw) t else ThumbUrl.forCard(t)
-            }
-            val request = remember(url) {
-                ImageRequest.Builder(context).data(url).build()
-            }
-            AsyncImage(
-                model = request,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                onSuccess = { coverReady = true },
-                onError = {
-                    if (!useRaw) useRaw = true else coverFailed = true
-                },
-                placeholder = ColorPainter(MiuixTheme.colorScheme.surfaceVariant),
-                modifier = Modifier
-                    .fillMaxSize()
-                    .coverBlur()
-                    .graphicsLayer { alpha = coverAlpha },
-            )
-        }
+        GalleryCoverImage(
+            state = coverState,
+            thumb = thumb,
+            requestWidth = with(density) { COVER_WIDTH.roundToPx() },
+            requestHeight = with(density) { CARD_HEIGHT.roundToPx() },
+            contentAlpha = coverAlpha,
+            modifier = Modifier.fillMaxSize(),
+        )
         // 封面没就位就盖一层骨架：没有缩略图地址（thumb 为空）或两次尝试都失败时不盖，
         // 避免永远闪烁。
         if (coverAlpha < 1f) {
@@ -229,6 +198,20 @@ internal fun DownloadCardCover(
                     .graphicsLayer { alpha = 1f - coverAlpha }
                     .background(rememberSkeletonBrush(animated = !scrolling)),
             )
+        }
+        if (coverState.failed) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clickable { coverState.retry() },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    "点按重试",
+                    style = MiuixTheme.textStyles.footnote2,
+                    color = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                )
+            }
         }
     }
 }
@@ -246,9 +229,6 @@ internal fun GalleryCardDownloadStyle(
     onClick: () -> Unit = {},
 ) {
     var showSheet by remember { mutableStateOf(false) }
-    val clipboard = LocalClipboardManager.current
-    val scope = rememberCoroutineScope()
-    val context = LocalPlatformContext.current
     // 下载卡没有整卡骨架，改为按区域占位：封面/标题/标签/评分各自画到就位为止。
     val entrance = rememberCardEntrance(gallery.gid, index)
     // 标题还没解析出来 = 这一条还不能用：不给点击、不给按压反馈。
@@ -467,56 +447,9 @@ internal fun GalleryCardDownloadStyle(
     }
 
     TrackOverlay(showSheet)
-    ErosBottomSheet(
-        backdrop = LocalPageBackdrop.current,
+    GalleryCardActions(
         show = showSheet,
-        title = GalleryTitles.primary(gallery.title, gallery.titleJpn),
-        onDismissRequest = { showSheet = false },
-        onDismissFinished = { },
-    ) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-            Text(
-                text = "加入收藏夹 0",
-                style = MiuixTheme.textStyles.body1,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .combinedClickable(onClick = {
-                        showSheet = false
-                        scope.launch {
-                            val ok = runCatching {
-                                withContext(Dispatchers.IO) {
-                                    createEhApi().setFavourite(gallery.gid, gallery.token, 0)
-                                }
-                            }.getOrDefault(false)
-                            showSystemToast(if (ok) "已加入收藏夹 0" else "收藏失败，请确认已登录")
-                        }
-                    }, onLongClick = null)
-                    .padding(vertical = 14.dp),
-            )
-            Text(
-                text = "复制标题",
-                style = MiuixTheme.textStyles.body1,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .combinedClickable(onClick = {
-                        clipboard.setText(AnnotatedString(GalleryTitles.primary(gallery.title, gallery.titleJpn)))
-                        showSheet = false
-                        showSystemToast("标题已复制")
-                    }, onLongClick = null)
-                    .padding(vertical = 14.dp),
-            )
-            Text(
-                text = "复制链接",
-                style = MiuixTheme.textStyles.body1,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .combinedClickable(onClick = {
-                        clipboard.setText(AnnotatedString("https://e-hentai.org/g/${gallery.gid}/"))
-                        showSheet = false
-                        showSystemToast("链接已复制")
-                    }, onLongClick = null)
-                    .padding(vertical = 14.dp),
-            )
-        }
-    }
+        gallery = gallery,
+        onDismiss = { showSheet = false },
+    )
 }
