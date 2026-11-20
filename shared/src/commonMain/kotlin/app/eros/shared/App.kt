@@ -299,7 +299,7 @@ fun App() {
             containerColor = Color.Transparent,
             contentWindowInsets = WindowInsets(0),
         ) { _ ->
-            // 搜索浮层挂在 chrome 的内容列里：页面淡出，侧栏与底栏保持原样（与其他页面一致）。
+            // 搜索浮层挂在 chrome 之外的根 Box 上（见下），页面整棵树按同一 alpha 淡出。
             val searchBarAlpha = rememberGlassSearchBarAlpha(searchExpanded)
             Box(Modifier.fillMaxSize()) {
                 // 顶栏据此与浮层同步收放（官方 GlassPage 的 glassSearchBarTransition 语义）。
@@ -310,7 +310,7 @@ fun App() {
                     ErosAppChrome(
                 rail = railMode,
                 selectedTab = tabIndex,
-                // 侧栏 / 底栏在搜索浮层打开时仍然可点：点标签先退出搜索再切换页面。
+                // 侧栏 / 底栏随页面一起淡出，搜索期间由浮层挡住点击（侧栏 A）。
                 onSelectTab = { tab ->
                     searchExpanded = false
                     onSelectTab(tab)
@@ -457,27 +457,25 @@ fun App() {
                     )
                 },
                 contentAlpha = searchBarAlpha.value,
-                // 搜索浮层展开时整条底栏隐藏（含它的底部留白），退出搜索再出现。
-                bottomBarVisible = !searchExpanded,
-                // 搜索模式浮层（L3）：压在页面内容之上、底栏之下；返回键/点空白/Cancel 都能退出。
-                overlay = {
-                    ErosSearchOverlay(
-                        expanded = searchExpanded,
-                        state = searchState,
-                        onDismissRequest = { searchExpanded = false },
-                        onGalleryClick = { g ->
-                            searchExpanded = false
-                            push(Route.Detail(g.gid, g.token))
-                        },
-                        onOpenGallery = { ref ->
-                            searchExpanded = false
-                            push(Route.Detail(ref.gid, ref.token))
-                        },
-                    )
-                },
             )
-
                 }
+
+                // 搜索是窗口级浮层（L3），挂在 chrome 之外的根 Box 上：盖住整个窗口
+                // （含侧栏与底栏），页面整棵树按 searchBarAlpha 淡出 —— 与官方示例
+                // GlassPageHost 的「overlay 与淡出的 Scaffold 同级」一致。
+                ErosSearchOverlay(
+                    expanded = searchExpanded,
+                    state = searchState,
+                    onDismissRequest = { searchExpanded = false },
+                    onGalleryClick = { g ->
+                        searchExpanded = false
+                        push(Route.Detail(g.gid, g.token))
+                    },
+                    onOpenGallery = { ref ->
+                        searchExpanded = false
+                        push(Route.Detail(ref.gid, ref.token))
+                    },
+                )
                 // 帧率浮层：official example 的 FPSMonitor
                 if (AppSettings.showFps) {
                     FPSMonitor(

@@ -41,8 +41,13 @@ internal enum class ErosChromeRail { None, Native, Glass }
  * 这是 `UI_LAYERS.md` 里的 L0 窗口 chrome：只允许采样 L1 页面记录层，不得放进页面记录层内；
  * L3 浮层要盖住 rail / 底栏，渲染宿主由 `ErosOverlayHost`（H2）负责，不再依赖页面 Scaffold。
  *
+ * 搜索浮层的进出与官方示例同一条规则：这里只做「整棵树按 [contentAlpha] 淡出」，
+ * rail / 底栏都在这棵树里（所以搜索时一起淡出、一起禁点）；浮层本身由调用方挂在
+ * chrome 之外的根 Box 上，盖住整个窗口，因此不需要在这里开传参。
+ *
  * @param content 页面内容（`NavDisplay`）；chrome 已提供标题透明度 CompositionLocal。
  * @param bottomBar 底栏内容，传入记录层（供玻璃底栏模糊采样）。
+ * @param contentAlpha 页面淡出透明度；rail / 底栏与页面共用同一条 alpha。
  */
 @Composable
 internal fun ErosAppChrome(
@@ -54,14 +59,11 @@ internal fun ErosAppChrome(
     content: @Composable () -> Unit,
     bottomBar: @Composable (LayerBackdrop?) -> Unit,
     contentAlpha: Float = 1f,
-    overlay: (@Composable () -> Unit)? = null,
-    /// 底栏是否可见；搜索浮层展开时整条隐藏，留白也要跟着归零。
-    bottomBarVisible: Boolean = true,
 ) {
     // 底栏留白要提供给「页面内容」与「底栏」的共同上层：页面在自己的 LazyColumn
     // contentPadding 里读 LocalAppBottomBarInset，如果只包 bottomBar 就读不到。
-    val measuredBarInset = rememberAppBottomBarInset(destination, rail != ErosChromeRail.None)
-    val barInset = if (bottomBarVisible) measuredBarInset else 0.dp
+    // 搜索时底栏不增删（只淡出），留白保持不变，退出搜索时页面不会跳一下。
+    val barInset = rememberAppBottomBarInset(destination, rail != ErosChromeRail.None)
     CompositionLocalProvider(LocalAppBottomBarInset provides barInset) {
         ErosAppChromeContent(
             rail = rail,
@@ -71,8 +73,6 @@ internal fun ErosAppChrome(
             content = content,
             bottomBar = bottomBar,
             contentAlpha = contentAlpha,
-            overlay = overlay,
-            bottomBarVisible = bottomBarVisible,
         )
     }
 }
@@ -86,8 +86,6 @@ private fun ErosAppChromeContent(
     content: @Composable () -> Unit,
     bottomBar: @Composable (LayerBackdrop?) -> Unit,
     contentAlpha: Float,
-    overlay: (@Composable () -> Unit)?,
-    bottomBarVisible: Boolean,
 ) {
     // 记录「页面内容」的层：侧栏/顶栏/底栏都采样它（官方把同一角色叫 sidebarBackdrop）。
     val pageBackdrop = rememberBarBackdrop()
@@ -111,13 +109,17 @@ private fun ErosAppChromeContent(
                     onDetailFavorite = detailActions.onFavorite,
                     onDetailDownload = detailActions.onDownload,
                     onDetailRead = detailActions.onRead,
-                    // 场景切换时 NavDisplay 会画上一页的底图，rail 必须画在它之上
-                    modifier = Modifier.zIndex(1f),
+                    // 场景切换时 NavDisplay 会画上一页的底图，rail 必须画在它之上；
+                    // 搜索时随页面一起淡出（官方 nav bar 同一处理）。
+                    modifier = Modifier
+                        .zIndex(1f)
+                        .graphicsLayer { alpha = contentAlpha },
                 )
             }
 
             Box(Modifier.weight(1f)) {
-                // 页面内容整体淡出（搜索浮层展开时），侧栏/底栏保持不透明且可点。
+                // 页面内容整体淡出（搜索浮层展开时）；rail / 底栏也吃同一条 alpha，
+                // 与官方示例的「整棵树淡出、浮层在其上」一致。
                 Box(
                     Modifier
                         .fillMaxSize()
@@ -171,45 +173,47 @@ private fun ErosAppChromeContent(
 
                 }
 
-                // 窗口级浮层（搜索）：放在页面内容之上、底栏之下，所以内容列让位后
-                // 侧栏仍然可见可点，底栏也保持原样 —— 与其他页面同一套 chrome 行为。
-                overlay?.invoke()
-
                 // 统一底栏：Tabs 与 Detail 共用同一实例，只切换内容；用 ErosGlassBar 保证
                 // 挂在记录层之外（规则见 ErosGlassRecordLayer）。玻璃侧栏展开时，底栏宿主
                 // 内部再按 erosGlassRailStartInset 右移，与页面内容同一让位量。
-                // 可见性、内容形态与底部留白都在 ErosBottomBarHost 里决定。
-                if (bottomBarVisible) {
-                    Box(Modifier.align(Alignment.BottomCenter)) {
-                        ErosGlassBar(name = "app bottom bar", backdrop = pageBackdrop) {
-                            bottomBar(pageBackdrop)
-                        }
+                // 可见性、内容形态与底部留白都在 ErosBottomBarHost 里决定；搜索时只淡出，
+                // 不增删节点（官方同样让底栏随页面整体淡出）。
+                Box(
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .graphicsLayer { alpha = contentAlpha },
+                ) {
+                    ErosGlassBar(name = "app bottom bar", backdrop = pageBackdrop) {
+                        bottomBar(pageBackdrop)
                     }
                 }
             }
         }
 
-        // 玻璃侧栏：浮在页面之上，不占 Row 的一列（页面已按 state.progress 让位）
+        // 玻璃侧栏：浮在页面之上，不占 Row 的一列（页面已按 state.progress 让位）。
+        // 搜索时与页面同一条 alpha 淡出（官方 GlassNavigationRail 在淡出的子树里）。
         if (rail == ErosChromeRail.Glass) {
-            ErosGlassBar(name = "glass navigation rail", backdrop = pageBackdrop) {
-                ErosGlassNavigationRail(
-                    // rail 只做导航：详情动作交给底部动作栏（官方 Glass 页同一分工）。
-                    isDetail = false,
-                    selectedTab = selectedTab,
-                    detailEnabled = detailActions.enabled,
-                    detailFavoriteCount = detailActions.favoriteCount,
-                    detailReadPage = detailActions.readPage,
-                    detailDownloadLabel = detailActions.downloadLabel,
-                    detailDownloadActive = detailActions.downloadActive,
-                    onSelectTab = onSelectTab,
-                    onDetailFavorite = detailActions.onFavorite,
-                    onDetailDownload = detailActions.onDownload,
-                    onDetailRead = detailActions.onRead,
-                    state = glassRailState,
-                    // 采样页面内容层；侧栏自己在记录层之外，不会采到自己。
-                    backdrop = pageBackdrop,
-                    modifier = Modifier.zIndex(2f),
-                )
+            Box(Modifier.graphicsLayer { alpha = contentAlpha }) {
+                ErosGlassBar(name = "glass navigation rail", backdrop = pageBackdrop) {
+                    ErosGlassNavigationRail(
+                        // rail 只做导航：详情动作交给底部动作栏（官方 Glass 页同一分工）。
+                        isDetail = false,
+                        selectedTab = selectedTab,
+                        detailEnabled = detailActions.enabled,
+                        detailFavoriteCount = detailActions.favoriteCount,
+                        detailReadPage = detailActions.readPage,
+                        detailDownloadLabel = detailActions.downloadLabel,
+                        detailDownloadActive = detailActions.downloadActive,
+                        onSelectTab = onSelectTab,
+                        onDetailFavorite = detailActions.onFavorite,
+                        onDetailDownload = detailActions.onDownload,
+                        onDetailRead = detailActions.onRead,
+                        state = glassRailState,
+                        // 采样页面内容层；侧栏自己在记录层之外，不会采到自己。
+                        backdrop = pageBackdrop,
+                        modifier = Modifier.zIndex(2f),
+                    )
+                }
             }
         }
     }
