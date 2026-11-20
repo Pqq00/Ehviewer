@@ -204,23 +204,19 @@ fun App() {
         // 这个回调注册在 OnBackInvokedDispatcher 的 PRIORITY_OVERLAY，优先级高于 Compose 的
         // BackHandler。注意 Android 的 OnBackInvokedCallback 是 void、没有「未处理」返回值，
         // 我们的适配层在返回 false 时会直接 finish()（见 BackInterceptor.android.kt），
-        // 所以搜索展开时只能在这里消费返回键（浮层内部的 NavigationBackHandler 只作为
-        // 桌面/无拦截器环境的后备，不能在 Android 上同时接管，否则两处会抢同一次返回）。
+        // 因此搜索展开期间不能继续挂着它：那会把本该浮层消费的返回键吃掉。
+        // 官方示例里浮层自己用 NavigationBackHandler 处理返回，这里照做——搜索展开时卸载
+        // 拦截器，让浮层注册的 navigationevent 回调收到事件；收起后立刻装回导航拦截器。
         val onSystemBack = rememberUpdatedState<() -> Boolean> {
-            when {
-                searchExpanded -> {
-                    searchExpanded = false
-                    true
-                }
-                backStack.size > 1 -> {
-                    pop()
-                    true
-                }
-                else -> false // 栈底交给 Activity 退出
+            if (backStack.size > 1) {
+                pop()
+                true
+            } else {
+                false // 栈底交给 Activity 退出
             }
         }
-        LaunchedEffect(Unit) {
-            setPlainBackInterceptor(true) { onSystemBack.value() }
+        LaunchedEffect(searchExpanded) {
+            setPlainBackInterceptor(enabled = !searchExpanded) { onSystemBack.value() }
         }
 
         // 官方示例的转场效果：跟随设备屏幕圆角、轻微调暗、底部露出宿主背景
