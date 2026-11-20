@@ -392,7 +392,7 @@ fun TopListScreen(
                 // 列数按容器实测宽度算：rail 展开时窗口宽 ≠ 内容宽，按窗口算会多一列。
                 BoxWithConstraints(Modifier.fillMaxSize()) {
                 val columns = if (AppSettings.cardStyle == "download") {
-                    1
+                    rememberListColumns(maxWidth - GalleryGridSidePadding * 2)
                 } else {
                     rememberGalleryColumns(maxWidth - GalleryGridSidePadding * 2)
                 }

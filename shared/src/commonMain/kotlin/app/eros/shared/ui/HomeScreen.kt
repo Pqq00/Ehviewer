@@ -576,7 +576,7 @@ fun HomeScreen(
         // 卡片被压窄。这里扣掉页面左右各 12dp 的内边距，剩下的就是网格真正能用的宽度。
         BoxWithConstraints(Modifier.fillMaxSize()) {
         val columns = if (AppSettings.cardStyle == "download") {
-            1
+            rememberListColumns(maxWidth - GalleryGridSidePadding * 2)
         } else {
             rememberGalleryColumns(maxWidth - GalleryGridSidePadding * 2)
         }

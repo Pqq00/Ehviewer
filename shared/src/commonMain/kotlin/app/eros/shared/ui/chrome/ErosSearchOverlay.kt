@@ -107,6 +107,7 @@ import app.eros.shared.ui.effect.erosGlassBlur
 import app.eros.shared.ui.effect.erosProgressiveGlassBlur
 import app.eros.shared.ui.effect.isShaderSupported
 import app.eros.shared.ui.rememberGalleryColumns
+import app.eros.shared.ui.rememberListColumns
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
@@ -340,7 +341,7 @@ private fun SearchOverlayBody(
             bottom = navBottom + 12.dp,
         )
         val columns = if (AppSettings.cardStyle == "download") {
-            1
+            rememberListColumns(maxWidth - GalleryGridSidePadding * 2)
         } else {
             rememberGalleryColumns(maxWidth - GalleryGridSidePadding * 2)
         }

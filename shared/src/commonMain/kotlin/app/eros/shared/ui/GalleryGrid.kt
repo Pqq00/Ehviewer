@@ -52,3 +52,30 @@ fun rememberGalleryColumns(usableWidth: Dp? = null): Int {
 fun rememberPreviewColumns(usableWidth: Dp? = null): Int {
     return (rememberGalleryColumns(usableWidth) + 1).coerceAtMost(7)
 }
+
+/**
+ * 列表模式下每一行期望的最小可读宽度。
+ *
+ * 行卡是「120dp 封面 + 12dp 间距 + 文字」，文字区低于 ~250dp 标题就会频繁截断，
+ * 所以按 420dp 一行来分列：375dp 竖屏 1 列，817dp 横屏与 876dp（侧栏展开）2 列，
+ * 1260dp 以上才 3 列。
+ */
+private const val ListRowTargetWidthDp = 420f
+
+/**
+ * 列表模式（设置里「列表布局」）的列数：按可用宽度 / 420dp 四舍五入，1–3 列。
+ *
+ * 早先列表恒定 1 列，横屏时行会被拉成 640dp 宽的空白长条、一屏只放得下 4 条；
+ * 这里沿用网格的「按实测宽度取整」规则，让宽屏自然分成 2–3 栏。
+ *
+ * @param usableWidth 列表实际可用的宽度（已扣掉左右内边距、rail 等）。
+ */
+@Composable
+fun rememberListColumns(usableWidth: Dp? = null): Int {
+    val density = LocalDensity.current
+    val windowWidth = LocalWindowInfo.current.containerSize.width
+    val width = usableWidth ?: with(density) { windowWidth.toDp() }
+    return remember(width) {
+        (width.value / ListRowTargetWidthDp).roundToInt().coerceIn(1, 3)
+    }
+}
