@@ -37,6 +37,9 @@ gradle/gradle-daemon-jvm.properties.bak
 # 本地开发流水（不随仓库发布）
 STATUS.md
 
+# 真机截图/取证产物（本地验证用，不入库）
+.shots/
+
 # 本地方案文档与开发流水（不随仓库发布，整个目录都不跟踪）
 /docs/
 
