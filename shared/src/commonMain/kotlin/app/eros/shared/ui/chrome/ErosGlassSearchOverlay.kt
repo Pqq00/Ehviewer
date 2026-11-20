@@ -212,11 +212,11 @@ fun ErosGlassSearchOverlay(
                 }
             },
     ) {
-        // Block input through the faded bar and its padding until exit completes.
+        // 透明可点层：锁住页面输入直到退出动画结束；官方示例也不在这里画底色
+        // （背景由页面自身按 searchBarAlpha 淡出 + 根 Scaffold 的 surface 兜住）。
         Box(
             modifier = Modifier
                 .matchParentSize()
-                .drawBehind { drawRect(colors.surface.copy(alpha = progress.value.coerceIn(0f, 1f))) }
                 .clickable(interactionSource = null, indication = null) { keyboard?.hide() },
         )
         val blurActive = blurEnabled && isRuntimeShaderSupported()
@@ -250,8 +250,7 @@ fun ErosGlassSearchOverlay(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .then(if (contentBackdrop != null) Modifier.layerBackdrop(contentBackdrop) else Modifier)
-                    .background(colors.surface),
+                    .then(if (contentBackdrop != null) Modifier.layerBackdrop(contentBackdrop) else Modifier),
             ) {
                 content(queryState.text.toString())
             }
