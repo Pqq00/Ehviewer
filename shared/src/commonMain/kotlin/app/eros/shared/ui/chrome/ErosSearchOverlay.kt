@@ -51,6 +51,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.withFrameNanos
+import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.text.input.placeCursorAtEnd
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -109,6 +113,7 @@ import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.blur.Backdrop
 import top.yukonga.miuix.kmp.glass.GlassNavigationRailDefaults
+import top.yukonga.miuix.kmp.glass.GlassSearchOverlay
 import top.yukonga.miuix.kmp.glass.glass
 import top.yukonga.miuix.kmp.material.GlassShape
 import top.yukonga.miuix.kmp.basic.Text
@@ -166,93 +171,14 @@ internal fun ErosSearchOverlay(
     modifier: Modifier = Modifier,
     onOpenGallery: ((GalleryRef) -> Unit)? = null,
 ) {
-    val transition = updateTransition(expanded, label = "searchOverlay")
-    val progress = transition.animateFloat(
-        transitionSpec = { tween(400, easing = SearchModeEasing) },
-        label = "searchOverlayGeometry",
-    ) { if (it) 1f else 0f }
-    val cancelAlpha = transition.animateFloat(
-        transitionSpec = { tween(150, delayMillis = if (targetState) 100 else 0, easing = LinearEasing) },
-        label = "searchOverlayCancel",
-    ) { if (it) 1f else 0f }
-    val active = expanded || transition.currentState || transition.isRunning
-
-    var input by remember { mutableStateOf("") }
     var suggestions by remember { mutableStateOf<List<TagRecord>>(emptyList()) }
     var recent by remember { mutableStateOf<List<SearchHistoryEntry>>(emptyList()) }
-    val focusRequester = remember { FocusRequester() }
-    val focusManager = LocalFocusManager.current
-    val keyboard = LocalSoftwareKeyboardController.current
-    val direction = LocalLayoutDirection.current
     val scope = rememberCoroutineScope()
-    val topInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)
-    // 浮层在内容列里，底栏仍然可见：留白要和页面一样让开 App 底栏 + 系统导航栏。
+    val gridState = rememberLazyGridState()
+    // 浮层在内容列里，底栏在搜索结果期间隐藏：只留系统导航栏的安全区。
     val navBottom = LocalAppBottomBarInset.current +
         WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-
-    LaunchedEffect(expanded) {
-        if (expanded) {
-            input = state.query
-            focusRequester.requestFocus()
-            keyboard?.show()
-            recent = runCatching { GalleryCache.searchHistory(8) }.getOrDefault(emptyList())
-        } else {
-            focusManager.clearFocus()
-            keyboard?.hide()
-            suggestions = emptyList()
-        }
-    }
-    LaunchedEffect(input, expanded) {
-        val q = input.trim()
-        if (!expanded || q.length < 2 || q == state.query) {
-            suggestions = emptyList()
-            return@LaunchedEffect
-        }
-        delay(180)
-        suggestions = runCatching { GalleryCache.searchTags(q, 10) }.getOrDefault(emptyList())
-    }
-    // 外部触发（点标签/上传者）时把关键词回填输入框。
-    LaunchedEffect(state.query, expanded) {
-        if (expanded && state.query.isNotBlank() && state.query != input) input = state.query
-    }
-    // 站点 Profile 切换后缓存被清空，屏上结果一起换掉。
-    val profileRevision = AppSettings.profileRevision
-    var seenProfileRevision by remember { mutableIntStateOf(profileRevision) }
-    LaunchedEffect(profileRevision) {
-        if (profileRevision != seenProfileRevision) {
-            seenProfileRevision = profileRevision
-            state.refresh()
-        }
-    }
-    if (!active) return
-
-    // 返回键退出搜索模式：优先于导航栈拦截（PlatformBackHandler 走 OnBackPressedDispatcher）。
-    PlatformBackHandler(enabled = expanded, onBack = onDismissRequest)
-    val colors = MiuixTheme.colorScheme
-    val submit: (String) -> Unit = { text ->
-        val q = text.trim()
-        val ref = GalleryLink.first(q)
-        when {
-            // 粘贴画廊链接时直接进详情，不再当关键词搜（与旧搜索页一致）。
-            ref != null && onOpenGallery != null -> {
-                onOpenGallery.invoke(ref)
-                onDismissRequest()
-            }
-            q.isNotBlank() -> {
-                input = q
-                state.search(q)
-            }
-        }
-        suggestions = emptyList()
-        keyboard?.hide()
-    }
-
-    // 结果网格：状态提到这里，顶栏模糊带与「搜索栏下方留白」都要用到它的滚动位置。
-    val gridState = rememberLazyGridState()
-    // 记录「搜索框下方的内容」这一层，供顶部模糊带采样（与页面顶栏同一套记录层机制）。
-    val contentBackdrop = rememberLayerBackdrop { drawContent() }
-    val topInsetPx = topInsets.getTop(LocalDensity.current)
-    val topInsetDp = with(LocalDensity.current) { topInsetPx.toDp() }
+    val topInsetDp = with(LocalDensity.current) { WindowInsets.safeDrawing.getTop(this).toDp() }
     // 玻璃侧栏折叠时，胶囊浮在窗口顶部中央（页面靠顶栏给它留白）。搜索浮层没有顶栏，
     // 搜索框会正好被胶囊压住，所以这里按官方 `pageInsets.searchTop` 的做法补一段让位量：
     // 折叠时 = CollapsedTop + CollapsedHeight + 4dp，展开过程中线性收回到 0。
@@ -271,278 +197,104 @@ internal fun ErosSearchOverlay(
     } else {
         0.dp
     }
-    // 搜索栏高 44dp + 上下各 4dp 内边距，再加状态栏安全区与胶囊让位，就是模糊带的高度。
-    val barHeight = topInsetDp + capsuleClearance + 52.dp
-    val blurSupported = AppSettings.barBlurEnabled && isShaderSupported()
-    val blurStyle = currentBarBlurStyle()
-    // 内容滚到搜索栏下面时才把带子淡入，回到顶部就淡出（与页面顶栏的 ramp 行为一致）。
-    // 与上游 47d75e6 同一套配方：搜索框和 Cancel 默认是纯色，结果滚到栏下方
-    // 之后 450ms 线性淡成玻璃 —— 否则纯白底上看不出玻璃，反而像「没有材质」。
-    val pillShape = GlassShape(22.dp)
-    val pillThresholdPx = with(LocalDensity.current) { 16.dp.toPx() }
-    val hasContentUnderBar by remember(pillThresholdPx) {
-        derivedStateOf {
-            gridState.firstVisibleItemIndex > 0 ||
-                gridState.firstVisibleItemScrollOffset > pillThresholdPx
+    // 搜索栏高 44dp + 上下各 4dp 内边距，再加状态栏安全区与胶囊让位，就是列表要让出的高度。
+    val contentTopPadding = topInsetDp + capsuleClearance + 52.dp
+    // 站点 Profile 切换后缓存被清空，屏上结果一起换掉。
+    val profileRevision = AppSettings.profileRevision
+    var seenProfileRevision by remember { mutableIntStateOf(profileRevision) }
+    LaunchedEffect(profileRevision) {
+        if (profileRevision != seenProfileRevision) {
+            seenProfileRevision = profileRevision
+            state.refresh()
         }
     }
-    val pillMaterialProgress by animateFloatAsState(
-        targetValue = if (expanded && hasContentUnderBar) 1f else 0f,
-        animationSpec = tween(450, easing = LinearEasing),
-        label = "searchPillMaterial",
-    )
-    val bandRamp by animateFloatAsState(
-        targetValue = if (gridState.canScrollBackward) 1f else 0f,
-        animationSpec = tween(150),
-        label = "searchTopBand",
-    )
-
-    CompositionLocalProvider(LocalContentColor provides colors.onSurface) {
-        Box(
-            modifier = modifier
-                .fillMaxSize()
-                // 浮层自带不透明底色：chrome 已淡出到 0，若透出窗口底色，浅色主题下会变成黑底黑字。
-                .background(colors.background)
-                .onPreviewKeyEvent {
-                if (it.key == Key.Escape && it.type == KeyEventType.KeyUp) {
-                    onDismissRequest()
-                    true
-                } else {
-                    false
-                }
-            },
-    ) {
-        // 退出动画期间也挡住点击：点空白只收键盘，不穿透到下面淡出的页面。
-        Box(
-            modifier = Modifier
-                .matchParentSize()
-                .clickable(interactionSource = null, indication = null) { keyboard?.hide() },
-        )
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .graphicsLayer { alpha = progress.value }
-                .imePadding(),
-        ) {
-            // 内容层：结果网格从搜索栏下方滚过，被记录成一层供顶端模糊带采样。
-            ErosGlassRecordLayer(
-                backdrop = contentBackdrop,
-                modifier = Modifier.fillMaxSize(),
-                layerName = "search overlay results",
-            ) {
-                Box(Modifier.fillMaxSize().erosGlassRailStartInset()) {
-                SearchOverlayBody(
-                    state = state,
-                    input = input,
-                    suggestions = suggestions,
-                    recent = recent,
-                    navBottom = navBottom,
-                    gridState = gridState,
-                    topPadding = barHeight + 8.dp,
-                    onPick = { term -> input = term; submit(term) },
-                    onClearHistory = {
-                        scope.launch {
-                            GalleryCache.clearSearchHistory()
-                            recent = emptyList()
-                        }
-                    },
-                    onGalleryClick = onGalleryClick,
-                )
-                }
+    val keyboard = LocalSoftwareKeyboardController.current
+    // 上游把 TextFieldState 私有化，我们的搜索是「输入完再提交」，所以用 vendored 版本共享这段状态。
+    val queryState = rememberTextFieldState()
+    fun setQueryText(value: String) {
+        queryState.edit {
+            replace(0, length, value)
+            placeCursorAtEnd()
+        }
+    }
+    // 从标签/上传者等外部入口进来时，把关键词回填到输入框。
+    // 上游浮层在展开时会先 clearText()，所以等一帧再写，避免被它清掉。
+    LaunchedEffect(expanded, state.query) {
+        if (expanded && state.query.isNotBlank() && queryState.text.toString() != state.query) {
+            withFrameNanos { }
+            setQueryText(state.query)
+        }
+    }
+    val submit: (String) -> Unit = { text ->
+        val q = text.trim()
+        val ref = GalleryLink.first(q)
+        when {
+            // 粘贴画廊链接时直接进详情，不再当关键词搜（与旧搜索页一致）。
+            ref != null && onOpenGallery != null -> {
+                onOpenGallery.invoke(ref)
+                onDismissRequest()
             }
-            // 顶端模糊带：与页面顶栏同一套（渐进/高斯由设置决定，关闭时退回纯色底）。
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(barHeight)
-                    .graphicsLayer { alpha = bandRamp }
-                    .then(
-                        when {
-                            !blurSupported -> Modifier
-                            blurStyle == BarBlurStyle.PROGRESSIVE -> Modifier.erosProgressiveGlassBlur(
-                                backdrop = contentBackdrop,
-                                shape = RectangleShape,
-                                blurRadius = 25f,
-                                colors = barBlurColors(0.3f),
-                                gradient = ProgressiveBlur.Top.copy(curve = 0.5f),
-                            )
-                            else -> Modifier.erosGlassBlur(
-                                backdrop = contentBackdrop,
-                                shape = RectangleShape,
-                                blurRadius = 25f,
-                                colors = barBlurColors(0.8f),
-                            )
-                        },
-                    )
-                    // 不支持模糊（低版本 Android / 关闭栏模糊）时给一层不透明底，避免文字压在卡片上看不清。
-                    .then(if (blurSupported) Modifier else Modifier.background(colors.background)),
-            )
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .erosGlassRailStartInset()
-                    .windowInsetsPadding(topInsets)
-                    .padding(top = capsuleClearance)
-                    .padding(horizontal = 16.dp, vertical = 4.dp)
-                    .graphicsLayer {
-                        translationY = -topInsets.getTop(this) * (1f - progress.value)
-                    },
-            ) {
-                BasicTextField(
-                    value = input,
-                    onValueChange = { input = it },
-                    enabled = expanded,
-                    singleLine = true,
-                    textStyle = MiuixTheme.textStyles.body1.copy(color = colors.onSurface),
-                    cursorBrush = SolidColor(colors.primary),
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                    keyboardActions = KeyboardActions(onSearch = { submit(input) }),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .layout { measurable, constraints ->
-                            // 右侧给 Cancel 让出 54dp * progress，Cancel 才能从外面滑进来。
-                            val endSpace = (54.dp.toPx() * progress.value).toInt()
-                            val width = (constraints.maxWidth - endSpace).coerceAtLeast(0)
-                            val placeable = measurable.measure(
-                                constraints.copy(minWidth = width, maxWidth = width),
-                            )
-                            layout(constraints.maxWidth, placeable.height) {
-                                placeable.placeRelative(0, 0)
-                            }
-                        }
-                        .height(44.dp)
-                        .focusRequester(focusRequester)
-                        // 硬件键盘回车也能提交（软键盘走 ImeAction.Search）。
-                        .onPreviewKeyEvent { event ->
-                            if (event.type == KeyEventType.KeyDown &&
-                                (event.key == Key.Enter || event.key == Key.NumPadEnter)
-                            ) {
-                                submit(input)
-                                true
-                            } else {
-                                false
-                            }
-                        },
-                    decorationBox = { field ->
-                        Box(Modifier.fillMaxSize()) {
-                        SearchPillSurface(
-                            backdrop = contentBackdrop,
-                            shape = pillShape,
-                            fill = colors.surfaceContainerHigh,
-                            progress = { pillMaterialProgress },
-                            modifier = Modifier.matchParentSize(),
-                        )
-                        Row(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(horizontal = 16.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            Icon(
-                                MiuixIcons.Glass.Search,
-                                contentDescription = null,
-                                modifier = Modifier.size(28.dp),
-                                tint = colors.disabledOnSurface,
-                            )
-                            Box(Modifier.weight(1f)) {
-                                if (input.isEmpty()) {
-                                    Text(
-                                        "搜索标签或关键词",
-                                        color = colors.disabledOnSurface,
-                                        style = MiuixTheme.textStyles.body1,
-                                    )
-                                }
-                                field()
-                            }
-                            if (input.isNotEmpty()) {
-                                IconButton(
-                                    onClick = {
-                                        input = ""
-                                        focusRequester.requestFocus()
-                                    },
-                                    modifier = Modifier.size(24.dp),
-                                ) {
-                                    Icon(
-                                        MiuixIcons.Glass.Close,
-                                        contentDescription = "Clear",
-                                        modifier = Modifier.size(16.dp * (7f / 6f)),
-                                        tint = colors.disabledOnSurface,
-                                    )
-                                }
-                            }
-                        }
-                        }
-                    },
-                )
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.CenterEnd)
-                        .graphicsLayer {
-                            val fraction = progress.value
-                            translationX = 66.dp.toPx() * (1f - fraction) *
-                                if (direction == LayoutDirection.Ltr) 1f else -1f
-                            scaleX = fraction
-                            scaleY = fraction
-                            alpha = cancelAlpha.value
-                            val blur = 50f * (1f - cancelAlpha.value)
-                            renderEffect = if (blur > 0.5f) BlurEffect(blur, blur, TileMode.Decal) else null
-                        },
-                ) {
-                    Box(Modifier.size(44.dp)) {
-                        SearchPillSurface(
-                            backdrop = contentBackdrop,
-                            shape = pillShape,
-                            fill = colors.surfaceContainerHigh,
-                            progress = { pillMaterialProgress },
-                            modifier = Modifier.matchParentSize(),
-                        )
-                        IconButton(
-                            onClick = onDismissRequest,
-                            enabled = expanded,
-                            modifier = Modifier.matchParentSize(),
-                        ) {
-                            Icon(
-                                MiuixIcons.Glass.Close,
-                                contentDescription = "Cancel",
-                                modifier = Modifier.size(28.dp),
-                                tint = colors.onSurface,
-                            )
-                        }
+            q.isNotBlank() -> {
+                setQueryText(q)
+                state.search(q)
+            }
+        }
+        keyboard?.hide()
+    }
+
+    ErosGlassSearchOverlay(
+        expanded = expanded,
+        queryState = queryState,
+        onDismissRequest = onDismissRequest,
+        scrollMaterialThreshold = 16.dp,
+        modifier = modifier,
+        // 搜索框让开玻璃侧栏，和页面内容列对齐。
+        horizontalInsetsModifier = Modifier.erosGlassRailStartInset(),
+        label = "搜索标签或关键词",
+        // 结果滚过一点距离后，搜索框与 Cancel 才淡入玻璃；未搜索时列表没有滚动量。
+        scrollOffset = {
+            when {
+                !state.searched -> 0f
+                gridState.firstVisibleItemIndex > 0 -> Float.MAX_VALUE
+                else -> gridState.firstVisibleItemScrollOffset.toFloat()
+            }
+        },
+        searchTopPadding = { capsuleClearance },
+        blurEnabled = AppSettings.barBlurEnabled,
+    ) { query ->
+        LaunchedEffect(expanded) {
+            if (expanded) {
+                recent = runCatching { GalleryCache.searchHistory(8) }.getOrDefault(emptyList())
+            } else {
+                suggestions = emptyList()
+            }
+        }
+        LaunchedEffect(query, expanded) {
+            val q = query.trim()
+            if (!expanded || q.length < 2 || q == state.query) {
+                suggestions = emptyList()
+                return@LaunchedEffect
+            }
+            delay(180)
+            suggestions = runCatching { GalleryCache.searchTags(q, 10) }.getOrDefault(emptyList())
+        }
+        Box(Modifier.fillMaxSize().erosGlassRailStartInset()) {
+            SearchOverlayBody(
+                state = state,
+                input = query,
+                suggestions = suggestions,
+                recent = recent,
+                navBottom = navBottom,
+                gridState = gridState,
+                topPadding = contentTopPadding,
+                onPick = submit,
+                onClearHistory = {
+                    scope.launch {
+                        GalleryCache.clearSearchHistory()
+                        recent = emptyList()
                     }
-                }
-            }
-        }
-    }
-    }
-}
-
-/**
- * 纯色底 + 玻璃层的交叉淡入（上游 47d75e6 的 ScrollSearchPillBackground 同款）。
- *
- * 玻璃层只有 [progress] > 0 时才创建；没有 backdrop（旧设备 / 关掉栏模糊）时永远只有纯色底，
- * 不会出现「半透明但背后什么都没有」的假玻璃。
- */
-@Composable
-private fun SearchPillSurface(
-    backdrop: Backdrop?,
-    shape: GlassShape,
-    fill: Color,
-    progress: () -> Float,
-    modifier: Modifier = Modifier,
-) {
-    val fraction = progress()
-    Box(modifier = modifier.background(fill, shape)) {
-        if (backdrop != null && fraction > 0f) {
-            Box(
-                Modifier
-                    .matchParentSize()
-                    .graphicsLayer { alpha = fraction }
-                    .glass(
-                        backdrop = backdrop,
-                        shape = shape,
-                        shading = false,
-                    ),
+                },
+                onGalleryClick = onGalleryClick,
             )
         }
     }
@@ -755,23 +507,4 @@ private fun SearchOverlayBody(
             }
         }
     }
-}
-
-/** 页面/chrome 的淡出曲线：进入搜索时 150ms 淡出，退出时更慢地淡回（对齐官方）。 */
-@Composable
-internal fun rememberGlassSearchBarAlpha(expanded: Boolean): State<Float> {
-    val transition = updateTransition(expanded, label = "searchOverlayChromeAlpha")
-    return transition.animateFloat(
-        transitionSpec = {
-            tween(
-                150,
-                easing = if (targetState) {
-                    CubicBezierEasing(0f, 0f, 0.67f, 1f)
-                } else {
-                    CubicBezierEasing(0.26f, 0f, 0.6f, 0.2f)
-                },
-            )
-        },
-        label = "searchOverlayChromeAlphaValue",
-    ) { if (it) 0f else 1f }
 }

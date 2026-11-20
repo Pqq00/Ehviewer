@@ -13,6 +13,9 @@ miuix = "0.9.5-beta02"
 lifecycle = "2.11.0"
 coil = "3.6.3"
 coreKtx = "1.13.1"
+# miuix-glass 的 GlassSearchOverlay 依赖 navigationevent（Compose 的预测性返回）；
+# 我们把该文件 vendored 进仓库后，本模块也需要直接声明这个依赖。
+navigationevent = "1.2.0"
 
 [libraries]
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version = "1.7.3" }
@@ -30,6 +33,7 @@ androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx"
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
 coil-network-okhttp = { module = "io.coil-kt.coil3:coil-network-okhttp", version.ref = "coil" }
 jetbrains-lifecycle-viewmodel-compose = { module = "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycle" }
+androidx-navigationevent-compose = { module = "androidx.navigationevent:navigationevent-compose", version.ref = "navigationevent" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }

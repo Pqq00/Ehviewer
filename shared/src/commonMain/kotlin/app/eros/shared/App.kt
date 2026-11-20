@@ -8,7 +8,6 @@ import app.eros.shared.navigation.Route
 import app.eros.shared.navigation.rememberErosNavigator
 import app.eros.shared.ui.chrome.ErosAppChrome
 import app.eros.shared.ui.chrome.ErosSearchOverlay
-import app.eros.shared.ui.chrome.rememberGlassSearchBarAlpha
 import app.eros.shared.ui.chrome.BarDestination
 import app.eros.shared.ui.chrome.ErosBottomBarHost
 import app.eros.shared.ui.chrome.ErosChromeRail
@@ -71,6 +70,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.foundation.gestures.Orientation
 
 import top.yukonga.miuix.kmp.utils.springAnimateToPage
+import top.yukonga.miuix.kmp.glass.rememberGlassSearchBarAlpha
 
 import top.yukonga.miuix.kmp.utils.PagerNavigationSpringSpec
 

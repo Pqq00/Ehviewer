@@ -37,6 +37,8 @@ kotlin {
             implementation(libs.coil.compose)
             implementation(compose.runtime)
             implementation(compose.foundation)
+            // vendored 的 GlassSearchOverlay 用 NavigationBackHandler（预测性返回）。
+            implementation(libs.androidx.navigationevent.compose)
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
@@ -132,6 +134,9 @@ tasks.register("checkLayering") {
                 matches = { it.contains("layerBackdrop(") },
                 allowed = { path ->
                     path == "chrome/ErosGlassRecordLayer.kt" ||
+                        // vendored 自 miuix 的搜索浮层：它把内容列记录成一层供顶部模糊带采样，
+                        // 与 ErosGlassRecordLayer 的用法等价，但内部用的是库内的 rememberLayerBackdrop。
+                        path == "chrome/ErosGlassSearchOverlay.kt" ||
                         path == "ErosPageScaffold.kt" ||
                         path == "AccountScreen.kt" || // 页面背景自建的渐变色层
                         path.startsWith("liquid/") ||
